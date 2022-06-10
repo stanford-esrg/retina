@@ -10,6 +10,7 @@ members = [
     "examples/pcap_dump",
     "examples/video",
     "examples/client_randoms",
+    "examples/ip_anon",
     "filtergen",
 ]
 
