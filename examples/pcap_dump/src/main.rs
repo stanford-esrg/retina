@@ -37,7 +37,7 @@ fn main() -> Result<()> {
     let callback = |pkt: ZcFrame| {
         let mut pcap_writer = pcap_writer.lock().unwrap();
         pcap_writer
-            .write(1, 0, &pkt.data(), pkt.data_len() as u32)
+            .write(1, 0, pkt.data(), pkt.data_len() as u32)
             .unwrap();
     };
     let mut runtime = Runtime::new(config, filter, callback)?;

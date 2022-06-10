@@ -3,11 +3,13 @@ members = [
     "core",
     "examples/basic",
     "examples/test",
-    "examples/conn_log",
-    "examples/http_log",
-    "examples/dns_log",
-    "examples/tls_log",
+    "examples/log_tls",
+    "examples/log_http",
+    "examples/log_dns",
+    "examples/log_tls",
     "examples/pcap_dump",
+    "examples/video",
+    "examples/client_randoms",
     "filtergen",
 ]
 
