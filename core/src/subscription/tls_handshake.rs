@@ -5,9 +5,9 @@
 //! encrypted messages are dropped.
 //!
 //! ## Example
-//! Prints the chosen cipher suite of all TLS handshakes with `google.com`.
+//! Prints the chosen cipher suite of TLS handshakes with `calendar.google.com`.
 //! ```
-//! #[filter("tls.sni = 'google.com'")]
+//! #[filter("tls.sni = 'calendar.google.com'")]
 //! fn main() {
 //!     let config = default_config();
 //!     let cb = |tls: TlsHandshake| {
@@ -28,6 +28,8 @@ use crate::subscription::{Level, Subscribable, Subscription, Trackable};
 
 use serde::Serialize;
 
+use std::net::SocketAddr;
+
 /// A parsed TLS handshake and connection metadata.
 #[derive(Debug, Serialize)]
 pub struct TlsHandshake {
@@ -35,6 +37,20 @@ pub struct TlsHandshake {
     pub five_tuple: FiveTuple,
     /// Parsed TLS handshake data.
     pub data: Tls,
+}
+
+impl TlsHandshake {
+    /// Returns the client's socket address.
+    #[inline]
+    pub fn client(&self) -> SocketAddr {
+        self.five_tuple.orig
+    }
+
+    /// Returns the server's socket address.
+    #[inline]
+    pub fn server(&self) -> SocketAddr {
+        self.five_tuple.resp
+    }
 }
 
 impl Subscribable for TlsHandshake {

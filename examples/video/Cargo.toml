@@ -1,0 +1,17 @@
+[package]
+name = "video"
+version = "0.1.0"
+edition = "2021"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.40"
+clap = { version = "3.1.8", features = ["derive"] }
+csv = "1.1.6"
+env_logger = "0.8.3"
+hashlink = "0.7.0"
+lazy_static = "1.4.0"
+log = { version = "0.4", features = ["release_max_level_info"] }
+regex = "1.5.4"
+retina-core = { path = "../../core" }
+retina-filtergen = { path = "../../filtergen" }

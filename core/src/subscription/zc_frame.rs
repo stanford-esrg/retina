@@ -17,8 +17,8 @@
 //! #[filter("ipv4.time_to_live > 64")]
 //! fn main() {
 //!     let config = default_config();
-//!     let cb = |frame: ZcFrame| {
-//!         println!("{:?}", frame.data);
+//!     let cb = |pkt: ZcFrame| {
+//!         println!("{:?}", pkt.data());
 //!         // implicit drop at end of scope
 //!     };
 //!     let mut runtime = Runtime::new(config, filter, cb).unwrap();

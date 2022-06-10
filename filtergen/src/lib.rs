@@ -37,18 +37,22 @@
 //! ## Protocols
 //! All protocol identifiers are valid as long as Retina contains an appropriate [protocol
 //! module](../retina_core/protocols) of the same name. The `filter` macro automatically generates
-//! filtering code using the structs defined in the protocol's corresponding parser module.
+//! filtering code using the structs defined in the protocol's corresponding parser module. The
+//! exception to this is `ethernet`, which Retina filters for by default.
 //!
-//! For example [`ipv4`](../retina_core/protocols/packet/ipv4) and
+//! For example, [`ipv4`](../retina_core/protocols/packet/ipv4) and
 //! [`tls`](../retina_core/protocols/stream/tls) are filterable protocols because they are both
 //! protocol modules included in Retina.
+//!
+//! Retina will also automatically expand filter expressions to fully-qualified form. For example,
+//! the filter `tcp` is equivalent to `(ipv4 and tcp() or (ipv6 and tcp)` .
 //!
 //! ## Fields
 //! All field identifiers are valid as long as Retina exposes a public accessor method for the
 //! corresponding protocol struct of the same name, and the method returns a supported RHS field
 //! type.
 //!
-//! For example
+//! For example,
 //! [`ipv4.src_addr`](../retina_core/protocols/packet/ipv4/struct.Ipv4.html#method.src_addr) and
 //! [`tls.sni`](../retina_core/protocols/stream/tls/struct.Tls.html#method.sni) are both filterable
 //! fields because `src_addr()` is a public method for the `Ipv4` struct that returns an `Ipv4Addr`,
@@ -61,10 +65,10 @@
 //! ## Field types (RHS values)
 //! | Type          | Example            |
 //! |---------------|--------------------|
-//! | IPv4 address  | `'1.2.3.4'`        |
-//! | IPv4 prefix   | `'1.2.3.4/24'`     |
-//! | IPv6 address  | `'2001:db8::1'`    |
-//! | IPv6 prefix   | `'2001:db8::1/64'` |
+//! | IPv4 address  | `1.2.3.4`          |
+//! | IPv4 prefix   | `1.2.3.4/24`       |
+//! | IPv6 address  | `2001:db8::1`      |
+//! | IPv6 prefix   | `2001:db8::1/64`   |
 //! | Integer       | `443`              |
 //! | String        | `'Safari'`         |
 //! | Integer range | `1024..5000`       |
@@ -72,14 +76,14 @@
 //! ## Binary comparison operators
 //! | Operator |   Alias   |         Description        | Example                         |
 //! |----------|-----------|----------------------------|---------------------------------|
-//! | `=`      |           | Equals                     | `ipv4.addr = '127.0.0.1'`       |
+//! | `=`      |           | Equals                     | `ipv4.addr = 127.0.0.1`         |
 //! | `!=`     | `ne`      | Not equals                 | `udp.dst_port != 53`            |
 //! | `>=`     | `ge`      | Greater than or equals     | `tcp.port >= 1024`              |
 //! | `<=`     | `le`      | Less than or equals        | `tls.version <= 771`            |
 //! | `>`      | `gt`      | Greater than               | `ipv4.time_to_live > 64`        |
 //! | `<`      | `lt`      | Less than                  | `ipv6.payload_length < 500`     |
-//! | `in`     |           | In a range, or in a subnet | `ipv4.src_addr in '1.2.3.4/16'` |
-//! | `~`      | `matches` | Regular expression match   | `tls.sni ~ 'netflix'`           |
+//! | `in`     |           | In a range, or in a subnet | `ipv4.src_addr in 1.2.3.4/16`   |
+//! | `~`      | `matches` | Regular expression match   | `tls.sni ~ 'netflix\\.com$'`    |
 //! |          |           |                            |                                 |
 //!
 //! **Possible pitfall involving `!=`**
@@ -120,7 +124,7 @@ use crate::session_filter::gen_session_filter;
 ///
 /// ## Examples
 /// ```
-/// #[filter("")]   // no filter
+/// #[filter("")] // no filter
 /// fn main() {}
 /// ```
 ///
@@ -131,6 +135,11 @@ use crate::session_filter::gen_session_filter;
 ///
 /// ```
 /// #[filter("http.method = 'GET'")]
+/// fn main() {}
+/// ```
+///
+/// ```
+/// #[filter("(ipv4 and tcp.port >= 100 and tls.sni ~ 'netflix') or http")]
 /// fn main() {}
 /// ```
 #[proc_macro_attribute]
