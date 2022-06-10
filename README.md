@@ -23,16 +23,19 @@ Clone the main git repository:
 
 Write your first Retina application (see [examples](https://github.com/stanford-esrg/retina/tree/main/examples)):
 ```
-#[filter("tls.sni matches '.*\.com'")]
-fn main() -> Result<()> {
-    let args = Args::parse();
-    let cfg = load_config(&args.config);
-    let callback = |hs: TlsHandshake| {
-        println!("TLS handshake to {} from {}",
-            hs.sni(), hs.client());
+use retina_core::config::default_config;
+use retina_core::subscription::TlsHandshake;
+use retina_core::Runtime;
+use retina_filtergen::filter;
+
+#[filter("tls.sni ~ '^.*\\.com$'")]
+fn main() {
+    let cfg = default_config();
+    let callback = |tls: TlsHandshake| {
+        println!("{:?}", tls);
     };
-    let mut runtime = Runtime::new(cfg, filter, callback)?;
-    Ok(runtime.run());
+    let mut runtime = Runtime::new(cfg, filter, callback).unwrap();
+    runtime.run();
 }
 ```
 
@@ -48,7 +51,7 @@ Run:
 
 Build one application:
 
-`cargo build --bin --my_app`
+`cargo build --bin my_app`
 
 Run in debug mode:
 
