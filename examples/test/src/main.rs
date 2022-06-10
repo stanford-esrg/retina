@@ -3,11 +3,11 @@ use retina_core::subscription::TlsHandshake;
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
-#[filter("tcp")]
+#[filter("tls.sni ~ 'salesforce'")]
 fn main() {
     let cfg = default_config();
     let callback = |tls: TlsHandshake| {
-        println!("{:?}", tls);
+        println!("{}", tls.data.cipher());
     };
     let mut runtime = Runtime::new(cfg, filter, callback).unwrap();
     runtime.run();
