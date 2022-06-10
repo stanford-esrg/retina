@@ -2,6 +2,7 @@
 members = [
     "core",
     "examples/basic",
+    "examples/test",
     "filtergen",
 ]
 

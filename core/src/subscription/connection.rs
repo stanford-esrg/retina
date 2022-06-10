@@ -7,7 +7,7 @@
 //! ## Example
 //! Logs TCP/22 and TCP/23 connection records to a file:
 //! ```
-//! #[filter("tcp.port = 22 or tcp.port = 23")]
+//! #[filter("tcp.port = 80 or tcp.port = 443")]
 //! fn main() {
 //!     let config = default_config();
 //!     let file = Mutex::new(File::create("conn.jsonl").unwrap());
@@ -35,6 +35,7 @@ use serde::Serialize;
 
 use std::collections::HashMap;
 use std::fmt;
+use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
 /// Pure SYN
@@ -100,6 +101,18 @@ pub struct Connection {
 }
 
 impl Connection {
+    /// Returns the client (originator) socket address.
+    #[inline]
+    pub fn client(&self) -> SocketAddr {
+        self.five_tuple.orig
+    }
+
+    /// Returns the server (responder) socket address.
+    #[inline]
+    pub fn server(&self) -> SocketAddr {
+        self.five_tuple.resp
+    }
+
     /// Returns the total number of packets observed in the connection.
     #[inline]
     pub fn total_pkts(&self) -> u64 {

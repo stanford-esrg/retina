@@ -6,7 +6,7 @@
 //! ## Example
 //! Prints DNS domain name queries to `8.8.8.8`:
 //! ```
-//! #[filter("ipv4.addr = '8.8.8.8'")]
+//! #[filter("ipv4.addr = 8.8.8.8")]
 //! fn main() {
 //!     let config = default_config();
 //!     let cb = |dns: DnsTransaction| {
@@ -27,11 +27,27 @@ use crate::subscription::{Level, Subscribable, Subscription, Trackable};
 
 use serde::Serialize;
 
+use std::net::SocketAddr;
+
 /// A parsed DNS transaction and connection metadata.
 #[derive(Debug, Serialize)]
 pub struct DnsTransaction {
     pub five_tuple: FiveTuple,
     pub data: Dns,
+}
+
+impl DnsTransaction {
+    /// Returns the DNS resolver's socket address.
+    #[inline]
+    pub fn client(&self) -> SocketAddr {
+        self.five_tuple.orig
+    }
+
+    /// Returns the DNS server's socket address.
+    #[inline]
+    pub fn server(&self) -> SocketAddr {
+        self.five_tuple.resp
+    }
 }
 
 impl Subscribable for DnsTransaction {

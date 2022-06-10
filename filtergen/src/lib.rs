@@ -61,10 +61,10 @@
 //! ## Field types (RHS values)
 //! | Type          | Example            |
 //! |---------------|--------------------|
-//! | IPv4 address  | `'1.2.3.4'`        |
-//! | IPv4 prefix   | `'1.2.3.4/24'`     |
-//! | IPv6 address  | `'2001:db8::1'`    |
-//! | IPv6 prefix   | `'2001:db8::1/64'` |
+//! | IPv4 address  | `1.2.3.4`          |
+//! | IPv4 prefix   | `1.2.3.4/24`       |
+//! | IPv6 address  | `2001:db8::1`      |
+//! | IPv6 prefix   | `2001:db8::1/64`   |
 //! | Integer       | `443`              |
 //! | String        | `'Safari'`         |
 //! | Integer range | `1024..5000`       |
@@ -72,14 +72,14 @@
 //! ## Binary comparison operators
 //! | Operator |   Alias   |         Description        | Example                         |
 //! |----------|-----------|----------------------------|---------------------------------|
-//! | `=`      |           | Equals                     | `ipv4.addr = '127.0.0.1'`       |
+//! | `=`      |           | Equals                     | `ipv4.addr = 127.0.0.1`         |
 //! | `!=`     | `ne`      | Not equals                 | `udp.dst_port != 53`            |
 //! | `>=`     | `ge`      | Greater than or equals     | `tcp.port >= 1024`              |
 //! | `<=`     | `le`      | Less than or equals        | `tls.version <= 771`            |
 //! | `>`      | `gt`      | Greater than               | `ipv4.time_to_live > 64`        |
 //! | `<`      | `lt`      | Less than                  | `ipv6.payload_length < 500`     |
-//! | `in`     |           | In a range, or in a subnet | `ipv4.src_addr in '1.2.3.4/16'` |
-//! | `~`      | `matches` | Regular expression match   | `tls.sni ~ 'netflix'`           |
+//! | `in`     |           | In a range, or in a subnet | `ipv4.src_addr in 1.2.3.4/16`   |
+//! | `~`      | `matches` | Regular expression match   | `tls.sni ~ 'netflix\\.com$'`    |
 //! |          |           |                            |                                 |
 //!
 //! **Possible pitfall involving `!=`**
@@ -131,6 +131,11 @@ use crate::session_filter::gen_session_filter;
 ///
 /// ```
 /// #[filter("http.method = 'GET'")]
+/// fn main() {}
+/// ```
+///
+/// ```
+/// #[filter("(ipv4 and tcp.port >= 100 and tls.sni ~ 'netflix') or http")]
 /// fn main() {}
 /// ```
 #[proc_macro_attribute]

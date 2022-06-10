@@ -5,9 +5,9 @@
 //! invoked once per frame.
 //!
 //! ## Example
-//! Prints raw packet data from TLS connections on TCP/443 with `google.com`:
+//! Prints raw packet data from TLS connections on TCP/443 with subdomains of `google.com`:
 //! ```
-//! #[filter("tcp.port = 443 and tls.sni = 'google.com'")]
+//! #[filter("tcp.port = 443 and tls.sni ~ 'google\\.com$'")]
 //! fn main() {
 //!     let config = default_config();
 //!     let cb = |frame: ConnectionFrame| {
@@ -32,6 +32,8 @@ use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::{ConnParser, Session};
 use crate::subscription::{Level, Subscribable, Subscription, Trackable};
 
+use std::net::SocketAddr;
+
 /// Ethernet frames in a TCP or UDP connection.
 #[derive(Debug, Clone)]
 pub struct ConnectionFrame {
@@ -40,11 +42,24 @@ pub struct ConnectionFrame {
 }
 
 impl ConnectionFrame {
+    /// Creates a new `ConnectionFrame`.
     pub(crate) fn new(five_tuple: FiveTuple, mbuf: &Mbuf) -> Self {
         ConnectionFrame {
             five_tuple,
             data: mbuf.data().to_vec(),
         }
+    }
+
+    /// Returns the associated connection originator's socket address.
+    #[inline]
+    pub fn client(&self) -> SocketAddr {
+        self.five_tuple.orig
+    }
+
+    /// Returns the associated connection responder's socket address.
+    #[inline]
+    pub fn server(&self) -> SocketAddr {
+        self.five_tuple.resp
     }
 }
 

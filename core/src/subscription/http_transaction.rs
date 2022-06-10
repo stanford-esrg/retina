@@ -29,11 +29,27 @@ use crate::subscription::{Level, Subscribable, Subscription, Trackable};
 
 use serde::Serialize;
 
+use std::net::SocketAddr;
+
 /// A parsed HTTP transaction and connection metadata.
 #[derive(Debug, Serialize)]
 pub struct HttpTransaction {
     pub five_tuple: FiveTuple,
     pub data: Http,
+}
+
+impl HttpTransaction {
+    /// Returns the client's socket address.
+    #[inline]
+    pub fn client(&self) -> SocketAddr {
+        self.five_tuple.orig
+    }
+
+    /// Returns the server's socket address.
+    #[inline]
+    pub fn server(&self) -> SocketAddr {
+        self.five_tuple.resp
+    }
 }
 
 impl Subscribable for HttpTransaction {
