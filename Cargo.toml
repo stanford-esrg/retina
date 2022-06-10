@@ -4,6 +4,9 @@ members = [
     "examples/basic",
     "examples/test",
     "examples/conn_log",
+    "examples/http_log",
+    "examples/dns_log",
+    "examples/tls_log",
     "filtergen",
 ]
 
