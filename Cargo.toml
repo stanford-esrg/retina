@@ -7,6 +7,7 @@ members = [
     "examples/http_log",
     "examples/dns_log",
     "examples/tls_log",
+    "examples/pcap_dump",
     "filtergen",
 ]
 

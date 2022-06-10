@@ -1,6 +1,7 @@
 /target
 /log
 /logs
+/*.pcap
 Cargo.lock
 *.csv
 *.json
