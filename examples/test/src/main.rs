@@ -3,7 +3,7 @@ use retina_core::subscription::TlsHandshake;
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
-#[filter("tls.sni ~ '^.*\\.com$'")]
+#[filter("tcp")]
 fn main() {
     let cfg = default_config();
     let callback = |tls: TlsHandshake| {

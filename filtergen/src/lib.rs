@@ -37,18 +37,22 @@
 //! ## Protocols
 //! All protocol identifiers are valid as long as Retina contains an appropriate [protocol
 //! module](../retina_core/protocols) of the same name. The `filter` macro automatically generates
-//! filtering code using the structs defined in the protocol's corresponding parser module.
+//! filtering code using the structs defined in the protocol's corresponding parser module. The
+//! exception to this is `ethernet`, which Retina filters for by default.
 //!
-//! For example [`ipv4`](../retina_core/protocols/packet/ipv4) and
+//! For example, [`ipv4`](../retina_core/protocols/packet/ipv4) and
 //! [`tls`](../retina_core/protocols/stream/tls) are filterable protocols because they are both
 //! protocol modules included in Retina.
+//!
+//! Retina will also automatically expand filter expressions to fully-qualified form. For example,
+//! the filter `tcp` is equivalent to `(ipv4 and tcp() or (ipv6 and tcp)` .
 //!
 //! ## Fields
 //! All field identifiers are valid as long as Retina exposes a public accessor method for the
 //! corresponding protocol struct of the same name, and the method returns a supported RHS field
 //! type.
 //!
-//! For example
+//! For example,
 //! [`ipv4.src_addr`](../retina_core/protocols/packet/ipv4/struct.Ipv4.html#method.src_addr) and
 //! [`tls.sni`](../retina_core/protocols/stream/tls/struct.Tls.html#method.sni) are both filterable
 //! fields because `src_addr()` is a public method for the `Ipv4` struct that returns an `Ipv4Addr`,
@@ -120,7 +124,7 @@ use crate::session_filter::gen_session_filter;
 ///
 /// ## Examples
 /// ```
-/// #[filter("")]   // no filter
+/// #[filter("")] // no filter
 /// fn main() {}
 /// ```
 ///
