@@ -1,6 +1,6 @@
 # Retina
 
-![build-status](https://github.com/stanford-esrg/retina/actions/workflows/rust.yml/badge.svg)
+![build-status](https://github.com/stanford-esrg/retina/actions/workflows/ci.yml/badge.svg)
 
 Retina is a framework for network traffic analysis and measurement with a focus on expressiveness, performance, deployability, and security. Retina allows users to easily *subscribe* to network data in real-time and run arbitrary analysis code in a standard software environment.
 
