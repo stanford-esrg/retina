@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "core",
+    "examples/basic",
+    "filtergen",
+]
+
+[profile.release]
+lto = true
+
+[patch.crates-io]
+pcap = { git = 'https://github.com/thegwan/pcap', branch = 'compile-optimized' }
+

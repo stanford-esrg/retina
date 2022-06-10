@@ -1,0 +1,18 @@
+main_core = 0
+nb_memory_channels = 6 
+
+[mempool]
+    capacity = 262144
+    cache_size = 512
+
+[offline]
+    pcap = "./traces/small_flows.pcap"
+    mtu = 9702
+
+[conntrack]
+    max_connections = 10_000_000
+    max_out_of_order = 500
+    timeout_resolution = 100
+    udp_inactivity_timeout = 60_000
+    tcp_inactivity_timeout = 300_000
+    tcp_establish_timeout = 5000

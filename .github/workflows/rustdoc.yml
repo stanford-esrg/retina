@@ -1,0 +1,69 @@
+name: rustdoc
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rustdoc:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Install Rust stable
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.58.1
+        override: true
+        components: rustfmt, clippy
+    - name: Set up Python ${{ matrix.python-version }}  
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install pip
+      run: |
+          python -m pip install --upgrade pip
+    - name: Install pyelftools
+      run: |
+          pip3 install pyelftools
+    - name: Install libpcap (Linux)
+      run: |
+          sudo apt-get update
+          sudo apt-get install libpcap-dev
+    - name: DPDK
+      run: |
+            echo "Compiling DPDK..." ;
+            export STABLE=
+            export VERSION=20.11
+            export PKG_CONFIG_PATH=$(pwd)/dpdk-$STABLE$VERSION/install/lib/x86_64-linux-gnu/pkgconfig/ ;
+            export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(pwd)/dpdk-$STABLE$VERSION/install/lib/x86_64-linux-gnu/ ;
+            export DPDK_PATH=$(pwd)/dpdk-$STABLE$VERSION/install/
+            if [ ! -e "dpdk-$STABLE$VERSION" ] || ! pkg-config --exists libdpdk ; then
+                wget http://fast.dpdk.org/rel/dpdk-$VERSION.tar.gz &&
+                tar -zxf dpdk-$VERSION.tar.gz &&
+                cd dpdk-$STABLE$VERSION &&
+                pip3 install meson ninja &&
+                meson -Dprefix=$(pwd)/install/ build &&
+                cd build &&
+                ninja &&
+                ninja install &&
+                cd .. &&
+                cd .. ;
+            fi
+            echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
+            echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $GITHUB_ENV
+            echo "DPDK_PATH=$DPDK_PATH" >> $GITHUB_ENV
+
+    - name: Build Documentation
+      run: cargo doc --lib --no-deps
+
+    - name: Deploy Documentation
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_branch: gh-pages
+        publish_dir: ./target/doc
+        force_orphan: true
