@@ -139,6 +139,9 @@ impl RuntimeConfig {
         eal_params.push(core_list.join(","));
 
         if let Some(online) = &self.online {
+            for supl_arg in online.dpdk_supl_args.iter() {
+                eal_params.push(supl_arg.to_string())
+            }
             for port in online.ports.iter() {
                 eal_params.push("-a".to_owned());
                 eal_params.push(port.device.to_string());
@@ -260,6 +263,7 @@ fn default_cache_size() -> usize {
 ///     promiscuous = true
 ///     mtu = 1500
 ///     hardware_assist = true
+///     dpdk_supl_args = []
 ///
 /// [online.monitor.display]
 ///     throughput = true
@@ -306,6 +310,12 @@ pub struct OnlineConfig {
     #[serde(default = "default_hardware_assist")]
     pub hardware_assist: bool,
 
+    /// If set, will pass supplementary arguments to DPDK EAL (see DPDK
+    /// configuration). For instance "--no-huge".
+    /// Defaults to empty string.
+    #[serde(default = "default_dpdk_supl_args")]
+    pub dpdk_supl_args: Vec<String>,
+
     /// Live performance monitoring. Defaults to `None`.
     #[serde(default = "default_monitor")]
     pub monitor: Option<MonitorConfig>,
@@ -320,6 +330,10 @@ fn default_duration() -> Option<u64> {
 
 fn default_hardware_assist() -> bool {
     true
+}
+
+fn default_dpdk_supl_args() -> Vec<String> {
+    Vec::new()
 }
 
 fn default_promiscuous() -> bool {
