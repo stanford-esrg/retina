@@ -2,7 +2,6 @@
 members = [
     "core",
     "examples/basic",
-    "examples/test",
     "examples/log_tls",
     "examples/log_http",
     "examples/log_dns",
