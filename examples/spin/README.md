@@ -1,7 +1,10 @@
 # Spin cycles
 
-Busy loops inside the callback for a given number of cycles.
-This varies the per-callback processing time and approximates the impact of increasing callback complexity.
+Busy loops inside the callback for a given number of cycles. This varies the per-callback processing
+time and approximates the impact of increasing callback complexity.
+
+To view the effects of busy looping, run Retina in online mode with live monitoring
+display enabled and observe the packet drop rate.
 
 ### Build and run
 ```
