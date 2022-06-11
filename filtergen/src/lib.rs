@@ -93,6 +93,18 @@
 //! packet-level semantics. For example, `tcp.port != 80` is equivalent to `tcp.src_port != 80 and
 //! tcp.dst_port != 80`.
 //!
+//! **Regular expressions**
+//!
+//! Retina compiles regular expressions exactly once, using the
+//! [`regex`](https://crates.io/crates/regex) and
+//! [`lazy_static`](https://crates.io/crates/lazy_static) crates. As of this writing, `proc-macro`
+//! crates like this one cannot export any items other than procedural macros, thus requiring
+//! applications that wish to use Retina's regular expression filtering to specify `regex` and
+//! `lazy_static` as dependencies. Also note that regular expressions are written as normal strings
+//! in Rust, and not as [raw string
+//! literals](https://doc.rust-lang.org/stable/reference/tokens.html#raw-string-literals). They are
+//! allowed to match anywhere in the text, unless start (`^`) and end (`$`) anchors are used.
+//!
 //! ## Logical operators
 //! | Operator | Alias | Description | Example                                      |
 //! |----------|-------|-------------|----------------------------------------------|
