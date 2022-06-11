@@ -1,5 +1,5 @@
 use retina_core::config::load_config;
-use retina_core::dpdk;
+use retina_core::rte_rdtsc;
 use retina_core::subscription::*;
 use retina_core::Runtime;
 use retina_filtergen::filter;
@@ -36,9 +36,9 @@ fn spin(cycles: u64) {
     if cycles == 0 {
         return;
     }
-    let start = unsafe { dpdk::rte_rdtsc() };
+    let start = unsafe { rte_rdtsc() };
     loop {
-        let now = unsafe { dpdk::rte_rdtsc() };
+        let now = unsafe { rte_rdtsc() };
         if now - start > cycles {
             break;
         }
