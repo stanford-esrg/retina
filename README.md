@@ -44,17 +44,17 @@ fn main() {
 }
 ```
 
-Build:
+Build all examples in release mode:
 
 `cargo build --release`
 
-Run:
+Run `basic` in release mode:
 
-`sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=error ./target/release/my_app`
+`sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=error ./target/release/basic`
 
 ## Development
 
-Build one application:
+Build a single application in debug mode:
 
 `cargo build --bin my_app`
 
@@ -62,7 +62,11 @@ Run in debug mode:
 
 `sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=debug ./target/debug/my_app`
 
-Filter expansion:
+Filter expansion (requires Rust nightly):
 
 `cargo expand --manifest-path=examples/my_app/Cargo.toml`
+
+## Contributing
+
+Contributions welcome! Please run `cargo fmt` and `cargo clippy` before making a pull request.
 
