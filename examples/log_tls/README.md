@@ -1,6 +1,6 @@
-# TLS log
+# TLS Logger
 
-Demonstrates logging all TLS handshakes to a file.
+Demonstrates logging TLS handshakes to a file.
 
 ### Build and run
 ```

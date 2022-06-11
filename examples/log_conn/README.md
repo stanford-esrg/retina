@@ -1,6 +1,6 @@
-# Connection log
+# Connection Logger
 
-Demonstrates logging all connection records to a file.
+Demonstrates logging connection records to a file.
 
 ### Build and run
 ```

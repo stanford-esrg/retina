@@ -1,6 +1,6 @@
-# DNS log
+# DNS Logger
 
-Demonstrates logging all DNS query/response transactions to a file.
+Demonstrates logging DNS query/response transactions to a file.
 
 ### Build and run
 ```

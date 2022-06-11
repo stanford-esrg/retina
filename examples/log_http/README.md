@@ -1,6 +1,6 @@
-# HTTP log
+# HTTP Logger
 
-Demonstrates logging all HTTP request/response transactions to a file.
+Demonstrates logging HTTP request/response transactions to a file.
 
 ### Build and run
 ```
