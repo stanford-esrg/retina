@@ -6,23 +6,27 @@ Retina is a framework for network traffic analysis and measurement with a focus 
 
 - **Expressiveness** Retina supports arbitrarily complex processing of individual packets, reassembled connections, or parsed application-layer sessions using a simple filter and callback interface.
 
-- **Performance** Retina is capable of real-time traffic analysis in high volume (100G+) environments, such as regional ISPs or academic institutions
+- **Performance** Retina is capable of real-time traffic analysis in high volume (100G+) environments, such as regional ISPs or academic institutions.
 
 - **Deployability** Retina is readily deployable on a single multi-core server with a commodity 100G NIC.
 
 - **Security** Retina leverages compile-time memory safety guarantees offered by Rust to safely and efficiently process network traffic.
+
+## Documentation
+Documentation for Retina can be found [here](https://stanford-esrg.github.io/retina/retina_core/). It includes a comprehensive description of supported filter syntax and subscribable types.
+
 
 ## Getting Started
 Install [Rust](https://www.rust-lang.org/tools/install) and [DPDK](http://core.dpdk.org/download/). Detailed instructions can be found in [INSTALL](INSTALL.md).
 
 Add `$DPDK_PATH/lib/x86_64-linux-gnu` to your `LD_LIBRARY_PATH`, where `DPDK_PATH` points to the DPDK installation directory.
 
-Clone the main git repository:
+Fork or clone the main git repository:
 
 `git clone git@github.com:stanford-esrg/retina.git`
 
 Write your first Retina application (see [examples](https://github.com/stanford-esrg/retina/tree/main/examples)):
-```
+```rust
 use retina_core::config::default_config;
 use retina_core::subscription::TlsHandshake;
 use retina_core::Runtime;
@@ -45,7 +49,7 @@ Build:
 
 Run:
 
-`sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=info ./target/release/my_app -c config.toml`
+`sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=info ./target/release/my_app`
 
 ## Development
 
@@ -55,7 +59,7 @@ Build one application:
 
 Run in debug mode:
 
-`sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=debug ./target/debug/my_app -c config.toml`
+`sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=debug ./target/debug/my_app`
 
 Filter expansion:
 
