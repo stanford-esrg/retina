@@ -1,15 +1,16 @@
 # Installation
 
-## Hardware Recommendations
-Retina should work on any commodity x86 server, but the more cores and memory the better. For online operation in 100G network environments, we recommend at least 64GB of memory and a 100G Mellanox ConnectX-5 or similar, but any DPDK-compatible NIC should work.
-
-Retina has been tested on the following platforms:
+These installation instructions are for running Retina on a bare metal Ubuntu server with a Mellanox server NIC, and have been tested on the following platforms:
 
 | CPU                   | OS            | NIC                                   |
 | --------------------- | ------------- | ------------------------------------- |
 | Intel Xeon Gold 6154R | Ubuntu 18.04  | Mellanox ConnectX-5 100G MCX516A-CCAT |
 | Intel Xeon Gold 6248R | Ubuntu 20.04  | Mellanox ConnectX-5 100G MCX516A-CCAT |
 
+Retina can run on other platforms as well, detail to come.
+
+## Hardware Recommendations
+Retina should work on any commodity x86 server, but the more cores and memory the better. For online operation in 100G network environments, we recommend at least 64GB of memory and a 100G Mellanox ConnectX-5 or similar, but any DPDK-compatible NIC should work.
 
 ## Installing Dependencies
 
@@ -90,5 +91,5 @@ cargo build --release
 
 Run:
 ```sh
-sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=info ./target/release/my_app -c config.toml
+sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=error ./target/release/my_app
 ```
