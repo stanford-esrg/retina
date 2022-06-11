@@ -152,7 +152,8 @@ pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let mut ptree = filter.to_ptree();
     ptree.prune_branches();
-    println!("{}", ptree);
+    // Displays the predicate trie during compilation.
+    // println!("{}", ptree);
 
     // store lazily evaluated statics like pre-compiled Regex
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
