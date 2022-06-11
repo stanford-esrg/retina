@@ -269,7 +269,11 @@ impl Port {
             )
         };
         if ret != 0 {
-            panic!("Failed to set RSS redirection table for Port {}.", self.id);
+            if ret == -95 {
+                log::warn!("Setting RSS redirection table is not supported for Port {}. Without a symmetrical key and more than one core, you will experience problems matching connections.", self.id);
+            } else {
+                panic!("Failed to set RSS redirection table for Port {}.", self.id);
+            }
         } else {
             log::info!("Configured RSS redirection table.");
         }
@@ -278,18 +282,26 @@ impl Port {
     fn configure(&self, promiscuous: bool, mtu: usize) -> Result<()> {
         let mut port_conf: dpdk::rte_eth_conf = unsafe { mem::zeroed() };
 
+        let mut dev_info: dpdk::rte_eth_dev_info = unsafe { std::mem::zeroed() };
+        // Safety: foreign function.
+        unsafe { dpdk::rte_eth_dev_info_get(self.id.raw(), &mut dev_info) };
+
         // turn on RSS
-        port_conf.rxmode.mq_mode = dpdk::rte_eth_rx_mq_mode_ETH_MQ_RX_RSS;
-        port_conf.rx_adv_conf.rss_conf.rss_key = SYMMETRIC_RSS_KEY.as_ptr() as *mut u8;
-        port_conf.rx_adv_conf.rss_conf.rss_key_len = RSS_KEY_LEN as u8;
-        port_conf.rx_adv_conf.rss_conf.rss_hf =
-            (dpdk::ETH_RSS_IP | dpdk::ETH_RSS_TCP | dpdk::ETH_RSS_UDP) as u64;
+        if dev_info.flow_type_rss_offloads != 0 {
+            port_conf.rxmode.mq_mode = dpdk::rte_eth_rx_mq_mode_ETH_MQ_RX_RSS;
+            port_conf.rx_adv_conf.rss_conf.rss_key = SYMMETRIC_RSS_KEY.as_ptr() as *mut u8;
+            port_conf.rx_adv_conf.rss_conf.rss_key_len = RSS_KEY_LEN as u8;
+            port_conf.rx_adv_conf.rss_conf.rss_hf =
+                (dpdk::ETH_RSS_IP | dpdk::ETH_RSS_TCP | dpdk::ETH_RSS_UDP) as u64;
+        }
 
         let max_rx_pkt_len = mtu_to_max_frame_len(mtu as u32);
         port_conf.rxmode.max_rx_pkt_len = cmp::max(dpdk::RTE_ETHER_MAX_LEN, max_rx_pkt_len);
 
-        // turns on VLAN stripping
-        port_conf.rxmode.offloads |= dpdk::DEV_RX_OFFLOAD_VLAN_STRIP as u64;
+        // turns on VLAN stripping if supported
+        if dev_info.rx_offload_capa & dpdk::DEV_RX_OFFLOAD_VLAN_STRIP as u64 != 0 {
+            port_conf.rxmode.offloads |= dpdk::DEV_RX_OFFLOAD_VLAN_STRIP as u64;
+        }
 
         {
             let nb_queues = self.queue_map.len() as u16;
@@ -315,10 +327,27 @@ impl Port {
         }
 
         // set MTU to max(1500, requested_mtu)
-        let set_mtu = cmp::max(dpdk::RTE_ETHER_MTU, mtu as u32);
+        let mut set_mtu = cmp::max(dpdk::RTE_ETHER_MTU, mtu as u32);
+        if set_mtu > dev_info.max_mtu as u32 {
+            set_mtu = dev_info.max_mtu as u32;
+            log::warn!("MTU is too big for device that only supports {}", set_mtu);
+        }
+        if set_mtu < dev_info.min_mtu as u32 {
+            set_mtu = dev_info.min_mtu as u32;
+            log::warn!("MTU is too small for device that only supports {}", set_mtu);
+        }
         let ret = unsafe { dpdk::rte_eth_dev_set_mtu(self.id.raw(), set_mtu as u16) };
         if ret < 0 {
-            bail!("Failure setting Port {} MTU to {}", self.id, set_mtu);
+            if ret == -95 {
+                log::warn!("Setting MTU is not supported")
+            } else {
+                bail!(
+                    "Failure setting Port {} MTU to {}: Error {}",
+                    self.id,
+                    set_mtu,
+                    ret
+                );
+            }
         } else {
             log::debug!("Requested MTU: {}, Set MTU: {}", mtu, set_mtu);
             log::debug!("Maximum RX frame size: {}", mtu_to_frame_len(set_mtu));

@@ -306,21 +306,33 @@ impl AggRxStats {
                     // Ingress (reached NIC)
                     ingress_bytes += match port_stats.stats.get("rx_phy_bytes") {
                         Some(v) => *v,
-                        None => bail!("Failed retrieving ingress_bytes"),
+                        None => {
+                            log::warn!("Failed retrieving ingress_bytes, device does not support precise PHY count");
+                            0
+                        }
                     };
                     ingress_pkts += match port_stats.stats.get("rx_phy_packets") {
                         Some(v) => *v,
-                        None => bail!("Failed retrieving ingress_pkts"),
+                        None => {
+                            log::warn!("Failed retrieving ingress_pkts, device does not support precise PHY count");
+                            0
+                        }
                     };
 
                     // Good (reached software)
                     let good_bytes_temp = match port_stats.stats.get("rx_good_bytes") {
                         Some(v) => *v,
-                        None => bail!("Failed retrieving good_bytes"),
+                        None => {
+                            log::warn!("Failed retrieving good_bytes, device does not support precise PHY count");
+                            0
+                        }
                     };
                     let good_pkts_temp = match port_stats.stats.get("rx_good_packets") {
                         Some(v) => *v,
-                        None => bail!("Failed retrieving good_pkts"),
+                        None => {
+                            log::warn!("Failed retrieving good_pkts, device does not support precise PHY count");
+                            0
+                        }
                     };
                     good_bytes += good_bytes_temp;
                     good_pkts += good_pkts_temp;
@@ -350,7 +362,10 @@ impl AggRxStats {
                     // dropped
                     hw_dropped_pkts += match port_stats.stats.get("rx_phy_discard_packets") {
                         Some(v) => *v,
-                        None => bail!("Failed retrieving hw_dropped_pkts"),
+                        None => {
+                            log::warn!("Failed retrieving hw_dropped_pkts, device does not support precise packet dropped counter (no hardware drop will be accounted for).");
+                            0
+                        }
                     };
                     sw_dropped_pkts += match port_stats.stats.get("rx_missed_errors") {
                         Some(v) => *v,
