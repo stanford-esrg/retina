@@ -4,9 +4,9 @@ use retina_core::subscription::*;
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
-use std::path::PathBuf;
 use anyhow::Result;
 use clap::Parser;
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 struct Args {

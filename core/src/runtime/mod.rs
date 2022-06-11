@@ -64,6 +64,7 @@ where
             Filter::from_str(factory.filter_str.as_str(), true).expect("Failed to parse filter");
         let subscription = Arc::new(Subscription::new(factory, cb));
 
+        println!("Initializing Retina runtime...");
         log::info!("Initializing EAL...");
         dpdk::load_drivers();
         {
