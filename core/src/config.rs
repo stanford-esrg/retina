@@ -33,6 +33,22 @@ pub fn load_config<P: AsRef<Path>>(path: P) -> RuntimeConfig {
 }
 
 /// Loads a default configuration file.
+///
+/// For demonstration purposes only, not configured for performance. The default configuration
+/// assumes Retina is being run from the crate root in offline mode:
+/// ```toml
+/// main_core = 0
+///
+/// [mempool]
+///     capacity = 8192
+///
+/// [offline]
+///     pcap = "./traces/small_flows.pcap"
+///     mtu = 9702
+///
+/// [conntrack]
+///     max_connections = 100_000
+/// ```
 pub fn default_config() -> RuntimeConfig {
     RuntimeConfig::default()
 }
@@ -168,7 +184,7 @@ impl Default for RuntimeConfig {
             nb_memory_channels: 1,
             suppress_dpdk_output: true,
             mempool: MempoolConfig {
-                capacity: 65_536,
+                capacity: 8192,
                 cache_size: 512,
             },
             online: None,
@@ -178,7 +194,7 @@ impl Default for RuntimeConfig {
                 pcap: "./traces/small_flows.pcap".to_string(),
             }),
             conntrack: ConnTrackConfig {
-                max_connections: 10_000_000,
+                max_connections: 100_000,
                 max_out_of_order: 100,
                 timeout_resolution: 100,
                 udp_inactivity_timeout: 60_000,
@@ -562,7 +578,8 @@ pub struct OfflineConfig {
 /// ```
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ConnTrackConfig {
-    /// Maximum number of connections that can be tracked per-core. Defaults to `10_000_000`.
+    /// Maximum number of connections that can be tracked simultaneously per-core. Defaults to
+    /// `10_000_000`.
     #[serde(default = "default_max_connections")]
     pub max_connections: usize,
 
