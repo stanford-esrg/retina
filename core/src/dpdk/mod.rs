@@ -120,6 +120,13 @@ pub unsafe fn rte_lcore_id() -> u16 {
     rte_lcore_id_()
 }
 
+/// Reads the timestamp counter (TSC) register.
+///
+/// This is a low-overhead way to get CPU timing information, but may not be available on all
+/// platforms and could be imprecise. It should only be used to approximate cycle counts.
+///
+/// ## Remarks
+/// This is `unsafe` because it calls the DPDK `rte_rdtsc()` function via FFI. Use at your own risk.
 #[inline]
 pub unsafe fn rte_rdtsc() -> u64 {
     rte_rdtsc_()

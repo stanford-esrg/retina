@@ -48,7 +48,7 @@ pub mod config;
 mod conntrack;
 #[doc(hidden)]
 #[allow(clippy::all)]
-pub mod dpdk;
+mod dpdk;
 // The filter module must be public to be accessible by the filter_gen procedural macro crate.
 // However, module functions should be opaque to users, so documentation is hidden by default.
 #[doc(hidden)]
@@ -64,6 +64,8 @@ pub mod utils;
 pub use self::conntrack::conn_id::{ConnId, FiveTuple};
 pub use self::memory::mbuf::Mbuf;
 pub use self::runtime::Runtime;
+
+pub use dpdk::rte_rdtsc;
 
 #[macro_use]
 extern crate pest_derive;
