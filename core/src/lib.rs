@@ -3,9 +3,10 @@
 
 //! An ergonomic framework for high speed network traffic analysis on commodity hardware.
 //!
-//! Retina provides a filter and callback interface that lets users subscribe to network traffic in
-//! real-time and run user-defined analysis code in a standard software environment. It is a passive
-//! analysis framework that supports access to network traffic at one of three abstraction levels:
+//! Retina provides a simple filter and callback interface that lets users subscribe to network
+//! traffic in real-time and run user-defined analysis code in a standard software environment. It
+//! is a passive analysis framework that supports access to network traffic at one of three
+//! abstraction levels:
 //!
 //! - Individual packets
 //! - Reassembled connections
@@ -15,7 +16,7 @@
 //! (e.g., full-network or full-uplink analysis). It employs an efficient filtering mechanism to
 //! discard out-of-scope traffic, and is not specifically geared towards deep inspection of all
 //! packets (although it can be customized to do so). See [retina_filtergen](../retina_filtergen)
-//! for a description of filters and filter syntax.
+//! for filter syntax and usage.
 //!
 //! The framework currently comes with built-in support for several [subscribable
 //! types](crate::subscription). Additional modules are welcome and encouraged.
@@ -48,7 +49,8 @@ mod conntrack;
 #[doc(hidden)]
 #[allow(clippy::all)]
 pub mod dpdk;
-// The filter module must be public to be accessible by the filter_gen procedural macro crate. However, module functions should be opaque to users, so documentation is hidden by default.
+// The filter module must be public to be accessible by the filter_gen procedural macro crate.
+// However, module functions should be opaque to users, so documentation is hidden by default.
 #[doc(hidden)]
 pub mod filter;
 mod lcore;

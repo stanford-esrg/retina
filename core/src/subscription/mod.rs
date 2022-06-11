@@ -45,7 +45,7 @@ pub enum Level {
     Session,
 }
 
-/// Represents a generic subscribable type.
+/// Represents a generic subscribable type. All subscribable types must implement this trait.
 pub trait Subscribable {
     type Tracked: Trackable<Subscribed = Self>;
 

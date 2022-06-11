@@ -36,16 +36,16 @@
 //!
 //! ## Protocols
 //! All protocol identifiers are valid as long as Retina contains an appropriate [protocol
-//! module](../retina_core/protocols) of the same name. The `filter` macro automatically generates
-//! filtering code using the structs defined in the protocol's corresponding parser module. The
-//! exception to this is `ethernet`, which Retina filters for by default.
+//! module](../retina_core/protocols) of the same name. The [`filter`](macro@self::filter) macro
+//! automatically generates filtering code using structs defined in the protocol's corresponding
+//! parser module. The exception to this is `ethernet`, which Retina filters for by default.
 //!
 //! For example, [`ipv4`](../retina_core/protocols/packet/ipv4) and
 //! [`tls`](../retina_core/protocols/stream/tls) are filterable protocols because they are both
 //! protocol modules included in Retina.
 //!
-//! Retina will also automatically expand filter expressions to fully-qualified form. For example,
-//! the filter `tcp` is equivalent to `(ipv4 and tcp() or (ipv6 and tcp)` .
+//! Retina will also automatically expand filter expressions to their fully-qualified form. For
+//! example, the filter `tcp` is equivalent to `(ipv4 and tcp) or (ipv6 and tcp)`.
 //!
 //! ## Fields
 //! All field identifiers are valid as long as Retina exposes a public accessor method for the
@@ -55,12 +55,13 @@
 //! For example,
 //! [`ipv4.src_addr`](../retina_core/protocols/packet/ipv4/struct.Ipv4.html#method.src_addr) and
 //! [`tls.sni`](../retina_core/protocols/stream/tls/struct.Tls.html#method.sni) are both filterable
-//! fields because `src_addr()` is a public method for the `Ipv4` struct that returns an `Ipv4Addr`,
-//! and `sni()` is a public method for the `Tls` struct that returns a `String`.
+//! fields because `src_addr()` is a public method associated with the `Ipv4` struct that returns an
+//! `Ipv4Addr`, and `sni()` is a public method associated with the `Tls` struct that returns a
+//! `String`.
 //!
 //! Retina also supports two combined fields: `addr` and `port`. Logically, these are equivalent to
 //! `src_addr or dst_addr` and `src_port or dst_port`, respectively, except in predicates that use
-//! the `!=` operator (details below).
+//! the `!=` comparison operator (details below).
 //!
 //! ## Field types (RHS values)
 //! | Type          | Example            |
@@ -84,14 +85,25 @@
 //! | `<`      | `lt`      | Less than                  | `ipv6.payload_length < 500`     |
 //! | `in`     |           | In a range, or in a subnet | `ipv4.src_addr in 1.2.3.4/16`   |
 //! | `~`      | `matches` | Regular expression match   | `tls.sni ~ 'netflix\\.com$'`    |
-//! |          |           |                            |                                 |
 //!
-//! **Possible pitfall involving `!=`**
+//! **Possible pitfalls involving `!=`**
 //!
-//! Retina differs from Wireshark behavior for the `!=` operator. When applied to combined fields
-//! (i.e., `addr` or `port`), Retina follows connection-level semantics instead of packet-level
-//! semantics. For example, `tcp.port != 80` is equivalent to `tcp.src_port != 80 and tcp.dst_port
-//! != 80`.
+//! Retina differs from Wireshark behavior regarding the `!=` operator. When applied to combined
+//! fields (i.e., `addr` or `port`), Retina follows connection-level semantics instead of
+//! packet-level semantics. For example, `tcp.port != 80` is equivalent to `tcp.src_port != 80 and
+//! tcp.dst_port != 80`.
+//!
+//! **Regular expressions**
+//!
+//! Retina compiles regular expressions exactly once, using the
+//! [`regex`](https://crates.io/crates/regex) and
+//! [`lazy_static`](https://crates.io/crates/lazy_static) crates. As of this writing, `proc-macro`
+//! crates like this one cannot export any items other than procedural macros, thus requiring
+//! applications that wish to use Retina's regular expression filtering to specify `regex` and
+//! `lazy_static` as dependencies. Also note that regular expressions are written as normal strings
+//! in Rust, and not as [raw string
+//! literals](https://doc.rust-lang.org/stable/reference/tokens.html#raw-string-literals). They are
+//! allowed to match anywhere in the text, unless start (`^`) and end (`$`) anchors are used.
 //!
 //! ## Logical operators
 //! | Operator | Alias | Description | Example                                      |
