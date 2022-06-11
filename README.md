@@ -49,7 +49,7 @@ Build:
 
 Run:
 
-`sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=info ./target/release/my_app`
+`sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=error ./target/release/my_app`
 
 ## Development
 
