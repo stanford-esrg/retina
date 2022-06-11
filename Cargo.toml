@@ -2,14 +2,15 @@
 members = [
     "core",
     "examples/basic",
-    "examples/ip_anon",
     "examples/client_randoms",
+    "examples/ip_anon",
     "examples/log_conn",
     "examples/log_tls",
     "examples/log_http",
     "examples/log_dns",
     "examples/log_tls",
     "examples/pcap_dump",
+    "examples/spin",
     "examples/video",
     "filtergen",
 ]
