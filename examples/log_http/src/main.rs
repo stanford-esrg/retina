@@ -27,7 +27,7 @@ struct Args {
     outfile: PathBuf,
 }
 
-#[filter("")]
+#[filter("http")]
 fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
