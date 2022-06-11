@@ -1,8 +1,8 @@
 main_core = 0
-nb_memory_channels = 6 
+nb_memory_channels = 6
 
 [mempool]
-    capacity = 262144
+    capacity = 262_144
     cache_size = 512
 
 [offline]

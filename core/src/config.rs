@@ -54,6 +54,10 @@ pub struct RuntimeConfig {
     #[serde(default = "default_nb_memory_channels")]
     pub nb_memory_channels: usize,
 
+    /// Suppress DPDK runtime logging and telemetry output. Defaults to `true`.
+    #[serde(default = "default_suppress_dpdk_output")]
+    pub suppress_dpdk_output: bool,
+
     /// Per-mempool settings.
     pub mempool: MempoolConfig,
 
@@ -128,12 +132,21 @@ impl RuntimeConfig {
         eal_params.push("-n".to_owned());
         eal_params.push(self.nb_memory_channels.to_string());
 
+        if self.suppress_dpdk_output {
+            eal_params.push("--log-level=6".to_owned());
+            eal_params.push("--no-telemetry".to_owned());
+        }
+
         eal_params
     }
 }
 
 fn default_nb_memory_channels() -> usize {
     1
+}
+
+fn default_suppress_dpdk_output() -> bool {
+    true
 }
 
 fn default_online() -> Option<OnlineConfig> {
@@ -153,8 +166,9 @@ impl Default for RuntimeConfig {
         RuntimeConfig {
             main_core: 0,
             nb_memory_channels: 1,
+            suppress_dpdk_output: true,
             mempool: MempoolConfig {
-                capacity: 65536,
+                capacity: 65_536,
                 cache_size: 512,
             },
             online: None,
