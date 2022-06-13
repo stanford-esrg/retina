@@ -2,10 +2,12 @@
 
 These installation instructions are for running Retina on a bare metal Ubuntu server with a Mellanox server NIC, and have been tested on the following platforms:
 
-| CPU                   | OS            | NIC                                   |
-| --------------------- | ------------- | ------------------------------------- |
-| Intel Xeon Gold 6154R | Ubuntu 18.04  | Mellanox ConnectX-5 100G MCX516A-CCAT |
-| Intel Xeon Gold 6248R | Ubuntu 20.04  | Mellanox ConnectX-5 100G MCX516A-CCAT |
+| CPU                   | OS            | NIC                                      |
+| --------------------- | ------------- | ---------------------------------------- |
+| Intel Xeon Gold 6154R | Ubuntu 18.04  | Mellanox ConnectX-5 100G MCX516A-CCAT    |
+| Intel Xeon Gold 6248R | Ubuntu 20.04  | Mellanox ConnectX-5 100G MCX516A-CCAT    |
+| Intel Xeon Silver 4314| Ubuntu 20.04  | Mellanox ConnectX-5 100G MCX516A-CCA_Ax  |
+| AMD EPYC 7452 32-Core | Ubuntu 20.04  | Mellanox ConnectX-5 Ex Dual Port 100 GbE |
 
 Retina can run on other platforms as well, detail to come.
 
