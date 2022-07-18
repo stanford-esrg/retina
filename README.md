@@ -10,17 +10,17 @@ reassembled network flows, and raw packets in real-time and to run arbitrary
 analysis code in a standard Rust-based software environment. Retina optimizes
 for:
 
-- **Expressiveness** Retina supports arbitrarily complex processing of
+- **Expressiveness:** Retina supports arbitrarily complex processing of
   individual packets, reassembled connections, or parsed application-layer
   sessions using a simple filter and callback interface.
 
-- **Performance** Retina is capable of real-time traffic analysis in high
+- **Performance:** Retina is capable of real-time traffic analysis in high
   volume (100G+) environments, such as ISPs or academic institutions.
 
-- **Deployability** Retina is readily deployable on a single multi-core server
+- **Deployability:** Retina is readily deployable on a single multi-core server
   with a commodity 100gbE NICs (e.g., Mellanox ConnectX-5 or Intel E810).
 
-- **Security** Retina leverages compile-time memory safety guarantees offered
+- **Security:** Retina leverages compile-time memory safety guarantees offered
   by Rust to safely and efficiently process network traffic.
 
 ## Documentation
