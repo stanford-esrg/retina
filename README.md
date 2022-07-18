@@ -5,10 +5,10 @@
 
 Retina is a network analysis framework that enables operators and researchers
 to ask complex questions about high-speed (>100gbE) network links. Retina
-allows users to easily *subscribe* to parsed application layer sessions,
-reassembled network flows, and raw packets in real-time and to run arbitrary
-analysis code in a standard Rust-based software environment. Retina optimizes
-for:
+allows users to easily *subscribe* to subsets of parsed application layer
+sessions, reassembled network flows, and raw packets in real-time and to run
+arbitrary analysis code in a standard Rust-based software environment. Retina
+optimizes for:
 
 - **Expressiveness:** Retina supports arbitrarily complex processing of
   individual packets, reassembled connections, or parsed application-layer
