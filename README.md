@@ -3,22 +3,42 @@
 [![build-status](https://github.com/stanford-esrg/retina/actions/workflows/ci.yml/badge.svg)](https://github.com/stanford-esrg/retina/actions)
 [![doc-status](https://github.com/stanford-esrg/retina/actions/workflows/rustdoc.yml/badge.svg)](https://stanford-esrg.github.io/retina/retina_core)
 
-Retina is a framework for network traffic analysis and measurement with a focus on expressiveness, performance, deployability, and security. Retina allows users to easily *subscribe* to network data in real-time and run arbitrary analysis code in a standard software environment.
+Retina is a network analysis framework that enables operators and researchers
+to ask complex questions about high-speed (>100gbE) network links. Retina
+allows users to easily *subscribe* to parsed application layer sessions,
+reassembled network flows, and raw packets in real-time and to run arbitrary
+analysis code in a standard Rust-based software environment. Retina optimizes
+for:
 
-- **Expressiveness** Retina supports arbitrarily complex processing of individual packets, reassembled connections, or parsed application-layer sessions using a simple filter and callback interface.
+- **Expressiveness** Retina supports arbitrarily complex processing of
+  individual packets, reassembled connections, or parsed application-layer
+  sessions using a simple filter and callback interface.
 
-- **Performance** Retina is capable of real-time traffic analysis in high volume (100G+) environments, such as regional ISPs or academic institutions.
+- **Performance** Retina is capable of real-time traffic analysis in high
+  volume (100G+) environments, such as ISPs or academic institutions.
 
-- **Deployability** Retina is readily deployable on a single multi-core server with a commodity 100G NIC.
+- **Deployability** Retina is readily deployable on a single multi-core server
+  with a commodity 100gbE NICs (e.g., Mellanox ConnectX-5 or Intel E810).
 
-- **Security** Retina leverages compile-time memory safety guarantees offered by Rust to safely and efficiently process network traffic.
+- **Security** Retina leverages compile-time memory safety guarantees offered
+  by Rust to safely and efficiently process network traffic.
 
 ## Documentation
-Documentation for Retina can be found [here](https://stanford-esrg.github.io/retina/retina_core/). It includes a comprehensive description of supported filter syntax and subscribable types.
+
+A detailed description of Retina's architecture and its performance can be
+found in our SIGCOMM'22 paper: *[Retina: Analyzing 100 GbE Traffic on Commodity
+Hardware](https://zakird.com/papers/retina.pdf)*.
+
+Documentation for using and developing against Retina can be found
+[here](https://stanford-esrg.github.io/retina/retina_core/). It includes a
+comprehensive description of supported filter syntax and subscribable types.
 
 
 ## Getting Started
-Install [Rust](https://www.rust-lang.org/tools/install) and [DPDK](http://core.dpdk.org/download/). Detailed instructions can be found in [INSTALL](INSTALL.md).
+
+Install [Rust](https://www.rust-lang.org/tools/install) and
+[DPDK](http://core.dpdk.org/download/). Detailed instructions can be found in
+[INSTALL](INSTALL.md).
 
 Add `$DPDK_PATH/lib/x86_64-linux-gnu` to your `LD_LIBRARY_PATH`, where `DPDK_PATH` points to the DPDK installation directory.
 
