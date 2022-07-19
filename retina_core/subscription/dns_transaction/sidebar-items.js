@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["DnsTransaction","A parsed DNS transaction and connection metadata."]]});

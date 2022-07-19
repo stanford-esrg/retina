@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["retina_core"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.58.1/core/ops/drop/trait.Drop.html\" title=\"trait core::ops::drop::Drop\">Drop</a> for <a class=\"struct\" href=\"retina_core/struct.Mbuf.html\" title=\"struct retina_core::Mbuf\">Mbuf</a>","synthetic":false,"types":["retina_core::memory::mbuf::Mbuf"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

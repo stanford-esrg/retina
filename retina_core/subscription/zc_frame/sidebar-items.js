@@ -1,0 +1,1 @@
+initSidebarItems({"type":[["ZcFrame","A zero-copy Ethernet frame."]]});

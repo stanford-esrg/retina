@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Data","RData types."]],"struct":[["Dns","Parsed DNS transaction contents."],["DnsQuery","A DNS Query."],["DnsRecord","A DNS Record."],["DnsResponse","A DNS Response."],["Mx","A DNS mail exchange (MX) record."],["Soa","A DNS start of authority (SOA) record."],["Srv","A DNS service (SRV) record."]]});

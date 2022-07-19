@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Ethernet","An Ethernet frame."]]});

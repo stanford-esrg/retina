@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Http","Parsed HTTP transaction contents."],["HttpRequest","An HTTP Request"],["HttpResponse","An HTTP Response"]]});
