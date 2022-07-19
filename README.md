@@ -90,3 +90,9 @@ Filter expansion (requires Rust nightly):
 
 Contributions welcome! Please run `cargo fmt` and `cargo clippy` before making a pull request.
 
+## Acknowledgements
+
+Retina was developed with support from the National Science Foundation under
+award CNS-2124424, and through gifts from Google, Inc., Cisco Systems, Inc.,
+and Comcast Corporation.
+
