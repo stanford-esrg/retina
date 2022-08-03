@@ -90,6 +90,12 @@ Filter expansion (requires Rust nightly):
 
 Contributions welcome! Please run `cargo fmt` and `cargo clippy` before making a pull request.
 
+## Reproducibility
+
+A [Docker image](https://github.com/tbarbette/retina-docker) is available to run Retina without the hassle of installing DPDK and other dependencies. It is, however, not suitable for performance testing as it uses the DPDK PCAP driver and is limited to a single core. The GitHub repository also includes a tutorial and a video to start learning about Retina.
+
+A [CloudLab image](https://github.com/tbarbette/retina-expe) is available to reproduce a few of the experiments shown in the paper on the CloudLab public testbed. The repository also includes the scripts and information to reproduce these experiments on your own testbed.
+
 ## Acknowledgements
 
 Retina was developed with support from the National Science Foundation under
