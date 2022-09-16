@@ -246,7 +246,7 @@ impl Logger {
                             if let Some(value) = port_stats.stats.get(label) {
                                 wtr.write_field(value.to_string())?;
                             } else {
-                                wtr.write_field("-".to_string())?;
+                                wtr.write_field("-")?;
                             }
                         }
                     }
