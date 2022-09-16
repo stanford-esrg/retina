@@ -12,7 +12,7 @@ These installation instructions are for running Retina on a bare metal Ubuntu se
 Retina can run on other platforms as well, detail to come.
 
 ## Hardware Recommendations
-Retina should work on any commodity x86 server, but the more cores and memory the better. For online operation in 100G network environments, we recommend at least 64GB of memory and a 100G Mellanox ConnectX-5 or similar, but any DPDK-compatible NIC should work.
+Retina should work on any commodity x86 server, but the more cores and memory the better. For real-time operation in 100G network environments, we recommend at least 64GB of memory and a 100G Mellanox ConnectX-5 or similar, but any DPDK-compatible NIC should work.
 
 ## Installing Dependencies
 
@@ -22,20 +22,28 @@ sudo apt install build-essential meson pkg-config libnuma-dev python3-pyelftools
 ```
 
 ## Building and Installing DPDK
-Retina currently requires **DPDK 21.08**. The latest LTS release (21.11) contains breaking API changes while 20.11 LTS has a bug that causes inaccurate packet drop metrics on some NICs.
+Retina currently requires [**DPDK 21.08**](https://core.dpdk.org/download/). The latest LTS release (21.11) contains breaking API changes while 20.11 LTS has a bug that causes inaccurate packet drop metrics on some NICs.
 
 ### System Configuration
 To get high performance from DPDK applications, we recommend the following system configuration steps. More details from the DPDK docs can be found [here](https://doc.dpdk.org/guides/linux_gsg/nic_perf_intel_platform.html).
 
-Edit the GRUB boot settings `/etc/default/grub` to reserve hugepages and isolate CPU cores that will be used for Retina. For example, to reserve 32 1GB hugepages and isolate cores 1-32:
+
+#### Allocate 1GB hugepages
+Edit the GRUB boot settings `/etc/default/grub` to reserve 1GB hugepages and isolate CPU cores that will be used for Retina. For example, to reserve 64 1GB hugepages and isolate cores 1-32:
 ```
-GRUB_CMDLINE_LINUX="default_hugepagesz=1G hugepagesz=1G hugepages=32 iommu=pt intel_iommu=on isolcpus=1-32"
+GRUB_CMDLINE_LINUX="default_hugepagesz=1G hugepagesz=1G hugepages=64 iommu=pt intel_iommu=on isolcpus=1-32"
 ```
 
 Update the GRUB settings and reboot:
 ```sh
 sudo update-grub
 sudo reboot now
+```
+
+Mount hugepages to make them available for DPDK use:
+```sh
+sudo mkdir /mnt/huge
+sudo mount -t hugetlbfs pagesize=1GB /mnt/huge
 ```
 
 ### Install MLX5 PMD Dependencies
@@ -65,6 +73,8 @@ export DPDK_PATH=/path/to/dpdk/dpdk-21.08
 export LD_LIBRARY_PATH=$DPDK_PATH/lib/x86_64-linux-gnu
 export PKG_CONFIG_PATH=$LD_LIBRARY_PATH/pkgconfig
 ```
+
+#### Compile DPDK
 From `DPDK_PATH`, run:
 ```sh
 meson --prefix=$DPDK_PATH build
@@ -72,12 +82,26 @@ cd build
 sudo ninja install
 sudo ldconfig
 ```
+More information on compiling DPDK can be found [here](https://doc.dpdk.org/guides/linux_gsg/build_dpdk.html#).
+
+
+#### (Optional) Binding network interfaces to DPDK-compatible driver
+Depending on your NIC and the associated DPDK poll mode driver (PMD), you may need to bind the device/interface to a DPDK-compatible driver in order to make it work properly. **Note**: this step does *not* need to be done for the Mellanox PMD (mlx5). Details on binding and unbinding to drivers can be found [here](https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html).
+
+Example bind to a DPDK-compatible driver:
+```sh
+sudo modprobe vfio-pci  # Load the vfio-pci module
+sudo $DPDK_PATH/usertools/dpdk-devbind.py --bind=vfio-pci <interface_name/pci_address>   # Unbinds from kernel module, binds to vfio-pci
+```
+
+
 
 ## Installing Rust
 ```sh
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.cargo/env
 ```
+More information on Rust installation can be found [here](https://www.rust-lang.org/tools/install).
 
 ## Building and Running Retina
 Retina should be built and run from source. 
