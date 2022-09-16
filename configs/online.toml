@@ -1,3 +1,9 @@
+# This configuration is an example to show Retina in "online" mode, which
+# polls the specified network interface(s) for live traffic.
+# 
+# See https://stanford-esrg.github.io/retina/retina_core/config/index.html
+# for configuration options.
+
 main_core = 0
 nb_memory_channels = 6
 
