@@ -243,7 +243,7 @@ fn median(v: &[u64]) -> Result<u64> {
     s.sort();
     let mid = s.len() / 2;
     if s.len() % 2 == 0 {
-        Ok(mean(&vec![s[mid - 1], s[mid]]) as u64)
+        Ok(mean(&[s[mid - 1], s[mid]]) as u64)
     } else {
         Ok(s[mid])
     }
