@@ -2,7 +2,8 @@
 //!
 //! A subscription is a request for a callback on a subset of network traffic specified by a filter.
 //! Callback functions are implemented as a closure that takes a subscribable data type as the
-//! parameter and immutably borrows values from the environment.
+//! parameter and immutably borrows values from the environment. Built-in subscribable types can
+//! be customized within the framework to provide additional data to the callback if needed.
 
 pub mod connection;
 pub mod connection_frame;

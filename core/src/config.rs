@@ -230,7 +230,7 @@ impl Default for RuntimeConfig {
 /// ```
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct MempoolConfig {
-    /// Number of mbufs allocated per mempool. The maximum value that can be set will depend on 
+    /// Number of mbufs allocated per mempool. The maximum value that can be set will depend on
     /// the available memory (number of hugepages allocated) and the MTU. Defaults to `65536`.
     #[serde(default = "default_capacity")]
     pub capacity: usize,
