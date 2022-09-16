@@ -19,7 +19,7 @@ jobs:
     - name: Install Rust stable
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: 1.58.1
+        toolchain: 1.63.0
         override: true
         components: rustfmt, clippy
     - name: Set up Python ${{ matrix.python-version }}
