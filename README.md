@@ -5,8 +5,8 @@
 
 Retina is a network analysis framework that enables operators and researchers
 to ask complex questions about high-speed (>100gbE) network links. Retina
-allows users to easily *subscribe* to subsets of parsed application layer
-sessions, reassembled network flows, and raw packets in real-time and to run
+allows users to easily *subscribe* to subsets of parsed application-layer
+sessions, reassembled network flows, or raw packets in real-time and to run
 arbitrary analysis code in a standard Rust-based software environment. Retina
 optimizes for:
 
@@ -18,7 +18,7 @@ optimizes for:
   volume (100G+) environments, such as ISPs or academic institutions.
 
 - **Deployability:** Retina is readily deployable on a single multi-core server
-  with a commodity 100gbE NICs (e.g., Mellanox ConnectX-5 or Intel E810).
+  with commodity 100gbE NICs (e.g., Mellanox ConnectX-5 or Intel E810).
 
 - **Security:** Retina leverages compile-time memory safety guarantees offered
   by Rust to safely and efficiently process network traffic.
@@ -27,7 +27,7 @@ optimizes for:
 
 A detailed description of Retina's architecture and its performance can be
 found in our SIGCOMM'22 paper: *[Retina: Analyzing 100 GbE Traffic on Commodity
-Hardware](https://zakird.com/papers/retina.pdf)*.
+Hardware](https://thegwan.github.io/files/retina.pdf)*.
 
 Documentation for using and developing against Retina can be found
 [here](https://stanford-esrg.github.io/retina/retina_core/). It includes a

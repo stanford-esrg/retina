@@ -77,6 +77,7 @@ fn add_node_match_arm(
     }
 }
 
+#[allow(clippy::ptr_arg)]
 fn add_service_pred(
     ct_nodes: &mut Vec<usize>,
     code: &mut Vec<proc_macro2::TokenStream>,

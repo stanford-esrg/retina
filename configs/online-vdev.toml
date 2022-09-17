@@ -1,8 +1,10 @@
-
-#This configuration is an example to show how to use a DPDK virtual device
+# This configuration is an example to show how to use a DPDK virtual device
 # for instance af_packet sockets, memory ring, or pcap-backed device.
-#!!!Those virtual devices do not expose hardware capabilities, this is only
+# !!! Those virtual devices do not expose hardware capabilities, this is only
 # intended for limited functional testing. !!!
+# 
+# See https://stanford-esrg.github.io/retina/retina_core/config/index.html
+# for configuration options.
 
 main_core = 0
 nb_memory_channels = 6

@@ -230,7 +230,8 @@ impl Default for RuntimeConfig {
 /// ```
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct MempoolConfig {
-    /// Number of mbufs allocated per mempool. Defaults to `65536`.
+    /// Number of mbufs allocated per mempool. The maximum value that can be set will depend on
+    /// the available memory (number of hugepages allocated) and the MTU. Defaults to `65536`.
     #[serde(default = "default_capacity")]
     pub capacity: usize,
 
@@ -311,7 +312,7 @@ pub struct OnlineConfig {
     pub hardware_assist: bool,
 
     /// If set, will pass supplementary arguments to DPDK EAL (see DPDK
-    /// configuration). For instance "--no-huge".
+    /// configuration). For instance `--no-huge`.
     /// Defaults to empty string.
     #[serde(default = "default_dpdk_supl_args")]
     pub dpdk_supl_args: Vec<String>,
@@ -405,10 +406,10 @@ fn default_nb_buckets() -> usize {
 /// ```
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct PortMap {
-    /// PCI address to probe.
+    /// PCI address of interface.
     pub device: String,
 
-    /// List of packet processing cores to poll the interface.
+    /// List of packet processing cores used to poll the interface.
     ///
     /// ## Remarks
     /// For performance, it is recommended that the processing cores reside on the same NUMA node as
@@ -553,7 +554,7 @@ fn default_log_port_stats() -> Vec<String> {
 ///
 /// Offline mode runs using a single core and performs offline analysis of already captured pcap
 /// files. Either [OnlineConfig](OnlineConfig) or [OfflineConfig](OfflineConfig) must be specified,
-/// but not both.
+/// but not both. This mode is primarily intended for functional testing.
 ///
 /// ## Example
 /// ```toml

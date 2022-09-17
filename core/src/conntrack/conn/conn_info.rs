@@ -141,7 +141,7 @@ where
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ConnState {
     /// Unknown application-layer protocol, needs probing.
     Probing,
