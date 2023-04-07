@@ -63,27 +63,37 @@ impl<'a> Tcp<'a> {
         (self.header.data_offset_to_ns & 0xf0) >> 4
     }
 
+    /// Returns the reserved bits.
+    #[inline]
+    pub fn reserved(&self) -> u8 {
+        self.header.data_offset_to_ns & 0x0f
+    }
+
     /// Returns the 8-bit field containing the data offset, 3 reserved bits, and the nonce sum bit.
     #[inline]
     pub fn data_offset_to_ns(&self) -> u8 {
         self.header.data_offset_to_ns
     }
 
+    /// Returns the 8-bit TCP flags.
     #[inline]
     pub fn flags(&self) -> u8 {
         self.header.flags
     }
 
+    /// Returns the size of the receive window in window size units.
     #[inline]
     pub fn window(&self) -> u16 {
         self.header.window.into()
     }
 
+    /// Returns the 16-bit checksum field.
     #[inline]
     pub fn checksum(&self) -> u16 {
         self.header.checksum.into()
     }
 
+    /// Returns the urgent pointer.
     #[inline]
     pub fn urgent_pointer(&self) -> u16 {
         self.header.urgent_pointer.into()
@@ -91,7 +101,7 @@ impl<'a> Tcp<'a> {
 
     // ------------------------------------------------
 
-    /// Returns `true` if the nonce sum flag is set.
+    /// Returns `true` if the (historical) nonce sum flag is set.
     #[inline]
     pub fn ns(&self) -> bool {
         (self.header.data_offset_to_ns & 0x01) != 0

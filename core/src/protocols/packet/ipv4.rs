@@ -8,7 +8,16 @@ use std::net::Ipv4Addr;
 
 use anyhow::{bail, Result};
 
+/// IPv4 EtherType
 const IPV4_PROTOCOL: usize = 0x0800;
+/// Flag: "Reserved bit"
+const IPV4_RF: u16 = 0x8000;
+/// Flag: "Don't fragment"
+const IPV4_DF: u16 = 0x4000;
+/// Flag: "More fragments"
+const IPV4_MF: u16 = 0x2000;
+/// Fragment offset part
+const IPV4_FRAG_OFFSET: u16 = 0x1FFF;
 
 /// An IPv4 packet.
 ///
@@ -82,6 +91,36 @@ impl<'a> Ipv4<'a> {
     #[inline]
     pub fn flags_to_fragment_offset(&self) -> u16 {
         self.header.flags_to_fragment_offset.into()
+    }
+
+    /// Returns the 3-bit IP flags.
+    #[inline]
+    pub fn flags(&self) -> u8 {
+        (self.flags_to_fragment_offset() >> 13) as u8
+    }
+
+    /// Returns `true` if the Reserved flag is set.
+    #[inline]
+    pub fn rf(&self) -> bool {
+        (self.flags_to_fragment_offset() & IPV4_RF) != 0
+    }
+
+    /// Returns `true` if the Don't Fragment flag is set.
+    #[inline]
+    pub fn df(&self) -> bool {
+        (self.flags_to_fragment_offset() & IPV4_DF) != 0
+    }
+
+    /// Returns `true` if the More Fragments flag is set.
+    #[inline]
+    pub fn mf(&self) -> bool {
+        (self.flags_to_fragment_offset() & IPV4_MF) != 0
+    }
+
+    /// Returns the fragment offset in units of 8 bytes.
+    #[inline]
+    pub fn fragment_offset(&self) -> u16 {
+        self.flags_to_fragment_offset() & IPV4_FRAG_OFFSET
     }
 
     /// Returns the time to live (TTL) of the packet.
