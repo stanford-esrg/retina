@@ -118,7 +118,7 @@ impl TimerWheel {
                         conn.terminate(subscription);
                         occupied.remove();
                     } else {
-                        let timer_index = (expire_time / period) as usize % nb_buckets;
+                        let timer_index = (expire_time / period) % nb_buckets;
                         not_expired.push((timer_index, conn_id));
                     }
                 }

@@ -412,9 +412,9 @@ impl Tls {
     }
 
     /// Parse a TLS record.
-    pub(crate) fn parse_record_level<'b>(
+    pub(crate) fn parse_record_level(
         &mut self,
-        record: &TlsRawRecord<'b>,
+        record: &TlsRawRecord<'_>,
         direction: bool,
     ) -> ParseResult {
         let mut v: Vec<u8>;

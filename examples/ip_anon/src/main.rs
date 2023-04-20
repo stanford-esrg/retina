@@ -21,7 +21,7 @@ struct Args {
 fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
-    let config = load_config(&args.config);
+    let config = load_config(args.config);
 
     let key: [u8; 16] = "a sample enc key".as_bytes().try_into()?;
     let callback = |frame: ConnectionFrame| {
