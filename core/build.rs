@@ -20,7 +20,7 @@ fn main() {
     let pkg_config_path = dpdk_path.join("lib/x86_64-linux-gnu/pkgconfig");
     let cflags_bytes = Command::new("pkg-config")
         .env("PKG_CONFIG_PATH", &pkg_config_path)
-        .args(&["--cflags", "libdpdk"])
+        .args(["--cflags", "libdpdk"])
         .output()
         .unwrap_or_else(|e| panic!("Failed pkg-config cflags: {:?}", e))
         .stdout;
@@ -37,7 +37,7 @@ fn main() {
 
     let ldflags_bytes = Command::new("pkg-config")
         .env("PKG_CONFIG_PATH", &pkg_config_path)
-        .args(&["--libs", "libdpdk"])
+        .args(["--libs", "libdpdk"])
         .output()
         .unwrap_or_else(|e| panic!("Failed pkg-config ldflags: {:?}", e))
         .stdout;

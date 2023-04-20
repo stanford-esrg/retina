@@ -38,7 +38,7 @@ fn main() -> Result<()> {
     // not re-allocate.
     let sessions = Mutex::new(LinkedHashMap::with_capacity(100_000_000));
     let mut wtr = Writer::from_path(&args.outfile)?;
-    wtr.write_record(&[
+    wtr.write_record([
         "client",
         "parallel_flows",
         "bytes_up",

@@ -51,7 +51,7 @@ impl PortId {
 
     /// For DPDK functions
     pub(crate) fn raw(&self) -> u16 {
-        self.0 as u16
+        self.0
     }
 }
 
@@ -418,7 +418,7 @@ pub(crate) struct RxQueueId(pub(crate) u16);
 impl RxQueueId {
     /// For DPDK functions
     pub(crate) fn raw(&self) -> u16 {
-        self.0 as u16
+        self.0
     }
 }
 

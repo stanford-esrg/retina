@@ -14,7 +14,7 @@ pub(crate) struct SocketId(pub(crate) u32);
 impl SocketId {
     // For DPDK functions
     pub(crate) fn raw(&self) -> u32 {
-        self.0 as u32
+        self.0
     }
 }
 
@@ -31,12 +31,12 @@ pub struct CoreId(pub u32);
 
 impl CoreId {
     pub(crate) fn socket_id(&self) -> SocketId {
-        unsafe { SocketId(dpdk::rte_lcore_to_socket_id(self.0) as u32) }
+        unsafe { SocketId(dpdk::rte_lcore_to_socket_id(self.0)) }
     }
 
     /// For DPDK functions
     pub fn raw(&self) -> u32 {
-        self.0 as u32
+        self.0
     }
 }
 
