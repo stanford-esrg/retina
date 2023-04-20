@@ -114,7 +114,15 @@ pub unsafe fn rte_pktmbuf_adj(packet: *mut rte_mbuf, len: u16) -> *mut c_char {
 pub unsafe fn rte_pktmbuf_trim(packet: *mut rte_mbuf, len: u16) -> c_int {
     rte_pktmbuf_trim_(packet, len)
 }
-
+/// Returns the application thread ID of the execution unit.
+///
+/// In most cases, the lcore ID returned will correspond to the processor ID of the CPU
+/// on which the thread is pinned, but this will not be the case if the user has explicitly
+/// changed the thread-to-core affinities.
+///
+/// ## Remarks
+/// This is `unsafe` because it calls the DPDK `rte_lcore_id()` function via FFI. Use at your
+/// own risk.
 #[inline]
 pub unsafe fn rte_lcore_id() -> u16 {
     rte_lcore_id_()

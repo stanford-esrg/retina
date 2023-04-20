@@ -65,6 +65,7 @@ pub use self::conntrack::conn_id::{ConnId, FiveTuple};
 pub use self::memory::mbuf::Mbuf;
 pub use self::runtime::Runtime;
 
+pub use dpdk::rte_lcore_id;
 pub use dpdk::rte_rdtsc;
 
 #[macro_use]
