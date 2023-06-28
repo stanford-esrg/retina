@@ -9,7 +9,7 @@ These installation instructions are for running Retina on a bare metal Ubuntu se
 | Intel Xeon Silver 4314| Ubuntu 20.04  | Mellanox ConnectX-5 100G MCX516A-CCA_Ax  |
 | AMD EPYC 7452 32-Core | Ubuntu 20.04  | Mellanox ConnectX-5 Ex Dual Port 100 GbE |
 
-We have also tested Retina in offline mode on both x86 and ARM-based [Ubuntu VMs](#Testing-Retina-(Offline)-on-a-VM).
+We have also tested Retina in offline mode on both x86 and ARM-based [Ubuntu VMs](#testing-retina-offline-on-a-vm).
 
 Retina can run on other platforms as well, detail to come.
 
