@@ -15,9 +15,9 @@ fn main() {
 
     let out_dir_s = env::var("OUT_DIR").unwrap();
     let out_dir = Path::new(&out_dir_s);
-    let dpdk_path_s = env::var("DPDK_PATH").unwrap();
-    let dpdk_path = Path::new(&dpdk_path_s);
-    let pkg_config_path = dpdk_path.join("lib/x86_64-linux-gnu/pkgconfig");
+    let load_lib_path_s = env::var("LD_LIBRARY_PATH").unwrap();
+    let load_lib_path = Path::new(&load_lib_path_s);
+    let pkg_config_path = load_lib_path.join("pkgconfig");
     let cflags_bytes = Command::new("pkg-config")
         .env("PKG_CONFIG_PATH", &pkg_config_path)
         .args(["--cflags", "libdpdk"])
@@ -43,7 +43,7 @@ fn main() {
         .stdout;
 
     if ldflags_bytes.is_empty() {
-        println!("Could not get DPDK's LDFLAGS. Is DPDK_PATH set correctly?");
+        println!("Could not get DPDK's LDFLAGS. Are DPDK_PATH, LD_LIBRARY_PATH set correctly?");
         exit(1);
     };
 
