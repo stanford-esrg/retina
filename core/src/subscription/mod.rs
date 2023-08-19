@@ -142,3 +142,35 @@ where
         tsc_record!(self.timers, "callback", t0);
     }
 }
+
+
+pub struct MatchData {
+    pkt_term_node: usize,
+    conn_term_node: Option<usize>,
+}
+
+impl MatchData {
+    pub fn new(pkt_term_node: usize) -> Self {
+        Self {
+            pkt_term_node, 
+            conn_term_node: None,
+        }
+    }
+
+    pub fn filter_conn<S: Subscribable>(&mut self, conn: &ConnData, subscription: &Subscription<S>) -> FilterResult {
+        let result= subscription.filter_conn(self.pkt_term_node, conn);
+        if let FilterResult::MatchTerminal(idx) = result {
+            self.conn_term_node = Some(idx);
+        } else if let FilterResult::MatchNonTerminal(idx) = result {
+            self.conn_term_node = Some(idx);
+        }
+        result
+    }
+
+    pub fn filter_session<S: Subscribable>(&mut self, session: &Session, subscription: &Subscription<S>) -> bool {
+        if let Some(node) = self.conn_term_node {
+            return subscription.filter_session(session, node);
+        }
+        subscription.filter_session(session, self.pkt_term_node)
+    }
+}
