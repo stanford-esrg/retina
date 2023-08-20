@@ -138,7 +138,7 @@ where
     pub(crate) fn terminate(&mut self, subscription: &Subscription<T::Subscribed>) {
         match self.info.state {
             ConnState::Probing => {
-                if let FilterResult::MatchTerminal(_) = subscription.filter_conn(&self.info.cdata) {
+                if let FilterResult::MatchTerminal(_) = self.info.sdata.filter_conn(&self.info.cdata, subscription) {
                     self.info.sdata.on_terminate(subscription);
                 }
             }
@@ -146,7 +146,7 @@ where
                 // only call on_terminate() if the first session in the connection was matched
                 let mut first_session_matched = false;
                 for session in self.info.cdata.conn_parser.drain_sessions() {
-                    if subscription.filter_session(&session, self.info.cdata.conn_term_node) {
+                    if self.info.sdata.filter_session(&session, subscription) {
                         if session.id == 0 {
                             first_session_matched = true;
                         }

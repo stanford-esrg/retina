@@ -193,7 +193,7 @@ pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let connection_filter_fn = quote! {
         #[inline]
-        fn connection_filter(conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::FilterResult {
+        fn connection_filter(pkt_term_node: usize, conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::FilterResult {
             #connection_filter_body
         }
     };

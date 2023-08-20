@@ -27,7 +27,7 @@ where
         ConnInfo {
             state: ConnState::Probing,
             cdata: ConnData::new(five_tuple, pkt_term_node),
-            sdata: T::new(five_tuple),
+            sdata: T::new(five_tuple, pkt_term_node),
         }
     }
 
@@ -62,7 +62,7 @@ where
         match registry.probe_all(&pdu) {
             ProbeRegistryResult::Some(conn_parser) => {
                 self.cdata.conn_parser = conn_parser;
-                match subscription.filter_conn(&self.cdata) {
+                match self.sdata.filter_conn(&self.cdata, subscription) {
                     FilterResult::MatchTerminal(idx) | FilterResult::MatchNonTerminal(idx) => {
                         self.state = ConnState::Parsing;
                         self.cdata.conn_term_node = idx;
@@ -76,7 +76,7 @@ where
             ProbeRegistryResult::None => {
                 // conn_parser remains Unknown
                 self.sdata.pre_match(pdu, None);
-                match subscription.filter_conn(&self.cdata) {
+                match self.sdata.filter_conn(&self.cdata, subscription) {
                     FilterResult::MatchTerminal(_idx) => {
                         self.sdata.on_match(Session::default(), subscription);
                         self.state = self.get_match_state(0);
@@ -100,7 +100,7 @@ where
             ParseResult::Done(id) => {
                 self.sdata.pre_match(pdu, Some(id));
                 if let Some(session) = self.cdata.conn_parser.remove_session(id) {
-                    if subscription.filter_session(&session, self.cdata.conn_term_node) {
+                    if self.sdata.filter_session(&session, subscription) {
                         self.sdata.on_match(session, subscription);
                         self.state = self.get_match_state(id);
                     } else {

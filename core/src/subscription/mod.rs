@@ -6,21 +6,21 @@
 //! be customized within the framework to provide additional data to the callback if needed.
 
 pub mod connection;
-pub mod connection_frame;
-pub mod dns_transaction;
-pub mod frame;
-pub mod http_transaction;
+//pub mod connection_frame;
+// pub mod dns_transaction;
+//pub mod frame;
+//pub mod http_transaction;
 pub mod tls_handshake;
-pub mod zc_frame;
+//pub mod zc_frame;
 
 // Re-export subscribable types for more convenient usage.
 pub use self::connection::Connection;
-pub use self::connection_frame::ConnectionFrame;
-pub use self::dns_transaction::DnsTransaction;
-pub use self::frame::Frame;
-pub use self::http_transaction::HttpTransaction;
+//pub use self::connection_frame::ConnectionFrame;
+//pub use self::dns_transaction::DnsTransaction;
+//pub use self::frame::Frame;
+//pub use self::http_transaction::HttpTransaction;
 pub use self::tls_handshake::TlsHandshake;
-pub use self::zc_frame::ZcFrame;
+//pub use self::zc_frame::ZcFrame;
 
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
@@ -71,7 +71,7 @@ pub trait Trackable {
 
     /// Create a new Trackable type to manage subscription data for the duration of the connection
     /// represented by `five_tuple`.
-    fn new(five_tuple: FiveTuple) -> Self;
+    fn new(five_tuple: FiveTuple, pkt_term_node: usize) -> Self;
 
     /// Update tracked subscription data prior to a full filter match.
     fn pre_match(&mut self, pdu: L4Pdu, session_id: Option<usize>);
@@ -84,6 +84,9 @@ pub trait Trackable {
 
     /// Update tracked subscription data on connection termination.
     fn on_terminate(&mut self, subscription: &Subscription<Self::Subscribed>);
+
+    fn filter_conn(&mut self, conn: &ConnData, subscription:  &Subscription<Self::Subscribed>) -> FilterResult;
+    fn filter_session(&mut self, session: &Session, subscription: &Subscription<Self::Subscribed>) -> bool;
 }
 
 /// A request for a callback on a subset of traffic specified by the filter.
@@ -122,8 +125,8 @@ where
     }
 
     /// Invokes the connection filter.
-    pub(crate) fn filter_conn(&self, conn: &ConnData) -> FilterResult {
-        (self.conn_filter)(conn)
+    pub(crate) fn filter_conn(&self, pkt_term_node: usize, conn: &ConnData) -> FilterResult {
+        (self.conn_filter)(pkt_term_node, conn)
     }
 
     /// Invokes the application-layer session filter. The `idx` parameter is the numerical ID of the

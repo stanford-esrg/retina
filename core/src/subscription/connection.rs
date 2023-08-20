@@ -27,7 +27,7 @@ use crate::conntrack::ConnTracker;
 use crate::filter::FilterResult;
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::packet::tcp::{ACK, FIN, RST, SYN};
-use crate::protocols::stream::{ConnParser, Session};
+use crate::protocols::stream::{ConnParser, Session, ConnData};
 use crate::subscription::{Level, Subscribable, Subscription, Trackable};
 
 use serde::ser::{SerializeStruct, Serializer};
@@ -198,6 +198,8 @@ pub struct TrackedConnection {
     history: Vec<u8>,
     ctos: Flow,
     stoc: Flow,
+    pkt_term_node: usize,
+    conn_term_node: Option<usize>,
 }
 
 impl TrackedConnection {
@@ -253,7 +255,7 @@ impl TrackedConnection {
 impl Trackable for TrackedConnection {
     type Subscribed = Connection;
 
-    fn new(five_tuple: FiveTuple) -> Self {
+    fn new(five_tuple: FiveTuple, pkt_term_node: usize) -> Self {
         let now = Instant::now();
         TrackedConnection {
             five_tuple,
@@ -264,6 +266,8 @@ impl Trackable for TrackedConnection {
             history: Vec::with_capacity(16),
             ctos: Flow::new(),
             stoc: Flow::new(),
+            pkt_term_node,
+            conn_term_node: None,
         }
     }
 
@@ -306,6 +310,23 @@ impl Trackable for TrackedConnection {
             resp: self.stoc.clone(),
         };
         subscription.invoke(conn);
+    }
+
+    fn filter_conn(&mut self, conn: &ConnData, subscription:  &Subscription<Self::Subscribed>) -> FilterResult {
+        let result= subscription.filter_conn(self.pkt_term_node, conn);
+        if let FilterResult::MatchTerminal(idx) = result {
+            self.conn_term_node = Some(idx)
+        } else if let FilterResult::MatchNonTerminal(idx) = result {
+            self.conn_term_node = Some(idx)
+        }
+        result
+    }
+
+    fn filter_session(&mut self, session: &Session, subscription: &Subscription<Self::Subscribed>) -> bool {
+        if let Some(node) = self.conn_term_node {
+            return subscription.filter_session(session, node);
+        }
+        subscription.filter_session(session, self.pkt_term_node)
     }
 }
 

@@ -21,7 +21,7 @@ use anyhow::{bail, Result};
 use thiserror::Error;
 
 pub type PacketFilterFn = fn(&Mbuf) -> FilterResult;
-pub type ConnFilterFn = fn(&ConnData) -> FilterResult;
+pub type ConnFilterFn = fn(usize, &ConnData) -> FilterResult;
 pub type SessionFilterFn = fn(&Session, usize) -> bool;
 
 /// Represents the result of an intermediate filter.

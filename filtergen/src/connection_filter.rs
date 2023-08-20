@@ -32,7 +32,7 @@ pub(crate) fn gen_connection_filter(
     }
 
     let connection_filter = quote! {
-        match conn.pkt_term_node {
+        match pkt_term_node {
             #( #body )*
             _ => return retina_core::filter::FilterResult::NoMatch,
         }

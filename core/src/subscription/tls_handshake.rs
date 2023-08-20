@@ -23,7 +23,7 @@ use crate::conntrack::ConnTracker;
 use crate::filter::FilterResult;
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::tls::{parser::TlsParser, Tls};
-use crate::protocols::stream::{ConnParser, Session, SessionData};
+use crate::protocols::stream::{ConnParser, Session, SessionData, ConnData};
 use crate::subscription::{Level, Subscribable, Subscription, Trackable};
 
 use serde::Serialize;
@@ -94,13 +94,19 @@ impl Subscribable for TlsHandshake {
 #[doc(hidden)]
 pub struct TrackedTls {
     five_tuple: FiveTuple,
+    pkt_term_node: usize,
+    conn_term_node: Option<usize>,
 }
 
 impl Trackable for TrackedTls {
     type Subscribed = TlsHandshake;
 
-    fn new(five_tuple: FiveTuple) -> Self {
-        TrackedTls { five_tuple }
+    fn new(five_tuple: FiveTuple, pkt_term_node: usize) -> Self {
+        TrackedTls { 
+            five_tuple, 
+            pkt_term_node,
+            conn_term_node: None,
+        }
     }
 
     fn pre_match(&mut self, _pdu: L4Pdu, _session_id: Option<usize>) {}
@@ -117,4 +123,21 @@ impl Trackable for TrackedTls {
     fn post_match(&mut self, _pdu: L4Pdu, _subscription: &Subscription<Self::Subscribed>) {}
 
     fn on_terminate(&mut self, _subscription: &Subscription<Self::Subscribed>) {}
+
+    fn filter_conn(&mut self, conn: &ConnData, subscription:  &Subscription<Self::Subscribed>) -> FilterResult {
+        let result= subscription.filter_conn(self.pkt_term_node, conn);
+        if let FilterResult::MatchTerminal(idx) = result {
+            self.conn_term_node = Some(idx)
+        } else if let FilterResult::MatchNonTerminal(idx) = result {
+            self.conn_term_node = Some(idx)
+        }
+        result
+    }
+
+    fn filter_session(&mut self, session: &Session, subscription: &Subscription<Self::Subscribed>) -> bool {
+        if let Some(node) = self.conn_term_node {
+            return subscription.filter_session(session, node);
+        }
+        subscription.filter_session(session, self.pkt_term_node)
+    }
 }
