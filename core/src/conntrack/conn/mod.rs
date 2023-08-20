@@ -143,17 +143,15 @@ where
                 }
             }
             ConnState::Parsing => {
-                // only call on_terminate() if the first session in the connection was matched
-                let mut first_session_matched = false;
+                // call `on_terminate` if any sessions matched.
+                let mut session_matched = false; 
                 for session in self.info.cdata.conn_parser.drain_sessions() {
                     if self.info.sdata.filter_session(&session, subscription) {
-                        if session.id == 0 {
-                            first_session_matched = true;
-                        }
+                        session_matched = true;
                         self.info.sdata.deliver_session_on_match(session, subscription);
                     }
                 }
-                if first_session_matched {
+                if session_matched {
                     self.info.sdata.on_terminate(subscription);
                 }
             }

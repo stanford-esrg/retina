@@ -4,7 +4,7 @@ use crate::filter::FilterResult;
 use crate::protocols::stream::{
     ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, Session,
 };
-use crate::subscription::{Level, Subscribable, Subscription, Trackable};
+use crate::subscription::{Subscription, Trackable};
 
 #[derive(Debug)]
 pub(crate) struct ConnInfo<T>
@@ -119,7 +119,9 @@ where
                         }
                     } else {
                         /* TODOTR CHECK THIS LOGIC */
-                        self.state = self.get_nomatch_state(id);
+                        // May want dependence on subscribable types 
+                        // (e.g., force remove if you want to match Connection only on first Session?)
+                        self.state = self.cdata.conn_parser.session_nomatch_state();
                     }
                 } else {
                     log::error!("Done parse but no mru");
@@ -139,14 +141,6 @@ where
         self.sdata.update(pdu, None, subscription);
     }
 
-    // TODO
-    fn get_nomatch_state(&self, session_id: usize) -> ConnState {
-        if session_id == 0 && T::Subscribed::level() == Level::Connection {
-            ConnState::Remove
-        } else {
-            self.cdata.conn_parser.session_nomatch_state()
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
