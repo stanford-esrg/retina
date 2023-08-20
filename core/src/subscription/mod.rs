@@ -6,7 +6,7 @@
 //! be customized within the framework to provide additional data to the callback if needed.
 
 pub mod connection;
-//pub mod connection_frame;
+pub mod connection_frame;
 // pub mod dns_transaction;
 pub mod frame;
 //pub mod http_transaction;
@@ -15,7 +15,7 @@ pub mod tls_handshake;
 
 // Re-export subscribable types for more convenient usage.
 pub use self::connection::Connection;
-//pub use self::connection_frame::ConnectionFrame;
+pub use self::connection_frame::ConnectionFrame;
 //pub use self::dns_transaction::DnsTransaction;
 pub use self::frame::Frame;
 //pub use self::http_transaction::HttpTransaction;
@@ -151,6 +151,7 @@ where
 pub struct MatchData {
     pkt_term_node: usize,
     conn_term_node: Option<usize>,
+    pub conn_matched: bool,
 }
 
 impl MatchData {
@@ -158,6 +159,7 @@ impl MatchData {
         Self {
             pkt_term_node, 
             conn_term_node: None,
+            conn_matched: false,
         }
     }
 
@@ -165,6 +167,7 @@ impl MatchData {
         let result= subscription.filter_conn(self.pkt_term_node, conn);
         if let FilterResult::MatchTerminal(idx) = result {
             self.conn_term_node = Some(idx);
+            self.conn_matched = true;
         } else if let FilterResult::MatchNonTerminal(idx) = result {
             self.conn_term_node = Some(idx);
         }
@@ -173,8 +176,10 @@ impl MatchData {
 
     pub fn filter_session<S: Subscribable>(&mut self, session: &Session, subscription: &Subscription<S>) -> bool {
         if let Some(node) = self.conn_term_node {
-            return subscription.filter_session(session, node);
+            self.conn_matched = subscription.filter_session(session, node);
+        } else {
+            self.conn_matched = subscription.filter_session(session, self.pkt_term_node);
         }
-        subscription.filter_session(session, self.pkt_term_node)
+        self.conn_matched
     }
 }

@@ -29,8 +29,9 @@ use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
 use crate::filter::FilterResult;
 use crate::memory::mbuf::Mbuf;
-use crate::protocols::stream::{ConnParser, Session};
-use crate::subscription::{Level, Subscribable, Subscription, Trackable};
+use crate::protocols::stream::{ConnParser, Session, ConnData};
+use crate::conntrack::conn::conn_info::{ConnState};
+use crate::subscription::{Level, Subscribable, Subscription, Trackable, MatchData};
 
 use std::net::SocketAddr;
 
@@ -101,36 +102,54 @@ pub struct TrackedConnectionFrame {
     five_tuple: FiveTuple,
     /// Buffers packets in the connection prior to a filter match.
     buf: Vec<ConnectionFrame>,
+    match_data: MatchData,
 }
 
 impl Trackable for TrackedConnectionFrame {
     type Subscribed = ConnectionFrame;
 
-    fn new(five_tuple: FiveTuple) -> Self {
+    fn new(five_tuple: FiveTuple, pkt_term_node: usize) -> Self {
         TrackedConnectionFrame {
             five_tuple,
             buf: vec![],
+            match_data: MatchData::new(pkt_term_node),
         }
     }
 
-    fn pre_match(&mut self, pdu: L4Pdu, _session_id: Option<usize>) {
-        self.buf
-            .push(ConnectionFrame::new(self.five_tuple, pdu.mbuf_ref()));
+    fn update(&mut self, 
+        pdu: L4Pdu, 
+        _session_id: Option<usize>,
+        subscription: &Subscription<Self::Subscribed>)
+    {
+        match self.match_data.conn_matched {
+            true => {
+                subscription.invoke(ConnectionFrame::new(self.five_tuple, pdu.mbuf_ref()));
+            },
+            false => {
+                self.buf
+                    .push(ConnectionFrame::new(self.five_tuple, pdu.mbuf_ref()));
+            }
+        }
     }
 
-    fn on_match(&mut self, _session: Session, subscription: &Subscription<Self::Subscribed>) {
+    fn deliver_session_on_match(&mut self, _session: Session, subscription: &Subscription<Self::Subscribed>) -> ConnState {
         self.buf.drain(..).for_each(|frame| {
             subscription.invoke(frame);
         });
-    }
-
-    fn post_match(&mut self, pdu: L4Pdu, subscription: &Subscription<Self::Subscribed>) {
-        subscription.invoke(ConnectionFrame::new(self.five_tuple, pdu.mbuf_ref()));
+        ConnState::Tracking
     }
 
     fn on_terminate(&mut self, subscription: &Subscription<Self::Subscribed>) {
         self.buf.drain(..).for_each(|frame| {
             subscription.invoke(frame);
         });
+    }
+
+    fn filter_conn(&mut self, conn: &ConnData, subscription:  &Subscription<Self::Subscribed>) -> FilterResult {
+        return self.match_data.filter_conn(conn, subscription);
+    }
+
+    fn filter_session(&mut self, session: &Session, subscription: &Subscription<Self::Subscribed>) -> bool {
+        return self.match_data.filter_session(session, subscription);
     }
 }
