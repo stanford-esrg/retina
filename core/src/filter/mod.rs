@@ -25,7 +25,7 @@ pub type ConnFilterFn = fn(usize, &ConnData) -> FilterResult;
 pub type SessionFilterFn = fn(&Session, usize) -> bool;
 
 /// Represents the result of an intermediate filter.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum FilterResult {
     /// Matches a terminal pattern in the filter.
     MatchTerminal(usize),

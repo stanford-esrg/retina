@@ -29,6 +29,7 @@ use crate::memory::mbuf::Mbuf;
 use crate::protocols::packet::tcp::{ACK, FIN, RST, SYN};
 use crate::protocols::stream::{ConnParser, Session, ConnData};
 use crate::subscription::{Level, Subscribable, Subscription, Trackable, MatchData};
+use crate::conntrack::conn::conn_info::{ConnState};
 
 use serde::ser::{SerializeStruct, Serializer};
 use serde::Serialize;
@@ -269,16 +270,17 @@ impl Trackable for TrackedConnection {
         }
     }
 
-    fn pre_match(&mut self, pdu: L4Pdu, _session_id: Option<usize>) {
+    fn deliver_session_on_match(&mut self, _session: Session, 
+                                _subscription: &Subscription<Self::Subscribed>) -> ConnState {
+        ConnState::Tracking
+    }
+
+    fn update(&mut self, 
+        pdu: L4Pdu, 
+        _session_id: Option<usize>,
+        _subscription: &Subscription<Self::Subscribed>)
+    {
         self.update(pdu);
-    }
-
-    fn on_match(&mut self, _session: Session, _subscription: &Subscription<Self::Subscribed>) {
-        // do nothing, should stay tracked
-    }
-
-    fn post_match(&mut self, pdu: L4Pdu, _subscription: &Subscription<Self::Subscribed>) {
-        self.update(pdu)
     }
 
     fn on_terminate(&mut self, subscription: &Subscription<Self::Subscribed>) {

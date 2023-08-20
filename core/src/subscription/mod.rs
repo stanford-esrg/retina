@@ -8,7 +8,7 @@
 pub mod connection;
 //pub mod connection_frame;
 // pub mod dns_transaction;
-//pub mod frame;
+pub mod frame;
 //pub mod http_transaction;
 pub mod tls_handshake;
 //pub mod zc_frame;
@@ -17,7 +17,7 @@ pub mod tls_handshake;
 pub use self::connection::Connection;
 //pub use self::connection_frame::ConnectionFrame;
 //pub use self::dns_transaction::DnsTransaction;
-//pub use self::frame::Frame;
+pub use self::frame::Frame;
 //pub use self::http_transaction::HttpTransaction;
 pub use self::tls_handshake::TlsHandshake;
 //pub use self::zc_frame::ZcFrame;
@@ -25,6 +25,7 @@ pub use self::tls_handshake::TlsHandshake;
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
 use crate::conntrack::ConnTracker;
+use crate::conntrack::conn::conn_info::{ConnState};
 use crate::filter::{ConnFilterFn, PacketFilterFn, SessionFilterFn};
 use crate::filter::{FilterFactory, FilterResult};
 use crate::memory::mbuf::Mbuf;
@@ -73,16 +74,19 @@ pub trait Trackable {
     /// represented by `five_tuple`.
     fn new(five_tuple: FiveTuple, pkt_term_node: usize) -> Self;
 
-    /// Update tracked subscription data prior to a full filter match.
-    fn pre_match(&mut self, pdu: L4Pdu, session_id: Option<usize>);
+    fn update(&mut self, 
+              // Needed for connection and frame data
+              pdu: L4Pdu, 
+              // Needed for frame-level subscriptions - if filtering by session, 
+              // only deliver packets associated with matched session (may have multiple per connection)
+              session_id: Option<usize>, 
+              subscription: &Subscription<Self::Subscribed>);
 
-    /// Update tracked subscription data on a full filter match.
-    fn on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>);
+    // Needed for session data
+    fn deliver_session_on_match(&mut self, session: Session, 
+                                subscription: &Subscription<Self::Subscribed>) -> ConnState;
 
-    /// Update tracked subscription data after a full filter match.
-    fn post_match(&mut self, pdu: L4Pdu, subscription: &Subscription<Self::Subscribed>);
-
-    /// Update tracked subscription data on connection termination.
+    /// Update tracked subscr iption data on connection termination.
     fn on_terminate(&mut self, subscription: &Subscription<Self::Subscribed>);
 
     fn filter_conn(&mut self, conn: &ConnData, subscription:  &Subscription<Self::Subscribed>) -> FilterResult;

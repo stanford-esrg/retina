@@ -24,6 +24,7 @@ use crate::filter::FilterResult;
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::tls::{parser::TlsParser, Tls};
 use crate::protocols::stream::{ConnParser, Session, SessionData, ConnData};
+use crate::conntrack::conn::conn_info::{ConnState};
 use crate::subscription::{Level, Subscribable, Subscription, Trackable, MatchData};
 
 use serde::Serialize;
@@ -107,18 +108,23 @@ impl Trackable for TrackedTls {
         }
     }
 
-    fn pre_match(&mut self, _pdu: L4Pdu, _session_id: Option<usize>) {}
-
-    fn on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) {
+    fn deliver_session_on_match(&mut self, session: Session, 
+                                subscription: &Subscription<Self::Subscribed>) -> ConnState {
         if let SessionData::Tls(tls) = session.data {
-            subscription.invoke(TlsHandshake {
-                five_tuple: self.five_tuple,
-                data: *tls,
-            });
+            subscription.invoke( 
+                TlsHandshake {
+                    five_tuple: self.five_tuple,
+                    data: *tls,
+                }
+            );
         }
+        ConnState::Remove
     }
 
-    fn post_match(&mut self, _pdu: L4Pdu, _subscription: &Subscription<Self::Subscribed>) {}
+    fn update(&mut self, 
+              _pdu: L4Pdu, 
+              _session_id: Option<usize>,
+              _subscription: &Subscription<Self::Subscribed>) {}
 
     fn on_terminate(&mut self, _subscription: &Subscription<Self::Subscribed>) {}
 

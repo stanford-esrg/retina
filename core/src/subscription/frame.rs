@@ -35,10 +35,11 @@
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
+use crate::conntrack::conn::conn_info::{ConnState};
 use crate::filter::FilterResult;
 use crate::memory::mbuf::Mbuf;
-use crate::protocols::stream::{ConnParser, Session};
-use crate::subscription::{Level, Subscribable, Subscription, Trackable};
+use crate::protocols::stream::{ConnParser, Session, ConnData};
+use crate::subscription::{Level, Subscribable, Subscription, Trackable, MatchData};
 
 use std::collections::HashMap;
 
@@ -101,6 +102,7 @@ impl Subscribable for Frame {
 #[doc(hidden)]
 pub struct TrackedFrame {
     session_buf: HashMap<usize, Vec<Mbuf>>,
+    match_data: MatchData,
     // Buffers packets not associated with parsed sessions. (e.g., control packets, malformed,
     // etc.). misc_buf: Vec<Mbuf>,
 }
@@ -108,38 +110,58 @@ pub struct TrackedFrame {
 impl Trackable for TrackedFrame {
     type Subscribed = Frame;
 
-    fn new(_five_tuple: FiveTuple) -> Self {
+    fn new(_five_tuple: FiveTuple, pkt_term_node: usize) -> Self {
         TrackedFrame {
             session_buf: HashMap::new(),
-            // misc_buf: vec![],
+            match_data: MatchData::new(pkt_term_node),
         }
     }
 
-    fn pre_match(&mut self, pdu: L4Pdu, session_id: Option<usize>) {
+    fn update(&mut self, 
+              // Needed for connection and frame data
+              pdu: L4Pdu, 
+              // Needed for frame-level subscriptions - if filtering by session, 
+              // only deliver packets associated with matched session (may have multiple per connection)
+              session_id: Option<usize>, 
+              _subscription: &Subscription<Self::Subscribed>)
+    {
+        // `post_match` calls to `update` will not be called for `Level::Packet`
+        // subscriptions -- `post_match` is only used for `ConnState::Tracking`, 
+        // which only happens in `Level::Connection`.
+        
+        // All that needs to be considered here is the `pre_match` case. 
         if let Some(session_id) = session_id {
+            // TODOTR/NOTETR: optimize when there's no session-level filtering needed!
             self.session_buf
                 .entry(session_id)
                 .or_insert_with(Vec::new)
                 .push(pdu.mbuf_own());
         } else {
             drop(pdu);
-            // self.misc_buf.push(pdu.mbuf_own());
         }
     }
 
-    fn on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) {
+    // Session-level frames are delivered on session match
+    fn deliver_session_on_match(&mut self, session: Session, 
+                                subscription: &Subscription<Self::Subscribed>) -> ConnState
+    {
         if let Some(session) = self.session_buf.remove(&session.id) {
             session.into_iter().for_each(|mbuf| {
                 let frame = Frame::from_mbuf(&mbuf);
                 subscription.invoke(frame);
             });
         }
-    }
-
-    fn post_match(&mut self, pdu: L4Pdu, subscription: &Subscription<Self::Subscribed>) {
-        let frame = Frame::from_mbuf(&pdu.mbuf_own());
-        subscription.invoke(frame);
+        return ConnState::Remove;
     }
 
     fn on_terminate(&mut self, _subscription: &Subscription<Self::Subscribed>) {}
+
+    fn filter_conn(&mut self, conn: &ConnData, subscription:  &Subscription<Self::Subscribed>) -> FilterResult {
+        return self.match_data.filter_conn(conn, subscription);
+    }
+    
+    fn filter_session(&mut self, session: &Session, subscription: &Subscription<Self::Subscribed>) -> bool {
+        return self.match_data.filter_session(session, subscription);
+    }
+
 }

@@ -97,7 +97,7 @@ where
                         tcp_conn.stoc.ooo_buf.buf.clear();
                     }
                     tcp_conn.update_term_condition(pdu.flags(), pdu.dir);
-                    self.info.sdata.post_match(pdu, subscription);
+                    self.info.sdata.update(pdu, None, subscription);
                 } else {
                     tcp_conn.reassemble(pdu, &mut self.info, subscription, registry);
                 }
@@ -150,7 +150,7 @@ where
                         if session.id == 0 {
                             first_session_matched = true;
                         }
-                        self.info.sdata.on_match(session, subscription);
+                        self.info.sdata.deliver_session_on_match(session, subscription);
                     }
                 }
                 if first_session_matched {

@@ -75,13 +75,13 @@ where
             }
             ProbeRegistryResult::None => {
                 // conn_parser remains Unknown
-                self.sdata.pre_match(pdu, None);
+                self.sdata.update(pdu, None, subscription);
                 match self.sdata.filter_conn(&self.cdata, subscription) {
                     FilterResult::MatchTerminal(_idx) => {
-                        self.sdata.on_match(Session::default(), subscription);
-                        self.state = self.get_match_state(0);
+                        self.state = self.sdata.deliver_session_on_match(Session::default(), subscription);
                     }
                     FilterResult::MatchNonTerminal(_idx) => {
+                        // If no session data, can't apply a session filter.
                         self.state = ConnState::Remove;
                     }
                     FilterResult::NoMatch => {
@@ -90,7 +90,7 @@ where
                 }
             }
             ProbeRegistryResult::Unsure => {
-                self.sdata.pre_match(pdu, None);
+                self.sdata.update(pdu, None, subscription);
             }
         }
     }
@@ -98,12 +98,27 @@ where
     fn on_parse(&mut self, pdu: L4Pdu, subscription: &Subscription<T::Subscribed>) {
         match self.cdata.conn_parser.parse(&pdu) {
             ParseResult::Done(id) => {
-                self.sdata.pre_match(pdu, Some(id));
+                self.sdata.update(pdu, Some(id), subscription);
                 if let Some(session) = self.cdata.conn_parser.remove_session(id) {
+                    /* TODOTR CHECK THIS LOGIC */
                     if self.sdata.filter_session(&session, subscription) {
-                        self.sdata.on_match(session, subscription);
-                        self.state = self.get_match_state(id);
+                        // Does the subscription want the connection to stay tracked? 
+                        let subscription_state = self.sdata.deliver_session_on_match(session, subscription);
+                        // Does the filter want the connection to stay tracked? 
+                        let filter_state = self.cdata.conn_parser.session_match_state();
+                        if subscription_state == ConnState::Remove && filter_state == ConnState::Remove {
+                            self.state = ConnState::Remove;
+                        } else if filter_state == ConnState::Parsing {
+                            // Example: filtering for `Http` may have multiple sessions per connection
+                            // - Regardless of subscribable type, keep tracking sessions
+                            self.state = ConnState::Parsing;
+                        } else {
+                            // Example: filtering for `Tls`, but want the whole connection.
+                            // - No need to keep parsing after the handshake, but should still track.
+                            self.state = ConnState::Tracking;
+                        }
                     } else {
+                        /* TODOTR CHECK THIS LOGIC */
                         self.state = self.get_nomatch_state(id);
                     }
                 } else {
@@ -112,26 +127,19 @@ where
                 }
             }
             ParseResult::Continue(id) => {
-                self.sdata.pre_match(pdu, Some(id));
+                self.sdata.update(pdu, Some(id), subscription);
             }
             ParseResult::Skipped => {
-                self.sdata.pre_match(pdu, None);
+                self.sdata.update(pdu, None, subscription);
             }
         }
     }
 
     fn on_track(&mut self, pdu: L4Pdu, subscription: &Subscription<T::Subscribed>) {
-        self.sdata.post_match(pdu, subscription);
+        self.sdata.update(pdu, None, subscription);
     }
 
-    fn get_match_state(&self, session_id: usize) -> ConnState {
-        if session_id == 0 && T::Subscribed::level() == Level::Connection {
-            ConnState::Tracking
-        } else {
-            self.cdata.conn_parser.session_match_state()
-        }
-    }
-
+    // TODO
     fn get_nomatch_state(&self, session_id: usize) -> ConnState {
         if session_id == 0 && T::Subscribed::level() == Level::Connection {
             ConnState::Remove
