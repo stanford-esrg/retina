@@ -1,12 +1,12 @@
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
-use crate::filter::FilterResult;
+use crate::filter::{FilterResult, FilterResultData};
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::tls::{parser::TlsParser, Tls};
 use crate::protocols::stream::{ConnParser, Session, SessionData, ConnData};
 use crate::conntrack::conn::conn_info::{ConnState};
-use crate::subscription::{Level, Subscribable, Subscription, Trackable, MatchData, Frame};
+use crate::subscription::{Subscribable, Subscription, Trackable, MatchData, Frame};
 
 /// A parsed TLS handshake and connection metadata.
 #[derive(Debug)]
@@ -19,12 +19,11 @@ pub struct TlsConnection {
     pub connection_frames: Vec<Frame>,
 }
 
-impl Subscribable for TlsConnection {
-    type Tracked = TrackedTlsConnection;
+pub struct TlsConnectionSubscription;
 
-    fn level() -> Level {
-        Level::Connection
-    }
+impl Subscribable for TlsConnectionSubscription {
+    type Tracked = TrackedTlsConnection;
+    type SubscribedData = TlsConnection;
 
     fn parsers() -> Vec<ConnParser> {
         vec![ConnParser::Tls(TlsParser::default())]
@@ -35,13 +34,13 @@ impl Subscribable for TlsConnection {
         subscription: &Subscription<Self>,
         conn_tracker: &mut ConnTracker<Self::Tracked>,
     ) {
-        match subscription.filter_packet(&mbuf) {
-            FilterResult::MatchTerminal(idx) | FilterResult::MatchNonTerminal(idx) => {
-                if let Ok(ctxt) = L4Context::new(&mbuf, idx) {
-                    conn_tracker.process(mbuf, ctxt, subscription);
-                }
+       let result = subscription.filter_packet(&mbuf);
+        if result.terminal_matches != 0 || result.nonterminal_matches != 0 {
+            if let Ok(ctxt) = L4Context::new(&mbuf) {
+                conn_tracker.process(mbuf, ctxt, subscription, result);
             }
-            FilterResult::NoMatch => drop(mbuf),
+        } else {
+            drop(mbuf);
         }
     }
 }
@@ -55,14 +54,14 @@ pub struct TrackedTlsConnection {
 }
 
 impl Trackable for TrackedTlsConnection {
-    type Subscribed = TlsConnection;
+    type Subscribed = TlsConnectionSubscription;
 
-    fn new(five_tuple: FiveTuple, pkt_term_node: usize) -> Self {
+    fn new(five_tuple: FiveTuple, pkt_results: FilterResultData) -> Self {
         TrackedTlsConnection { 
             five_tuple, 
             buf: Vec::new(),
             data: None,
-            match_data: MatchData::new(pkt_term_node),
+            match_data: MatchData::new(pkt_results),
         }
     }
 
@@ -94,6 +93,10 @@ impl Trackable for TrackedTlsConnection {
                 }
             );
         }
+    }
+
+    fn filter_packet(&mut self, pkt_filter_result: FilterResultData) {
+        self.match_data.filter_packet(pkt_filter_result);
     }
 
     fn filter_conn(&mut self, conn: &ConnData, subscription:  &Subscription<Self::Subscribed>) -> FilterResult {

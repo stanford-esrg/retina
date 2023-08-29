@@ -12,7 +12,7 @@ use self::tcp_conn::TcpConn;
 use self::udp_conn::UdpConn;
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
-use crate::filter::FilterResult;
+use crate::filter::{FilterResult, FilterResultData};
 use crate::protocols::packet::tcp::{ACK, RST, SYN};
 use crate::protocols::stream::ParserRegistry;
 use crate::subscription::{Subscription, Trackable};
@@ -51,7 +51,10 @@ where
     /// `initial_timeout` and a maximum out-or-order tolerance of `max_ooo`. This means that there
     /// can be at most `max_ooo` packets buffered out of sequence before Retina chooses to discard
     /// the connection.
-    pub(super) fn new_tcp(ctxt: L4Context, initial_timeout: usize, max_ooo: usize) -> Result<Self> {
+    pub(super) fn new_tcp(ctxt: L4Context, 
+                          initial_timeout: usize, 
+                          max_ooo: usize,
+                          pkt_results: FilterResultData) -> Result<Self> {
         let five_tuple = FiveTuple::from_ctxt(ctxt);
         let tcp_conn = if ctxt.flags & SYN != 0 && ctxt.flags & ACK == 0 && ctxt.flags & RST == 0 {
             TcpConn::new_on_syn(ctxt, max_ooo)
@@ -62,21 +65,23 @@ where
             last_seen_ts: Instant::now(),
             inactivity_window: initial_timeout,
             l4conn: L4Conn::Tcp(tcp_conn),
-            info: ConnInfo::new(five_tuple, ctxt.idx),
+            info: ConnInfo::new(five_tuple, pkt_results),
         })
     }
 
     /// Creates a new UDP connection from `ctxt` with an initial inactivity window of
     /// `initial_timeout`.
     #[allow(clippy::unnecessary_wraps)]
-    pub(super) fn new_udp(ctxt: L4Context, initial_timeout: usize) -> Result<Self> {
+    pub(super) fn new_udp(ctxt: L4Context, 
+                          initial_timeout: usize,
+                          pkt_results: FilterResultData) -> Result<Self> {
         let five_tuple = FiveTuple::from_ctxt(ctxt);
         let udp_conn = UdpConn;
         Ok(Conn {
             last_seen_ts: Instant::now(),
             inactivity_window: initial_timeout,
             l4conn: L4Conn::Udp(udp_conn),
-            info: ConnInfo::new(five_tuple, ctxt.idx),
+            info: ConnInfo::new(five_tuple, pkt_results),
         })
     }
 

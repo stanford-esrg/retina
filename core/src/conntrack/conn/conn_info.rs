@@ -5,6 +5,7 @@ use crate::protocols::stream::{
     ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, Session,
 };
 use crate::subscription::{Subscription, Trackable};
+use crate::filter::FilterResultData;
 
 #[derive(Debug)]
 pub(crate) struct ConnInfo<T>
@@ -23,11 +24,11 @@ impl<T> ConnInfo<T>
 where
     T: Trackable,
 {
-    pub(super) fn new(five_tuple: FiveTuple, pkt_term_node: usize) -> Self {
+    pub(super) fn new(five_tuple: FiveTuple, pkt_result: FilterResultData) -> Self {
         ConnInfo {
             state: ConnState::Probing,
-            cdata: ConnData::new(five_tuple, pkt_term_node),
-            sdata: T::new(five_tuple, pkt_term_node),
+            cdata: ConnData::new(five_tuple),
+            sdata: T::new(five_tuple, pkt_result),
         }
     }
 
@@ -63,9 +64,12 @@ where
             ProbeRegistryResult::Some(conn_parser) => {
                 self.cdata.conn_parser = conn_parser;
                 match self.sdata.filter_conn(&self.cdata, subscription) {
-                    FilterResult::MatchTerminal(idx) | FilterResult::MatchNonTerminal(idx) => {
+                    FilterResult::MatchTerminal(_idx) => {
+                        self.state = self.sdata.deliver_session_on_match(Session::default(), subscription);
+                        self.on_parse(pdu, subscription);
+                    }
+                    FilterResult::MatchNonTerminal(_idx) => {
                         self.state = ConnState::Parsing;
-                        self.cdata.conn_term_node = idx;
                         self.on_parse(pdu, subscription);
                     }
                     FilterResult::NoMatch => {

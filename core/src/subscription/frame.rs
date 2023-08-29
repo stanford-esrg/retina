@@ -36,10 +36,10 @@ use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
 use crate::conntrack::conn::conn_info::{ConnState};
-use crate::filter::FilterResult;
+use crate::filter::{FilterResult, FilterResultData};
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::{ConnParser, Session, ConnData};
-use crate::subscription::{Level, Subscribable, Subscription, Trackable, MatchData};
+use crate::subscription::{Subscribable, Subscription, Trackable, MatchData};
 
 use std::collections::HashMap;
 
@@ -63,12 +63,11 @@ impl Frame {
     }
 }
 
-impl Subscribable for Frame {
-    type Tracked = TrackedFrame;
+pub struct SubscribedFrame;
 
-    fn level() -> Level {
-        Level::Packet
-    }
+impl Subscribable for SubscribedFrame {
+    type Tracked = TrackedFrame;
+    type SubscribedData = Frame;
 
     fn parsers() -> Vec<ConnParser> {
         vec![]
@@ -79,17 +78,16 @@ impl Subscribable for Frame {
         subscription: &Subscription<Self>,
         conn_tracker: &mut ConnTracker<Self::Tracked>,
     ) {
-        match subscription.filter_packet(&mbuf) {
-            FilterResult::MatchTerminal(_idx) => {
-                let frame = Frame::from_mbuf(&mbuf);
-                subscription.invoke(frame);
+        let result = subscription.filter_packet(&mbuf);
+        if result.terminal_matches != 0 {
+            let frame = Frame::from_mbuf(&mbuf);
+            subscription.invoke(frame);
+        } else if result.nonterminal_matches != 0 {
+            if let Ok(ctxt) = L4Context::new(&mbuf) {
+                conn_tracker.process(mbuf, ctxt, subscription, result);
             }
-            FilterResult::MatchNonTerminal(idx) => {
-                if let Ok(ctxt) = L4Context::new(&mbuf, idx) {
-                    conn_tracker.process(mbuf, ctxt, subscription);
-                }
-            }
-            FilterResult::NoMatch => drop(mbuf),
+        } else {
+            drop(mbuf);
         }
     }
 }
@@ -108,12 +106,12 @@ pub struct TrackedFrame {
 }
 
 impl Trackable for TrackedFrame {
-    type Subscribed = Frame;
+    type Subscribed = SubscribedFrame;
 
-    fn new(_five_tuple: FiveTuple, pkt_term_node: usize) -> Self {
+    fn new(_five_tuple: FiveTuple, pkt_results: FilterResultData) -> Self {
         TrackedFrame {
             session_buf: HashMap::new(),
-            match_data: MatchData::new(pkt_term_node),
+            match_data: MatchData::new(pkt_results),
         }
     }
 
@@ -155,6 +153,10 @@ impl Trackable for TrackedFrame {
     }
 
     fn on_terminate(&mut self, _subscription: &Subscription<Self::Subscribed>) {}
+
+    fn filter_packet(&mut self, pkt_filter_result: FilterResultData) {
+        self.match_data.filter_packet(pkt_filter_result);
+    }
 
     fn filter_conn(&mut self, conn: &ConnData, subscription:  &Subscription<Self::Subscribed>) -> FilterResult {
         return self.match_data.filter_conn(conn, subscription);

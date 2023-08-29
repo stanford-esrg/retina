@@ -154,22 +154,15 @@ pub struct ConnData {
     pub five_tuple: FiveTuple,
     /// The protocol parser associated with the connection.
     pub conn_parser: ConnParser,
-    /// Packet terminal node ID matched by first packet of connection.
-    pub pkt_term_node: usize,
-    /// Connection terminal node ID matched by connection after successful probe. If packet terminal
-    /// node is terminal, this is the same as the packet terminal node.
-    pub conn_term_node: usize,
 }
 
 impl ConnData {
     /// Create a new `ConnData` from the connection `five_tuple` and the ID of the last matched node
     /// in the filter predicate trie.
-    pub(crate) fn new(five_tuple: FiveTuple, pkt_term_node: usize) -> Self {
+    pub(crate) fn new(five_tuple: FiveTuple) -> Self {
         ConnData {
             five_tuple,
             conn_parser: ConnParser::Unknown,
-            pkt_term_node,
-            conn_term_node: pkt_term_node,
         }
     }
 

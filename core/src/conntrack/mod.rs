@@ -20,6 +20,7 @@ use crate::protocols::packet::tcp::TCP_PROTOCOL;
 use crate::protocols::packet::udp::UDP_PROTOCOL;
 use crate::protocols::stream::ParserRegistry;
 use crate::subscription::{Subscription, Trackable};
+use crate::filter::FilterResultData;
 
 use std::cmp;
 use std::time::Instant;
@@ -78,6 +79,7 @@ where
         mbuf: Mbuf,
         ctxt: L4Context,
         subscription: &Subscription<T::Subscribed>,
+        pkt_results: FilterResultData
     ) {
         let conn_id = ConnId::new(ctxt.src, ctxt.dst, ctxt.proto);
         match self.table.raw_entry_mut().from_key(&conn_id) {
@@ -93,6 +95,7 @@ where
                     log::error!("Conn in Remove state when occupied in table");
                 }
                 let pdu = L4Pdu::new(mbuf, ctxt, dir);
+                conn.info.sdata.filter_packet(pkt_results);
                 conn.update(pdu, subscription, &self.registry);
                 if conn.state() == ConnState::Remove {
                     occupied.remove();
@@ -111,8 +114,11 @@ where
                             ctxt,
                             self.config.tcp_establish_timeout,
                             self.config.max_out_of_order,
+                            pkt_results
                         ),
-                        UDP_PROTOCOL => Conn::new_udp(ctxt, self.config.udp_inactivity_timeout),
+                        UDP_PROTOCOL => Conn::new_udp(ctxt, 
+                                              self.config.udp_inactivity_timeout, 
+                                                            pkt_results),
                         _ => Err(anyhow!("Invalid L4 Protocol")),
                     };
                     if let Ok(mut conn) = conn {

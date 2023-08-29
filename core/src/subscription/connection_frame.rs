@@ -27,11 +27,11 @@
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
-use crate::filter::FilterResult;
+use crate::filter::{FilterResultData, FilterResult};
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::{ConnParser, Session, ConnData};
 use crate::conntrack::conn::conn_info::{ConnState};
-use crate::subscription::{Level, Subscribable, Subscription, Trackable, MatchData};
+use crate::subscription::{Subscribable, Subscription, Trackable, MatchData};
 
 use std::net::SocketAddr;
 
@@ -64,12 +64,11 @@ impl ConnectionFrame {
     }
 }
 
-impl Subscribable for ConnectionFrame {
-    type Tracked = TrackedConnectionFrame;
+pub struct ConnectionFrameSubscription;
 
-    fn level() -> Level {
-        Level::Connection
-    }
+impl Subscribable for ConnectionFrameSubscription {
+    type Tracked = TrackedConnectionFrame;
+    type SubscribedData = ConnectionFrame;
 
     fn parsers() -> Vec<ConnParser> {
         vec![]
@@ -80,13 +79,13 @@ impl Subscribable for ConnectionFrame {
         subscription: &Subscription<Self>,
         conn_tracker: &mut ConnTracker<Self::Tracked>,
     ) {
-        match subscription.filter_packet(&mbuf) {
-            FilterResult::MatchTerminal(idx) | FilterResult::MatchNonTerminal(idx) => {
-                if let Ok(ctxt) = L4Context::new(&mbuf, idx) {
-                    conn_tracker.process(mbuf, ctxt, subscription);
-                }
+        let result = subscription.filter_packet(&mbuf);
+        if result.terminal_matches != 0 || result.nonterminal_matches != 0 {
+            if let Ok(ctxt) = L4Context::new(&mbuf) {
+                conn_tracker.process(mbuf, ctxt, subscription, result);
             }
-            FilterResult::NoMatch => drop(mbuf),
+        } else {
+            drop(mbuf);
         }
     }
 }
@@ -106,13 +105,13 @@ pub struct TrackedConnectionFrame {
 }
 
 impl Trackable for TrackedConnectionFrame {
-    type Subscribed = ConnectionFrame;
+    type Subscribed = ConnectionFrameSubscription;
 
-    fn new(five_tuple: FiveTuple, pkt_term_node: usize) -> Self {
+    fn new(five_tuple: FiveTuple, pkt_results: FilterResultData) -> Self {
         TrackedConnectionFrame {
             five_tuple,
             buf: vec![],
-            match_data: MatchData::new(pkt_term_node),
+            match_data: MatchData::new(pkt_results),
         }
     }
 
@@ -121,7 +120,7 @@ impl Trackable for TrackedConnectionFrame {
         _session_id: Option<usize>,
         subscription: &Subscription<Self::Subscribed>)
     {
-        match self.match_data.conn_matched {
+        match self.match_data.matched_term_by_idx(0) {
             true => {
                 subscription.invoke(ConnectionFrame::new(self.five_tuple, pdu.mbuf_ref()));
             },
@@ -143,6 +142,10 @@ impl Trackable for TrackedConnectionFrame {
         self.buf.drain(..).for_each(|frame| {
             subscription.invoke(frame);
         });
+    }
+
+    fn filter_packet(&mut self, pkt_filter_result: FilterResultData) {
+        self.match_data.filter_packet(pkt_filter_result);
     }
 
     fn filter_conn(&mut self, conn: &ConnData, subscription:  &Subscription<Self::Subscribed>) -> FilterResult {

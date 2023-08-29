@@ -22,14 +22,14 @@ pub use self::frame::Frame;
 //pub use self::http_transaction::HttpTransaction;
 pub use self::tls_handshake::TlsHandshake;
 //pub use self::zc_frame::ZcFrame;
-pub use self::tls_connection::TlsConnection;
+pub use self::tls_connection::{TlsConnection, TlsConnectionSubscription};
 
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
 use crate::conntrack::ConnTracker;
 use crate::conntrack::conn::conn_info::{ConnState};
 use crate::filter::{ConnFilterFn, PacketFilterFn, SessionFilterFn};
-use crate::filter::{FilterFactory, FilterResult};
+use crate::filter::{FilterFactory, FilterResult, FilterResultData};
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::{ConnData, ConnParser, Session};
 
@@ -49,12 +49,13 @@ pub enum Level {
     Session,
 }
 
+pub trait SubscribedData {}
+
 /// Represents a generic subscribable type. All subscribable types must implement this trait.
 pub trait Subscribable {
     type Tracked: Trackable<Subscribed = Self>;
-
-    /// Returns the subscription level.
-    fn level() -> Level;
+    // Subscribed type returned to callback.
+    type SubscribedData;
 
     /// Returns a list of protocol parsers required to parse the subscribable type.
     fn parsers() -> Vec<ConnParser>;
@@ -74,7 +75,7 @@ pub trait Trackable {
 
     /// Create a new Trackable type to manage subscription data for the duration of the connection
     /// represented by `five_tuple`.
-    fn new(five_tuple: FiveTuple, pkt_term_node: usize) -> Self;
+    fn new(five_tuple: FiveTuple, pkt_result: FilterResultData) -> Self;
 
     fn update(&mut self, 
               // Needed for connection and frame data
@@ -90,7 +91,8 @@ pub trait Trackable {
 
     /// Update tracked subscr iption data on connection termination.
     fn on_terminate(&mut self, subscription: &Subscription<Self::Subscribed>);
-
+    
+    fn filter_packet(&mut self, pkt_filter_result: FilterResultData);
     fn filter_conn(&mut self, conn: &ConnData, subscription:  &Subscription<Self::Subscribed>) -> FilterResult;
     fn filter_session(&mut self, session: &Session, subscription: &Subscription<Self::Subscribed>) -> bool;
 }
@@ -104,7 +106,7 @@ where
     packet_filter: PacketFilterFn,
     conn_filter: ConnFilterFn,
     session_filter: SessionFilterFn,
-    callback: Box<dyn Fn(S) + 'a>,
+    callbacks: Vec<Box<dyn Fn(S::SubscribedData) + 'a>>,
     #[cfg(feature = "timing")]
     pub(crate) timers: Timers,
 }
@@ -114,74 +116,119 @@ where
     S: Subscribable,
 {
     /// Creates a new subscription from a filter and a callback.
-    pub(crate) fn new(factory: FilterFactory, cb: impl Fn(S) + 'a) -> Self {
+    pub(crate) fn new(factory: FilterFactory, callbacks: Vec<Box<dyn Fn(S::SubscribedData) + 'a>>) -> Self {
         Subscription {
             packet_filter: factory.packet_filter,
             conn_filter: factory.conn_filter,
             session_filter: factory.session_filter,
-            callback: Box::new(cb),
+            callbacks,
             #[cfg(feature = "timing")]
             timers: Timers::new(),
         }
     }
 
     /// Invokes the software packet filter.
-    pub(crate) fn filter_packet(&self, mbuf: &Mbuf) -> FilterResult {
+    pub(crate) fn filter_packet(&self, mbuf: &Mbuf) -> FilterResultData {
         (self.packet_filter)(mbuf)
     }
 
     /// Invokes the connection filter.
-    pub(crate) fn filter_conn(&self, pkt_term_node: usize, conn: &ConnData) -> FilterResult {
-        (self.conn_filter)(pkt_term_node, conn)
+    pub(crate) fn filter_conn(&self, pkt_result: &FilterResultData, conn: &ConnData) -> FilterResultData {
+        (self.conn_filter)(pkt_result, conn)
     }
 
     /// Invokes the application-layer session filter. The `idx` parameter is the numerical ID of the
     /// session.
-    pub(crate) fn filter_session(&self, session: &Session, idx: usize) -> bool {
-        (self.session_filter)(session, idx)
+    pub(crate) fn filter_session(&self, session: &Session, conn_result: &FilterResultData) -> FilterResultData {
+        (self.session_filter)(session, conn_result)
     }
 
     /// Invoke the callback on `S`.
-    pub(crate) fn invoke(&self, obj: S) {
+    pub(crate) fn invoke(&self, obj: S::SubscribedData) {
         tsc_start!(t0);
-        (self.callback)(obj);
+        (self.callbacks[0])(obj);
+        tsc_record!(self.timers, "callback", t0);
+    }
+
+    /// Invoke the `idx`th callback on `S`.
+    pub(crate) fn _invoke_idx(&self, obj: S::SubscribedData, idx: usize) {
+        tsc_start!(t0);
+        (self.callbacks[idx])(obj);
         tsc_record!(self.timers, "callback", t0);
     }
 }
 
 
 pub struct MatchData {
-    pkt_term_node: usize,
-    conn_term_node: Option<usize>,
-    pub conn_matched: bool,
+    pkt_filter_result: FilterResultData,
+    conn_filter_result: Option<FilterResultData>,
+    // Bit vector: filters matched so far
+    pub matched_terminal: u32,
+    pub matched_nonterminal: u32,
 }
 
 impl MatchData {
-    pub fn new(pkt_term_node: usize) -> Self {
+    pub fn new(pkt_filter_result: FilterResultData) -> Self {
+        let term_matches = pkt_filter_result.terminal_matches;
+        let nonterm_matches = pkt_filter_result.nonterminal_matches;
         Self {
-            pkt_term_node, 
-            conn_term_node: None,
-            conn_matched: false,
+            pkt_filter_result, 
+            conn_filter_result: None,
+            matched_terminal: term_matches,
+            matched_nonterminal: nonterm_matches,
         }
+    }
+
+    pub fn filter_packet(&mut self, pkt_filter_result: FilterResultData) {
+        self.pkt_filter_result = pkt_filter_result;
+        self.matched_terminal = self.pkt_filter_result.terminal_matches;
+        self.matched_nonterminal = self.pkt_filter_result.nonterminal_matches;
     }
 
     pub fn filter_conn<S: Subscribable>(&mut self, conn: &ConnData, subscription: &Subscription<S>) -> FilterResult {
-        let result= subscription.filter_conn(self.pkt_term_node, conn);
-        if let FilterResult::MatchTerminal(idx) = result {
-            self.conn_term_node = Some(idx);
-            self.conn_matched = true;
-        } else if let FilterResult::MatchNonTerminal(idx) = result {
-            self.conn_term_node = Some(idx);
+
+        let result = subscription.filter_conn(&self.pkt_filter_result, conn);
+        // If any packet filters already terminally matched, maintain them
+        self.matched_terminal |= result.terminal_matches;
+        self.matched_nonterminal = result.nonterminal_matches;
+        self.conn_filter_result = Some(result);
+        
+        if self.matched_terminal != 0 {
+            return FilterResult::MatchTerminal(0);
+        } else if self.matched_nonterminal != 0 {
+            return FilterResult::MatchNonTerminal(0);
         }
-        result
+        FilterResult::NoMatch
     }
 
     pub fn filter_session<S: Subscribable>(&mut self, session: &Session, subscription: &Subscription<S>) -> bool {
-        if let Some(node) = self.conn_term_node {
-            self.conn_matched = subscription.filter_session(session, node);
-        } else {
-            self.conn_matched = subscription.filter_session(session, self.pkt_term_node);
-        }
-        self.conn_matched
+
+        let result = match &self.conn_filter_result {
+            Some(result_data) => { 
+                subscription.filter_session(session, &result_data) 
+            },
+            None => { 
+                subscription.filter_session(session, &self.pkt_filter_result)
+            },
+        };
+        self.matched_terminal |= result.terminal_matches;
+        self.matched_nonterminal = result.nonterminal_matches;
+        return self.matched_terminal != 0;
     }
+
+    #[inline]
+    pub fn matched_term_by_idx(&self, idx: usize) -> bool {
+        self.matched_terminal & (0b1 << idx) != 0
+    }
+
+    #[inline]
+    pub fn matching_by_idx(&self, idx: usize) -> bool {
+        (self.matched_terminal | self.matched_nonterminal) & (0b1 << idx) != 0
+    }
+
+    #[inline]
+    pub fn matched_nonterm_by_idx(&self, idx: usize) -> bool {
+        self.matched_nonterminal & (0b1 << idx) != 0
+    }
+
 }

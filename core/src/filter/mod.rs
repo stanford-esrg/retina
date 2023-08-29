@@ -14,15 +14,16 @@ use crate::filter::ptree::PTree;
 use crate::memory::mbuf::Mbuf;
 use crate::port::Port;
 use crate::protocols::stream::{ConnData, Session};
+use std::collections::HashSet;
 
 use std::fmt;
 
 use anyhow::{bail, Result};
 use thiserror::Error;
 
-pub type PacketFilterFn = fn(&Mbuf) -> FilterResult;
-pub type ConnFilterFn = fn(usize, &ConnData) -> FilterResult;
-pub type SessionFilterFn = fn(&Session, usize) -> bool;
+pub type PacketFilterFn = fn(&Mbuf) -> FilterResultData;
+pub type ConnFilterFn = fn(&FilterResultData, &ConnData) -> FilterResultData;
+pub type SessionFilterFn = fn(&Session, &FilterResultData) -> FilterResultData;
 
 /// Represents the result of an intermediate filter.
 #[derive(Debug, Clone, Copy)]
@@ -33,6 +34,25 @@ pub enum FilterResult {
     MatchNonTerminal(usize),
     /// Matches none of the patterns in the filter.
     NoMatch,
+}
+
+#[derive(Debug, Clone)]
+pub struct FilterResultData {
+    // Bitmaps
+    pub terminal_matches: u32,
+    pub nonterminal_matches: u32,
+    // TODOTR stack alloc for faster indexing
+    pub nonterminal_nodes: HashSet<usize>,
+}
+
+impl FilterResultData {
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            terminal_matches: 0,
+            nonterminal_matches: 0,
+            nonterminal_nodes: HashSet::with_capacity(capacity),
+        }
+    }
 }
 
 pub struct FilterFactory {

@@ -1,5 +1,5 @@
 use retina_core::config::default_config;
-use retina_core::subscription::TlsConnection;
+use retina_core::subscription::{TlsConnection, TlsConnectionSubscription};
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
@@ -9,6 +9,6 @@ fn main() {
     let callback = |tls: TlsConnection| {
         println!("{:?}", tls);
     };
-    let mut runtime = Runtime::new(cfg, filter, callback).unwrap();
+    let mut runtime: Runtime<TlsConnectionSubscription> = Runtime::new(cfg, filter, vec![Box::new(callback)]).unwrap();
     runtime.run();
 }

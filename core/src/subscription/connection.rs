@@ -24,11 +24,11 @@ use crate::conntrack::conn::tcp_conn::reassembly::wrapping_lt;
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
-use crate::filter::FilterResult;
+use crate::filter::{FilterResult, FilterResultData};
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::packet::tcp::{ACK, FIN, RST, SYN};
 use crate::protocols::stream::{ConnParser, Session, ConnData};
-use crate::subscription::{Level, Subscribable, Subscription, Trackable, MatchData};
+use crate::subscription::{Subscribable, Subscription, Trackable, MatchData};
 use crate::conntrack::conn::conn_info::{ConnState};
 
 use serde::ser::{SerializeStruct, Serializer};
@@ -57,7 +57,7 @@ const HIST_RST: u8 = b'R';
 /// This subscribable type returns general information regarding TCP and UDP connections but does
 /// does not track payload data. If applicable, Retina internally manages stream reassembly. All
 /// connections are interpreted using flow semantics.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Connection {
     /// The connection 5-tuple.
     pub five_tuple: FiveTuple,
@@ -156,12 +156,11 @@ impl fmt::Display for Connection {
     }
 }
 
-impl Subscribable for Connection {
-    type Tracked = TrackedConnection;
+pub struct ConnectionSubscription;
 
-    fn level() -> Level {
-        Level::Connection
-    }
+impl Subscribable for ConnectionSubscription {
+    type Tracked = TrackedConnection;
+    type SubscribedData = Connection;
 
     // TODO: return a vector of all known parsers.
     fn parsers() -> Vec<ConnParser> {
@@ -173,13 +172,13 @@ impl Subscribable for Connection {
         subscription: &Subscription<Self>,
         conn_tracker: &mut ConnTracker<Self::Tracked>,
     ) {
-        match subscription.filter_packet(&mbuf) {
-            FilterResult::MatchTerminal(idx) | FilterResult::MatchNonTerminal(idx) => {
-                if let Ok(ctxt) = L4Context::new(&mbuf, idx) {
-                    conn_tracker.process(mbuf, ctxt, subscription);
-                }
+        let result = subscription.filter_packet(&mbuf);
+        if result.terminal_matches != 0 || result.nonterminal_matches != 0 {
+            if let Ok(ctxt) = L4Context::new(&mbuf) {
+                conn_tracker.process(mbuf, ctxt, subscription, result);
             }
-            FilterResult::NoMatch => drop(mbuf),
+        } else {
+            drop(mbuf);
         }
     }
 }
@@ -253,9 +252,9 @@ impl TrackedConnection {
 }
 
 impl Trackable for TrackedConnection {
-    type Subscribed = Connection;
+    type Subscribed = ConnectionSubscription;
 
-    fn new(five_tuple: FiveTuple, pkt_term_node: usize) -> Self {
+    fn new(five_tuple: FiveTuple, pkt_results: FilterResultData) -> Self {
         let now = Instant::now();
         TrackedConnection {
             five_tuple,
@@ -266,7 +265,7 @@ impl Trackable for TrackedConnection {
             history: Vec::with_capacity(16),
             ctos: Flow::new(),
             stoc: Flow::new(),
-            match_data: MatchData::new(pkt_term_node),
+            match_data: MatchData::new(pkt_results),
         }
     }
 
@@ -310,6 +309,10 @@ impl Trackable for TrackedConnection {
             resp: self.stoc.clone(),
         };
         subscription.invoke(conn);
+    }
+
+    fn filter_packet(&mut self, pkt_filter_result: FilterResultData) {
+        self.match_data.filter_packet(pkt_filter_result);
     }
 
     fn filter_conn(&mut self, conn: &ConnData, subscription:  &Subscription<Self::Subscribed>) -> FilterResult {
