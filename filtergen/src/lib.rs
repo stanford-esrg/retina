@@ -186,21 +186,23 @@ pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let packet_filter_fn = quote! {
         #[inline]
-        fn packet_filter(mbuf: &retina_core::Mbuf) -> retina_core::filter::FilterResult {
+        fn packet_filter(mbuf: &retina_core::Mbuf) -> retina_core::filter::FilterResultData {
             #packet_filter_body
         }
     };
 
     let connection_filter_fn = quote! {
         #[inline]
-        fn connection_filter(pkt_term_node: usize, conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::FilterResult {
+        fn connection_filter(pkt_results: &retina_core::filter::FilterResultData, 
+                             conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::FilterResultData {
             #connection_filter_body
         }
     };
 
     let session_filter_fn = quote! {
         #[inline]
-        fn session_filter(session: &retina_core::protocols::stream::Session, idx: usize) -> bool {
+        fn session_filter(session: &retina_core::protocols::stream::Session, 
+                          conn_results: &retina_core::filter::FilterResultData) -> retina_core::filter::FilterResultData {
             #session_filter_body
         }
     };

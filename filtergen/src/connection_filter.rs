@@ -14,7 +14,9 @@ pub(crate) fn gen_connection_filter(
         // only ethernet - no filter specified
         return (
             quote! {
-                retina_core::filter::FilterResult::MatchTerminal(0)
+                let mut result = retina_core::filter::FilterResultData::new(1);
+                result.terminal_matches |= 0b1 << 0;
+                result
             },
             vec![],
         );
@@ -32,10 +34,14 @@ pub(crate) fn gen_connection_filter(
     }
 
     let connection_filter = quote! {
-        match pkt_term_node {
-            #( #body )*
-            _ => return retina_core::filter::FilterResult::NoMatch,
+        let mut result = retina_core::filter::FilterResultData::new(1);
+        for node in &pkt_results.nonterminal_nodes {
+            match node {
+                #( #body )*
+                _ => {}
+            }
         }
+        result
     };
     (connection_filter, ct_nodes)
 }
@@ -52,7 +58,9 @@ fn add_node_match_arm(
         // If there is no connection node, return a match with the last idx of the matched
         // packet predicate node.
         code.push(quote! {
-            #idx_lit => return retina_core::filter::FilterResult::MatchTerminal(#idx_lit),
+            #idx_lit => { 
+                result.terminal_matches != 0b1 << 0;
+            }
         })
     } else {
         assert!(matches!(node.terminates, Terminate::Packet));
@@ -71,7 +79,6 @@ fn add_node_match_arm(
         code.push(quote! {
             #idx_lit => {
                 #( #body )*
-                return retina_core::filter::FilterResult::NoMatch;
             }
         })
     }
@@ -94,13 +101,14 @@ fn add_service_pred(
         if node.is_terminal {
             code.push(quote! {
                 if matches!(conn.service(), retina_core::protocols::stream::ConnParser::#service_ident { .. }) {
-                    return retina_core::filter::FilterResult::MatchTerminal(#idx_lit);
+                    result.terminal_matches |= 0b1 << 0; 
                 }
             })
         } else {
             code.push(quote! {
                 if matches!(conn.service(), retina_core::protocols::stream::ConnParser::#service_ident { .. }) {
-                    return retina_core::filter::FilterResult::MatchNonTerminal(#idx_lit);
+                    result.nonterminal_matches |= 0b1 << 0;
+                    result.nonterminal_nodes.insert(#idx_lit);
                 }
             })
         }

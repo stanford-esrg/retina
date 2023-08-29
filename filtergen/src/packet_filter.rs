@@ -18,7 +18,9 @@ pub(crate) fn gen_packet_filter(
         // only ethernet - no filter specified
         return (
             quote! {
-                retina_core::filter::FilterResult::MatchTerminal(0)
+                let mut result = retina_core::filter::FilterResultData::new(1);
+                result.terminal_matches |= 0b1 << 0;
+                result
             },
             vec![],
         );
@@ -40,10 +42,11 @@ pub(crate) fn gen_packet_filter(
     );
 
     let packet_filter = quote! {
+        let mut result = retina_core::filter::FilterResultData::new(1);
         if let Ok(#outer) = &retina_core::protocols::packet::Packet::parse_to::<retina_core::protocols::packet::#outer::#outer_type>(mbuf) {
             #( #body )*
         }
-        return retina_core::filter::FilterResult::NoMatch;
+        return result;
     };
     (packet_filter, pt_nodes)
 }
@@ -114,11 +117,12 @@ fn add_unary_pred(
 
         if node.is_terminal {
             body.push(quote! {
-                return retina_core::filter::FilterResult::MatchTerminal(#idx_lit);
+                result.terminal_matches |= 0b1 << 0;
             })
         } else {
             body.push(quote! {
-                return retina_core::filter::FilterResult::MatchNonTerminal(#idx_lit);
+                result.nonterminal_matches |= 0b1 << 0;
+                result.nonterminal_nodes.insert(#idx_lit);
             });
         }
     }
@@ -158,11 +162,12 @@ fn add_binary_pred(
 
         if node.is_terminal {
             body.push(quote! {
-                return retina_core::filter::FilterResult::MatchTerminal(#idx_lit);
+                result.terminal_matches |= 0b1 << 0;
             })
         } else {
             body.push(quote! {
-                return retina_core::filter::FilterResult::MatchNonTerminal(#idx_lit);
+                result.nonterminal_matches |= 0b1 << 0; 
+                result.nonterminal_nodes.insert(#idx_lit);
             });
         }
     }
