@@ -14,7 +14,7 @@ pub(crate) fn gen_connection_filter(
         // only ethernet - no filter specified
         return (
             quote! {
-                let mut result = retina_core::filter::FilterResultData::new(1);
+                let mut result = retina_core::filter::FilterResultData::new();
                 result.terminal_matches |= 0b1 << 0;
                 result
             },
@@ -34,8 +34,9 @@ pub(crate) fn gen_connection_filter(
     }
 
     let connection_filter = quote! {
-        let mut result = retina_core::filter::FilterResultData::new(1);
+        let mut result = retina_core::filter::FilterResultData::new();
         for node in &pkt_results.nonterminal_nodes {
+            if *node == std::usize::MAX { continue; }
             match node {
                 #( #body )*
                 _ => {}
@@ -108,7 +109,7 @@ fn add_service_pred(
             code.push(quote! {
                 if matches!(conn.service(), retina_core::protocols::stream::ConnParser::#service_ident { .. }) {
                     result.nonterminal_matches |= 0b1 << 0;
-                    result.nonterminal_nodes.insert(#idx_lit);
+                    result.nonterminal_nodes[0] = #idx_lit;
                 }
             })
         }

@@ -15,7 +15,7 @@ pub(crate) fn gen_session_filter(
     if ptree.root.is_terminal {
         // only ethernet - no filter specified
         return quote! {
-            let mut result = retina_core::filter::FilterResultData::new(1);
+            let mut result = retina_core::filter::FilterResultData::new();
             result.terminal_matches |= 0b1 << 0;
             result
         };
@@ -32,8 +32,10 @@ pub(crate) fn gen_session_filter(
     }
 
     quote! {
-        let mut result = retina_core::filter::FilterResultData::new(1);
+        let mut result = retina_core::filter::FilterResultData::new();
         for node in &conn_results.nonterminal_nodes {
+            // TODO better to use nonterm bitmap to loop?
+            if *node == std::usize::MAX { continue; }
             match node {
                 #( #body )*
                 _ => {}

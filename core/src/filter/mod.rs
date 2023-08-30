@@ -14,7 +14,7 @@ use crate::filter::ptree::PTree;
 use crate::memory::mbuf::Mbuf;
 use crate::port::Port;
 use crate::protocols::stream::{ConnData, Session};
-use std::collections::HashSet;
+use crate::subscription::NUM_SUBSCRIPTIONS;
 
 use std::fmt;
 
@@ -41,16 +41,15 @@ pub struct FilterResultData {
     // Bitmaps
     pub terminal_matches: u32,
     pub nonterminal_matches: u32,
-    // TODOTR stack alloc for faster indexing
-    pub nonterminal_nodes: HashSet<usize>,
+    pub nonterminal_nodes: [usize; NUM_SUBSCRIPTIONS],
 }
 
 impl FilterResultData {
-    pub fn new(capacity: usize) -> Self {
+    pub fn new() -> Self {
         Self {
             terminal_matches: 0,
             nonterminal_matches: 0,
-            nonterminal_nodes: HashSet::with_capacity(capacity),
+            nonterminal_nodes: [std::usize::MAX; NUM_SUBSCRIPTIONS],
         }
     }
 }

@@ -36,6 +36,8 @@ use crate::protocols::stream::{ConnData, ConnParser, Session};
 #[cfg(feature = "timing")]
 use crate::timing::timer::Timers;
 
+pub const NUM_SUBSCRIPTIONS: usize = 1;
+
 /// The abstraction level of the subscribable type.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Level {
