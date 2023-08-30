@@ -64,11 +64,7 @@ where
             ProbeRegistryResult::Some(conn_parser) => {
                 self.cdata.conn_parser = conn_parser;
                 match self.sdata.filter_conn(&self.cdata, subscription) {
-                    FilterResult::MatchTerminal(_idx) => {
-                        self.state = self.sdata.deliver_session_on_match(Session::default(), subscription);
-                        self.on_parse(pdu, subscription);
-                    }
-                    FilterResult::MatchNonTerminal(_idx) => {
+                    FilterResult::MatchTerminal(_idx) | FilterResult::MatchNonTerminal(_idx) => {
                         self.state = ConnState::Parsing;
                         self.on_parse(pdu, subscription);
                     }
@@ -82,7 +78,8 @@ where
                 self.sdata.update(pdu, None, subscription);
                 match self.sdata.filter_conn(&self.cdata, subscription) {
                     FilterResult::MatchTerminal(_idx) => {
-                        self.state = self.sdata.deliver_session_on_match(Session::default(), subscription);
+                        let subscription_state = self.sdata.deliver_session_on_match(Session::default(), subscription);
+                        self.state = self.get_match_state(subscription_state);
                     }
                     FilterResult::MatchNonTerminal(_idx) => {
                         // If no session data, can't apply a session filter.
@@ -108,19 +105,7 @@ where
                     if self.sdata.filter_session(&session, subscription) {
                         // Does the subscription want the connection to stay tracked? 
                         let subscription_state = self.sdata.deliver_session_on_match(session, subscription);
-                        // Does the filter want the connection to stay tracked? 
-                        let filter_state = self.cdata.conn_parser.session_match_state();
-                        if subscription_state == ConnState::Remove && filter_state == ConnState::Remove {
-                            self.state = ConnState::Remove;
-                        } else if filter_state == ConnState::Parsing {
-                            // Example: filtering for `Http` may have multiple sessions per connection
-                            // - Regardless of subscribable type, keep tracking sessions
-                            self.state = ConnState::Parsing;
-                        } else {
-                            // Example: filtering for `Tls`, but want the whole connection.
-                            // - No need to keep parsing after the handshake, but should still track.
-                            self.state = ConnState::Tracking;
-                        }
+                        self.state = self.get_match_state(subscription_state);
                     } else {
                         /* TODOTR CHECK THIS LOGIC */
                         // May want dependence on subscribable types 
@@ -143,6 +128,24 @@ where
 
     fn on_track(&mut self, pdu: L4Pdu, subscription: &Subscription<T::Subscribed>) {
         self.sdata.update(pdu, None, subscription);
+    }
+
+    fn get_match_state(&mut self, subscription_state: ConnState) -> ConnState {
+        // Does the filter want the connection to stay tracked? 
+        let filter_state = self.cdata.conn_parser.session_match_state();
+        return {
+            if subscription_state == ConnState::Remove && filter_state == ConnState::Remove {
+                ConnState::Remove
+            } else if filter_state == ConnState::Parsing {
+                // Example: filtering for `Http` may have multiple sessions per connection
+                // - Regardless of subscribable type, keep tracking sessions
+                ConnState::Parsing
+            } else {
+                // Example: filtering for `Tls`, but want the whole connection.
+                // - No need to keep parsing after the handshake, but should still track.
+                ConnState::Tracking
+            }
+        }
     }
 
 }

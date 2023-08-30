@@ -59,7 +59,7 @@ fn add_node_match_arm(
         // packet predicate node.
         code.push(quote! {
             #idx_lit => { 
-                result.terminal_matches != 0b1 << 0;
+                result.terminal_matches |= 0b1 << 0;
             }
         })
     } else {

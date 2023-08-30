@@ -63,9 +63,9 @@ impl Frame {
     }
 }
 
-pub struct SubscribedFrame;
+pub struct FrameSubscription;
 
-impl Subscribable for SubscribedFrame {
+impl Subscribable for FrameSubscription {
     type Tracked = TrackedFrame;
     type SubscribedData = Frame;
 
@@ -106,7 +106,7 @@ pub struct TrackedFrame {
 }
 
 impl Trackable for TrackedFrame {
-    type Subscribed = SubscribedFrame;
+    type Subscribed = FrameSubscription;
 
     fn new(_five_tuple: FiveTuple, pkt_results: FilterResultData) -> Self {
         TrackedFrame {

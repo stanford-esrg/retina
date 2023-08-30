@@ -1,5 +1,5 @@
 use retina_core::config::default_config;
-use retina_core::subscription::Connection;
+use retina_core::subscription::{Connection, ConnectionSubscription};
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
@@ -46,7 +46,7 @@ fn main() -> Result<()> {
             cnt.fetch_add(1, Ordering::Relaxed);
         }
     };
-    let mut runtime = Runtime::new(cfg, filter, callback)?;
+    let mut runtime: Runtime<ConnectionSubscription> = Runtime::new(cfg, filter, vec![Box::new(callback)])?;
     runtime.run();
 
     let mut wtr = file.lock().unwrap();

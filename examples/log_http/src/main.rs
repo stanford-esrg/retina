@@ -1,5 +1,5 @@
-use retina_core::config::load_config;
-use retina_core::subscription::HttpTransaction;
+use retina_core::config::default_config;
+use retina_core::subscription::{HttpTransaction, HttpTransactionSubscription};
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
@@ -15,8 +15,6 @@ use clap::Parser;
 // Define command-line arguments.
 #[derive(Parser, Debug)]
 struct Args {
-    #[clap(short, long, parse(from_os_str), value_name = "FILE")]
-    config: PathBuf,
     #[clap(
         short,
         long,
@@ -31,7 +29,7 @@ struct Args {
 fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
-    let config = load_config(&args.config);
+    let config = default_config();
 
     // Use `BufWriter` to improve the speed of repeated write calls to the same file.
     let file = Mutex::new(BufWriter::new(File::create(&args.outfile)?));
@@ -45,7 +43,7 @@ fn main() -> Result<()> {
             cnt.fetch_add(1, Ordering::Relaxed);
         }
     };
-    let mut runtime = Runtime::new(config, filter, callback)?;
+    let mut runtime: Runtime<HttpTransactionSubscription> = Runtime::new(config, filter, vec![Box::new(callback)])?;
     runtime.run();
 
     let mut wtr = file.lock().unwrap();

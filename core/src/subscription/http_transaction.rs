@@ -21,11 +21,12 @@
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
-use crate::filter::FilterResult;
+use crate::conntrack::conn::conn_info::{ConnState};
+use crate::filter::{FilterResultData, FilterResult};
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::http::{parser::HttpParser, Http};
-use crate::protocols::stream::{ConnParser, Session, SessionData};
-use crate::subscription::{Level, Subscribable, Subscription, Trackable};
+use crate::protocols::stream::{ConnParser, Session, SessionData, ConnData};
+use crate::subscription::{Subscribable, Subscription, Trackable, MatchData};
 
 use serde::Serialize;
 
@@ -52,12 +53,11 @@ impl HttpTransaction {
     }
 }
 
-impl Subscribable for HttpTransaction {
-    type Tracked = TrackedHttp;
+pub struct HttpTransactionSubscription;
 
-    fn level() -> Level {
-        Level::Session
-    }
+impl Subscribable for HttpTransactionSubscription {
+    type Tracked = TrackedHttp;
+    type SubscribedData = HttpTransaction;
 
     fn parsers() -> Vec<ConnParser> {
         vec![ConnParser::Http(HttpParser::default())]
@@ -68,13 +68,13 @@ impl Subscribable for HttpTransaction {
         subscription: &Subscription<Self>,
         conn_tracker: &mut ConnTracker<Self::Tracked>,
     ) {
-        match subscription.filter_packet(&mbuf) {
-            FilterResult::MatchTerminal(idx) | FilterResult::MatchNonTerminal(idx) => {
-                if let Ok(ctxt) = L4Context::new(&mbuf, idx) {
-                    conn_tracker.process(mbuf, ctxt, subscription);
-                }
+       let result = subscription.filter_packet(&mbuf);
+        if result.terminal_matches != 0 || result.nonterminal_matches != 0 {
+            if let Ok(ctxt) = L4Context::new(&mbuf) {
+                conn_tracker.process(mbuf, ctxt, subscription, result);
             }
-            FilterResult::NoMatch => drop(mbuf),
+        } else {
+            drop(mbuf);
         }
     }
 }
@@ -94,27 +94,45 @@ impl Subscribable for HttpTransaction {
 #[doc(hidden)]
 pub struct TrackedHttp {
     five_tuple: FiveTuple,
+    match_data: MatchData,
 }
 
 impl Trackable for TrackedHttp {
-    type Subscribed = HttpTransaction;
+    type Subscribed = HttpTransactionSubscription;
 
-    fn new(five_tuple: FiveTuple) -> Self {
-        TrackedHttp { five_tuple }
+    fn new(five_tuple: FiveTuple, pkt_results: FilterResultData) -> Self {
+        TrackedHttp { 
+            five_tuple,
+            match_data: MatchData::new(pkt_results),
+        }
     }
 
-    fn pre_match(&mut self, _pdu: L4Pdu, _session_id: Option<usize>) {}
+    fn update(&mut self, 
+              _pdu: L4Pdu, 
+              _session_id: Option<usize>,
+              _subscription: &Subscription<Self::Subscribed>) {}
 
-    fn on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) {
+    fn deliver_session_on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) -> ConnState {
         if let SessionData::Http(http) = session.data {
             subscription.invoke(HttpTransaction {
                 five_tuple: self.five_tuple,
                 data: *http,
             });
         }
+        ConnState::Remove // Parser may keep
     }
 
-    fn post_match(&mut self, _pdu: L4Pdu, _subscription: &Subscription<Self::Subscribed>) {}
-
     fn on_terminate(&mut self, _subscription: &Subscription<Self::Subscribed>) {}
+
+    fn filter_packet(&mut self, pkt_filter_result: FilterResultData) {
+        self.match_data.filter_packet(pkt_filter_result);
+    }
+
+    fn filter_conn(&mut self, conn: &ConnData, subscription:  &Subscription<Self::Subscribed>) -> FilterResult {
+        return self.match_data.filter_conn(conn, subscription);
+    }
+
+    fn filter_session(&mut self, session: &Session, subscription: &Subscription<Self::Subscribed>) -> bool {
+        return self.match_data.filter_session(session, subscription);
+    }
 }

@@ -9,18 +9,18 @@ pub mod connection;
 pub mod connection_frame;
 // pub mod dns_transaction;
 pub mod frame;
-//pub mod http_transaction;
+pub mod http_transaction;
 pub mod tls_handshake;
 //pub mod zc_frame;
 pub mod tls_connection;
 
 // Re-export subscribable types for more convenient usage.
-pub use self::connection::Connection;
-pub use self::connection_frame::ConnectionFrame;
+pub use self::connection::{Connection, ConnectionSubscription};
+pub use self::connection_frame::{ConnectionFrame, ConnectionFrameSubscription};
 //pub use self::dns_transaction::DnsTransaction;
-pub use self::frame::Frame;
-//pub use self::http_transaction::HttpTransaction;
-pub use self::tls_handshake::TlsHandshake;
+pub use self::frame::{Frame, FrameSubscription};
+pub use self::http_transaction::{HttpTransaction, HttpTransactionSubscription};
+pub use self::tls_handshake::{TlsHandshake, TlsHandshakeSubscription};
 //pub use self::zc_frame::ZcFrame;
 pub use self::tls_connection::{TlsConnection, TlsConnectionSubscription};
 
@@ -162,43 +162,40 @@ where
 pub struct MatchData {
     pkt_filter_result: FilterResultData,
     conn_filter_result: Option<FilterResultData>,
-    // Bit vector: filters matched so far
-    pub matched_terminal: u32,
-    pub matched_nonterminal: u32,
+    conn_term_matched: u32,
+    conn_nonterm_matched: u32,
+    session_term_matched: u32,
 }
 
 impl MatchData {
     pub fn new(pkt_filter_result: FilterResultData) -> Self {
-        let term_matches = pkt_filter_result.terminal_matches;
-        let nonterm_matches = pkt_filter_result.nonterminal_matches;
         Self {
             pkt_filter_result, 
             conn_filter_result: None,
-            matched_terminal: term_matches,
-            matched_nonterminal: nonterm_matches,
+            conn_term_matched: 0,
+            conn_nonterm_matched: 0,
+            session_term_matched: 0
         }
     }
 
     pub fn filter_packet(&mut self, pkt_filter_result: FilterResultData) {
         self.pkt_filter_result = pkt_filter_result;
-        self.matched_terminal = self.pkt_filter_result.terminal_matches;
-        self.matched_nonterminal = self.pkt_filter_result.nonterminal_matches;
     }
 
     pub fn filter_conn<S: Subscribable>(&mut self, conn: &ConnData, subscription: &Subscription<S>) -> FilterResult {
-
         let result = subscription.filter_conn(&self.pkt_filter_result, conn);
-        // If any packet filters already terminally matched, maintain them
-        self.matched_terminal |= result.terminal_matches;
-        self.matched_nonterminal = result.nonterminal_matches;
+        self.conn_nonterm_matched = result.nonterminal_matches;
+        self.conn_term_matched = result.terminal_matches;
         self.conn_filter_result = Some(result);
-        
-        if self.matched_terminal != 0 {
-            return FilterResult::MatchTerminal(0);
-        } else if self.matched_nonterminal != 0 {
-            return FilterResult::MatchNonTerminal(0);
+        return {
+            if self.terminal_matches() != 0 {
+                FilterResult::MatchTerminal(0)
+            } else if self.nonterminal_matches() != 0 {
+                FilterResult::MatchNonTerminal(0)
+            } else {
+                FilterResult::NoMatch
+            }
         }
-        FilterResult::NoMatch
     }
 
     pub fn filter_session<S: Subscribable>(&mut self, session: &Session, subscription: &Subscription<S>) -> bool {
@@ -211,24 +208,35 @@ impl MatchData {
                 subscription.filter_session(session, &self.pkt_filter_result)
             },
         };
-        self.matched_terminal |= result.terminal_matches;
-        self.matched_nonterminal = result.nonterminal_matches;
-        return self.matched_terminal != 0;
+        self.session_term_matched = result.terminal_matches;
+        return self.terminal_matches() != 0;
+    }
+
+    // TODO: API to clear `session match` after session delivery if subscription isn't cnxn-level?
+
+    #[inline]
+    fn terminal_matches(&self) -> u32 {
+        self.session_term_matched | self.conn_term_matched | self.pkt_filter_result.terminal_matches
+    }
+
+    #[inline]
+    fn nonterminal_matches(&self) -> u32 {
+        self.conn_nonterm_matched | self.pkt_filter_result.nonterminal_matches
     }
 
     #[inline]
     pub fn matched_term_by_idx(&self, idx: usize) -> bool {
-        self.matched_terminal & (0b1 << idx) != 0
+        self.terminal_matches() & (0b1 << idx) != 0
     }
 
     #[inline]
     pub fn matching_by_idx(&self, idx: usize) -> bool {
-        (self.matched_terminal | self.matched_nonterminal) & (0b1 << idx) != 0
+        (self.nonterminal_matches() | self.terminal_matches()) & (0b1 << idx) != 0
     }
 
     #[inline]
     pub fn matched_nonterm_by_idx(&self, idx: usize) -> bool {
-        self.matched_nonterminal & (0b1 << idx) != 0
+        self.nonterminal_matches() & (0b1 << idx) != 0
     }
 
 }

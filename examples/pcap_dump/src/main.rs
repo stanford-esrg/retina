@@ -1,5 +1,5 @@
 use retina_core::config::default_config;
-use retina_core::subscription::Frame;
+use retina_core::subscription::{FrameSubscription, Frame};
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
@@ -43,7 +43,7 @@ fn main() -> Result<()> {
             .unwrap();
          */
     };
-    let mut runtime = Runtime::new(config, filter, callback)?;
+    let mut runtime: Runtime<FrameSubscription> = Runtime::new(config, filter, vec![Box::new(callback)])?;
     runtime.run();
     Ok(())
 }
