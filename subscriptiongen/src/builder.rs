@@ -152,3 +152,13 @@ impl MethodBuilder {
     }
 
 }
+
+/* 
+ * TODOs:
+ * - Strings and var/enum names should be consts in `prototypes`
+ * - Shared fields that aren't copy (pass ref/shared ptr to CB?)
+ * - Multiple filters (idx's) for same type
+ * - Connections and frames
+ * - General cleanup
+ * - Customizable types - def. fields
+ */
