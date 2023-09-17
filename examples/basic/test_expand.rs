@@ -1,29 +1,40 @@
-use crate::conntrack::conn_id::FiveTuple;
-use crate::conntrack::pdu::{L4Context, L4Pdu};
-use crate::conntrack::ConnTracker;
-use crate::filter::{FilterResult, FilterResultData};
-use crate::memory::mbuf::Mbuf;
-use crate::protocols::stream::tls::{parser::TlsParser, Tls};
-use crate::protocols::stream::http::{parser::HttpParser, Http};
-use crate::protocols::stream::{ConnParser, Session, SessionData, ConnData};
-use crate::conntrack::conn::conn_info::ConnState;
-use crate::subscription::{Trackable, MatchData, Subscription, Subscribable};
-
-#[derive(Debug)]
+#![feature(prelude_import)]
+#[prelude_import]
+use std::prelude::rust_2021::*;
+#[macro_use]
+extern crate std;
+use retina_subscriptiongen::subscription_type;
+use retina_core::conntrack::conn_id::FiveTuple;
+use retina_core::conntrack::pdu::{L4Context, L4Pdu};
+use retina_core::conntrack::ConnTracker;
+use retina_core::filter::{FilterResult, FilterResultData};
+use retina_core::memory::mbuf::Mbuf;
+use retina_core::protocols::stream::tls::{parser::TlsParser, Tls};
+use retina_core::protocols::stream::http::{parser::HttpParser, Http};
+use retina_core::protocols::stream::{ConnParser, Session, SessionData, ConnData};
+use retina_core::conntrack::conn::conn_info::ConnState;
+use retina_core::subscription::{Trackable, MatchData, Subscription, Subscribable};
 pub enum SubscribableEnum {
     Tls(TlsSubscription),
     Http(HttpSubscription),
 }
-
-
-#[derive(Debug)]
+#[automatically_derived]
+impl ::core::fmt::Debug for SubscribableEnum {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        match self {
+            SubscribableEnum::Tls(__self_0) => {
+                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "Tls", &__self_0)
+            }
+            SubscribableEnum::Http(__self_0) => {
+                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "Http", &__self_0)
+            }
+        }
+    }
+}
 pub struct TlsSubscription {
     pub tls: Tls,
     pub five_tuple: FiveTuple,
 }
-
-
-#[derive(Debug)]
 pub struct HttpSubscription {
     pub http: Http,
     pub five_tuple: FiveTuple,
@@ -33,10 +44,13 @@ impl Subscribable for SubscribableWrapper {
     type Tracked = TrackedWrapper;
     type SubscribedData = SubscribableEnum;
     fn parsers() -> Vec<ConnParser> {
-        vec![
+        <[_]>::into_vec(
+            #[rustc_box]
+            ::alloc::boxed::Box::new([
                 ConnParser::Tls(TlsParser::default()),
                 ConnParser::Http(HttpParser::default()),
-            ]
+            ]),
+        )
     }
     fn process_packet(
         mbuf: Mbuf,
@@ -134,3 +148,4 @@ impl Trackable for TrackedWrapper {
         return self.match_data.filter_session(session, subscription);
     }
 }
+fn main() {}

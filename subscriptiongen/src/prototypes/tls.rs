@@ -23,20 +23,22 @@ impl TlsHandshakeData {
     pub fn deliver_session_on_match(is_first: bool, idx: i64) -> proc_macro2::TokenStream {
         // TODOTR figure out where to put #subscription -- should be in its 
         // own conceptual module
-        let subscription = TlsSubscription::from_data(idx); 
+        let subscription_idx = syn::LitInt::new(&idx.to_string(), Span::call_site());
         if !is_first {
             // TODOTR clean this up
             return quote! {
                 else if let SessionData::Tls(tls) = session.data {
-                    self.tls = Some(*tls); 
-                    #subscription
+                    if self.match_data.matched_term_by_idx(#subscription_idx) {
+                        self.tls = Some(*tls); 
+                    }
                 }
             };
         }
         quote! {
             if let SessionData::Tls(tls) = session.data {
-                self.tls = Some(*tls); 
-                #subscription
+                if self.match_data.matched_term_by_idx(#subscription_idx) {
+                    self.tls = Some(*tls); 
+                }
             }
         }
     }
@@ -67,16 +69,21 @@ impl TlsSubscription {
     }
 
     pub fn from_data(idx: i64) -> proc_macro2::TokenStream {
+        if idx < 0 {
+            return quote! {};
+        }
         let subscription_idx = syn::LitInt::new(&idx.to_string(), Span::call_site());
         quote! {
-            if let Some(_data) = &self.tls {
-                subscription.invoke_idx(
-                    SubscribableEnum::Tls(TlsSubscription {
-                        tls: std::mem::take(&mut self.tls).unwrap(),
-                        five_tuple: self.five_tuple,
-                    }),
-                    #subscription_idx
-                );
+            if self.match_data.matched_term_by_idx(#subscription_idx) {
+                if let Some(_data) = &self.tls {
+                    subscription.invoke_idx(
+                        SubscribableEnum::Tls(TlsSubscription {
+                            tls: std::mem::take(&mut self.tls).unwrap(),
+                            five_tuple: self.five_tuple,
+                        }),
+                        #subscription_idx
+                    );
+                }
             }
         }
     }

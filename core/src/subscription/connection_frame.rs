@@ -30,7 +30,7 @@ use crate::conntrack::ConnTracker;
 use crate::filter::{FilterResultData, FilterResult};
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::{ConnParser, Session, ConnData};
-use crate::conntrack::conn::conn_info::{ConnState};
+use crate::conntrack::conn::conn_info::ConnState;
 use crate::subscription::{Subscribable, Subscription, Trackable, MatchData};
 
 use std::net::SocketAddr;

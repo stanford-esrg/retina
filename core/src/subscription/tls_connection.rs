@@ -5,7 +5,7 @@ use crate::filter::{FilterResult, FilterResultData};
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::tls::{parser::TlsParser, Tls};
 use crate::protocols::stream::{ConnParser, Session, SessionData, ConnData};
-use crate::conntrack::conn::conn_info::{ConnState};
+use crate::conntrack::conn::conn_info::ConnState;
 use crate::subscription::{Subscribable, Subscription, Trackable, MatchData, Frame};
 
 /// A parsed TLS handshake and connection metadata.

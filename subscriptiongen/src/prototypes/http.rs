@@ -21,19 +21,21 @@ impl HttpTransactionData {
 
     #[inline]
     pub fn deliver_session_on_match(is_first: bool, idx: i64) -> proc_macro2::TokenStream {
-        let subscription = HttpSubscription::from_data(idx); 
+        let subscription_idx = syn::LitInt::new(&idx.to_string(), Span::call_site());
         if !is_first {
             return quote! {
                 else if let SessionData::Http(http) = session.data {
-                    self.http.push(*http); 
-                    #subscription
+                    if self.match_data.matched_term_by_idx(#subscription_idx) {
+                        self.http.push(*http); 
+                    }
                 }
             };
         }
         quote! {
             if let SessionData::Http(http) = session.data {
-                self.http.push(*http); 
-                #subscription
+                if self.match_data.matched_term_by_idx(#subscription_idx) {
+                    self.http.push(*http); 
+                }
             }
         }
     }
@@ -52,7 +54,6 @@ pub struct HttpSubscription;
 impl HttpSubscription {
 
     pub fn struct_def() -> proc_macro2::TokenStream {
-        // TODOTR: should 5-tuple be in here? If so, add `fields` logic.
         quote! {
             pub struct HttpSubscription { 
                 pub http: Http,
@@ -62,17 +63,22 @@ impl HttpSubscription {
     }
 
     pub fn from_data(idx: i64) -> proc_macro2::TokenStream {
-        let subscription_idx = syn::LitInt::new(&idx.to_string(), Span::call_site());
         // TODOTR iterate? 
+        if idx < 0 {
+            return quote! {};
+        }
+        let subscription_idx = syn::LitInt::new(&idx.to_string(), Span::call_site());
         quote! {
-            if let Some(data) = self.http.pop() {
-                subscription.invoke_idx(
-                    SubscribableEnum::Http(HttpSubscription {
-                        http: data,
-                        five_tuple: self.five_tuple
-                    }
-                ),
-                #subscription_idx);
+            if self.match_data.matched_term_by_idx(#subscription_idx) {
+                if let Some(data) = self.http.pop() {
+                    subscription.invoke_idx(
+                        SubscribableEnum::Http(HttpSubscription {
+                            http: data,
+                            five_tuple: self.five_tuple
+                        }
+                    ),
+                    #subscription_idx);
+                }
             }
         }
     }

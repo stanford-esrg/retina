@@ -21,8 +21,9 @@ pub fn subscription_type(_args: TokenStream, _input: TokenStream) -> TokenStream
     let parsers = cfg.gen_parsers();
     let structs = cfg.gen_structs();
     let enum_fields = cfg.gen_enums();
+    let subscriptions = cfg.gen_subscriptions();
 
-    let match_state = quote! { ConnState::Remove };
+    let match_state = cfg.match_state();
 
     let imports = pub_imports();
     let subscribable_type = subscribable_type(parsers);
@@ -64,6 +65,7 @@ pub fn subscription_type(_args: TokenStream, _input: TokenStream) -> TokenStream
 
             fn deliver_session_on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) -> ConnState {
                 #( #deliver_session_on_match )*
+                #( #subscriptions )*
                 #match_state
             }
 

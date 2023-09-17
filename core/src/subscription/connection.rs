@@ -29,7 +29,7 @@ use crate::memory::mbuf::Mbuf;
 use crate::protocols::packet::tcp::{ACK, FIN, RST, SYN};
 use crate::protocols::stream::{ConnParser, Session, ConnData};
 use crate::subscription::{Subscribable, Subscription, Trackable, MatchData};
-use crate::conntrack::conn::conn_info::{ConnState};
+use crate::conntrack::conn::conn_info::ConnState;
 
 use serde::ser::{SerializeStruct, Serializer};
 use serde::Serialize;

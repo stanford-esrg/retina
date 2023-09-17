@@ -30,7 +30,7 @@ pub use self::tls_connection::{TlsConnection, TlsConnectionSubscription};
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
 use crate::conntrack::ConnTracker;
-use crate::conntrack::conn::conn_info::{ConnState};
+use crate::conntrack::conn::conn_info::ConnState;
 use crate::filter::{ConnFilterFn, PacketFilterFn, SessionFilterFn};
 use crate::filter::{FilterFactory, FilterResult, FilterResultData};
 use crate::memory::mbuf::Mbuf;

@@ -21,7 +21,7 @@
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
-use crate::conntrack::conn::conn_info::{ConnState};
+use crate::conntrack::conn::conn_info::ConnState;
 use crate::filter::{FilterResultData, FilterResult};
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::http::{parser::HttpParser, Http};

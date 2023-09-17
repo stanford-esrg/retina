@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use crate::prototypes::*;
 use serde_yaml::{Value, from_reader};
+use quote::quote;
 
 pub(crate) struct MethodBuilder {
     fields_str: HashSet<String>,
@@ -12,6 +13,7 @@ pub(crate) struct MethodBuilder {
     parser: Vec<proc_macro2::TokenStream>,
     defs: Vec<proc_macro2::TokenStream>,
     enums: Vec<proc_macro2::TokenStream>,
+    subscriptions: Vec<proc_macro2::TokenStream>,
     raw_data: Option<Value>,
 }
 
@@ -37,6 +39,7 @@ impl MethodBuilder {
             parser: Vec::new(),
             defs: Vec::new(),
             enums: Vec::new(),
+            subscriptions: Vec::new(),
             raw_data: Some(data_in.unwrap()),
         }
     }
@@ -73,6 +76,15 @@ impl MethodBuilder {
         std::mem::take(&mut self.defs)
     }
 
+    pub(crate) fn gen_subscriptions(&mut self) -> Vec<proc_macro2::TokenStream> {
+        std::mem::take(&mut self.subscriptions)
+    }
+
+    pub(crate) fn match_state(&self) -> proc_macro2::TokenStream {
+        // TODO
+        quote! { ConnState::Remove }
+    }
+
     pub(crate) fn parse(&mut self) {
         let raw_data = std::mem::take(&mut self.raw_data).unwrap();
         if raw_data.get("subscribed").is_none() {
@@ -99,7 +111,7 @@ impl MethodBuilder {
                     idx
                 ));
                 self.parser.push(HttpTransactionData::parser());
-                self.add_subscription("http");
+                self.add_subscription("http", idx);
                 // add_data five tuple? 
             },
             "tls" => {
@@ -110,7 +122,7 @@ impl MethodBuilder {
                     idx
                 ));
                 self.parser.push(TlsHandshakeData::parser());
-                self.add_subscription("tls");
+                self.add_subscription("tls", idx);
             },
             "five_tuple" => {
                 self.fields.push(FiveTupleData::field());
@@ -123,15 +135,17 @@ impl MethodBuilder {
         }
     }
 
-    fn add_subscription(&mut self, input: &str) {
+    fn add_subscription(&mut self, input: &str, idx: i64) {
         match input {
             "tls" => {
                 self.defs.push(TlsSubscription::struct_def());
                 self.enums.push(TlsSubscription::enum_def());
+                self.subscriptions.push(TlsSubscription::from_data(idx));
             },
             "http" => {
                 self.defs.push(HttpSubscription::struct_def());
                 self.enums.push(HttpSubscription::enum_def());
+                self.subscriptions.push(HttpSubscription::from_data(idx));
             }
             _ => {}
         }

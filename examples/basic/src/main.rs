@@ -17,6 +17,7 @@ fn main() {
     runtime.run();
 }
 
+
 /*
 use retina_subscriptiongen::subscription_type;
 
@@ -24,4 +25,4 @@ use retina_subscriptiongen::subscription_type;
 struct Dummy {}
 
 fn main() {}
-*/
+ */
