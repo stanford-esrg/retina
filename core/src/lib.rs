@@ -45,7 +45,7 @@
 #[macro_use]
 mod timing;
 pub mod config;
-mod conntrack;
+pub mod conntrack;
 #[doc(hidden)]
 #[allow(clippy::all)]
 mod dpdk;
@@ -54,7 +54,7 @@ mod dpdk;
 #[doc(hidden)]
 pub mod filter;
 mod lcore;
-mod memory;
+pub mod memory;
 mod port;
 pub mod protocols;
 mod runtime;

@@ -4,9 +4,9 @@
 //! directly managed by users. However, it publicly exposes some useful connection identifiers for
 //! convenience.
 
-pub(crate) mod conn;
+pub mod conn;
 pub mod conn_id;
-pub(crate) mod pdu;
+pub mod pdu;
 mod timerwheel;
 
 use self::conn::conn_info::ConnState;

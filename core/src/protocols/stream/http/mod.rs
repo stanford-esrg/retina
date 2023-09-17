@@ -17,7 +17,7 @@ TODO: provide request/response body
 TODO: HTTP/2 support
 */
 
-pub(crate) mod parser;
+pub mod parser;
 mod transaction;
 
 pub use self::transaction::{HttpRequest, HttpResponse};

@@ -14,6 +14,9 @@ pub mod tls_handshake;
 //pub mod zc_frame;
 pub mod tls_connection;
 
+pub mod custom;
+pub use self::custom::{SubscribableWrapper, SubscribableEnum};
+
 // Re-export subscribable types for more convenient usage.
 pub use self::connection::{Connection, ConnectionSubscription};
 pub use self::connection_frame::{ConnectionFrame, ConnectionFrameSubscription};
@@ -153,7 +156,7 @@ where
     }
 
     /// Invoke the `idx`th callback on `S`.
-    pub(crate) fn _invoke_idx(&self, obj: S::SubscribedData, idx: usize) {
+    pub(crate) fn invoke_idx(&self, obj: S::SubscribedData, idx: usize) {
         tsc_start!(t0);
         (self.callbacks[idx])(obj);
         tsc_record!(self.timers, "callback", t0);

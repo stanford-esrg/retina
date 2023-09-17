@@ -3,7 +3,7 @@
 //! Tracks a TCP or UDP connection, performs stream reassembly, and manages protocol parser state
 //! throughout the duration of the connection.
 
-pub(crate) mod conn_info;
+pub mod conn_info;
 pub(crate) mod tcp_conn;
 pub(crate) mod udp_conn;
 

@@ -1,7 +1,7 @@
 //! TLS handshake parsing.
 
 mod handshake;
-pub(crate) mod parser;
+pub mod parser;
 
 pub use self::handshake::*;
 
