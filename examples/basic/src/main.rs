@@ -2,8 +2,12 @@ use retina_core::config::default_config;
 use retina_core::subscription::{SubscribableEnum, SubscribableWrapper};
 use retina_core::Runtime;
 use retina_filtergen::filter;
+use retina_subscriptiongen::num_subscriptions;
 
-#[filter("tls or http")]
+#[num_subscriptions]
+pub const TEST: usize = 1;
+
+#[filter("tls")]
 fn main() {
     let cfg = default_config();
     let callback = |tls: SubscribableEnum| {

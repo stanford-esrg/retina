@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use crate::prototypes::*;
 use serde_yaml::{Value, from_reader};
 use quote::quote;
+use proc_macro2::Span;
 
 pub(crate) struct MethodBuilder {
     fields_str: HashSet<String>,
@@ -151,6 +152,29 @@ impl MethodBuilder {
         }
     }
 
+}
+
+pub(crate) fn read_subscriptions(filepath_in: &str) -> proc_macro2::TokenStream {
+    let f_in = std::fs::File::open(filepath_in);
+    if let Err(e) = f_in {
+        panic!("Failed to read config filepath ({}) {:?}", filepath_in, e);
+    }
+    let data_in = from_reader(f_in.unwrap());
+    if let Err(e) = data_in {
+        panic!("{:?}", e);
+    }
+    let raw_data: Value = data_in.unwrap();
+
+    if raw_data.get("num_subscriptions").is_none() {
+        panic!("Must specify number of subscriptions");
+    }
+
+    let value = raw_data.get("num_subscriptions").unwrap().as_i64().unwrap();
+    let num_subscriptions = syn::LitInt::new(&value.to_string(), Span::call_site());
+
+    quote! {
+        pub const NUM_SUBSCRIPTIONS: usize = #num_subscriptions;
+    }
 }
 
 /* 

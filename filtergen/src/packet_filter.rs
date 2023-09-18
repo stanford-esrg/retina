@@ -14,16 +14,11 @@ pub(crate) fn gen_packet_filter(
     ptree: &PTree,
     statics: &mut Vec<proc_macro2::TokenStream>,
 ) -> (proc_macro2::TokenStream, Vec<usize>) {
+    
+    let mut root = quote! {};
     if ptree.root.is_terminal {
         // only ethernet - no filter specified
-        return (
-            quote! {
-                let mut result = retina_core::filter::FilterResultData::new();
-                result.terminal_matches |= 0b1 << 0;
-                result
-            },
-            vec![],
-        );
+        root = quote! { result.terminal_matches |= 0b1 << 0; };
     }
 
     let name = "ethernet";
@@ -41,11 +36,21 @@ pub(crate) fn gen_packet_filter(
         &protocol!("frame"),
     );
 
+    let mut branches = quote! {};
+    if !body.is_empty() {
+        branches = {
+            quote! {
+                if let Ok(#outer) = &retina_core::protocols::packet::Packet::parse_to::<retina_core::protocols::packet::#outer::#outer_type>(mbuf) {
+                    #( #body )*
+                }
+            }
+        };
+    }
+
     let packet_filter = quote! {
         let mut result = retina_core::filter::FilterResultData::new();
-        if let Ok(#outer) = &retina_core::protocols::packet::Packet::parse_to::<retina_core::protocols::packet::#outer::#outer_type>(mbuf) {
-            #( #body )*
-        }
+        #root
+        #branches
         return result;
     };
     (packet_filter, pt_nodes)

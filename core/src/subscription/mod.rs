@@ -35,10 +35,12 @@ use crate::filter::{ConnFilterFn, PacketFilterFn, SessionFilterFn};
 use crate::filter::{FilterFactory, FilterResult, FilterResultData};
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::{ConnData, ConnParser, Session};
+use retina_subscriptiongen::num_subscriptions;
 
 #[cfg(feature = "timing")]
 use crate::timing::timer::Timers;
 
+#[num_subscriptions]
 pub const NUM_SUBSCRIPTIONS: usize = 1;
 
 /// The abstraction level of the subscribable type.

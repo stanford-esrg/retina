@@ -10,17 +10,6 @@ pub(crate) fn gen_connection_filter(
     statics: &mut Vec<proc_macro2::TokenStream>,
     pt_nodes: Vec<usize>,
 ) -> (proc_macro2::TokenStream, Vec<usize>) {
-    if ptree.root.is_terminal {
-        // only ethernet - no filter specified
-        return (
-            quote! {
-                let mut result = retina_core::filter::FilterResultData::new();
-                result.terminal_matches |= 0b1 << 0;
-                result
-            },
-            vec![],
-        );
-    }
 
     let mut ct_nodes = vec![];
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
@@ -33,15 +22,24 @@ pub(crate) fn gen_connection_filter(
         add_node_match_arm(&mut ct_nodes, &mut body, statics, node);
     }
 
+    let mut branches = quote! {};
+    if !body.is_empty() {
+        branches = {
+            quote! {
+                for node in &pkt_results.nonterminal_nodes {
+                    if *node == std::usize::MAX { continue; }
+                    match node {
+                        #( #body )*
+                        _ => {}
+                    }
+                }
+            }
+        };
+    }
+
     let connection_filter = quote! {
         let mut result = retina_core::filter::FilterResultData::new();
-        for node in &pkt_results.nonterminal_nodes {
-            if *node == std::usize::MAX { continue; }
-            match node {
-                #( #body )*
-                _ => {}
-            }
-        }
+        #branches
         result
     };
     (connection_filter, ct_nodes)

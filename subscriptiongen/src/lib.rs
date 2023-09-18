@@ -1,16 +1,21 @@
 mod prototypes; 
 mod builder; 
 
-use builder::MethodBuilder;
+use builder::{MethodBuilder, read_subscriptions};
 
 use proc_macro::TokenStream;
 use quote::quote;
 
 
 #[proc_macro_attribute]
+pub fn num_subscriptions(_args: TokenStream, _input: TokenStream) -> TokenStream {
+    read_subscriptions("/home/trossman/retina/subscription.yml").into() // tmp
+}
+
+#[proc_macro_attribute]
 pub fn subscription_type(_args: TokenStream, _input: TokenStream) -> TokenStream {
 
-    let mut cfg = MethodBuilder::new("/home/trossman/retina/subscription.yml");
+    let mut cfg = MethodBuilder::new("/home/trossman/retina/subscription.yml"); // tmp
     cfg.parse();
 
     let def = cfg.gen_struct(); 

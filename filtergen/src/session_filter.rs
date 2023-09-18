@@ -12,14 +12,6 @@ pub(crate) fn gen_session_filter(
     statics: &mut Vec<proc_macro2::TokenStream>,
     ct_nodes: Vec<usize>,
 ) -> proc_macro2::TokenStream {
-    if ptree.root.is_terminal {
-        // only ethernet - no filter specified
-        return quote! {
-            let mut result = retina_core::filter::FilterResultData::new();
-            result.terminal_matches |= 0b1 << 0;
-            result
-        };
-    }
 
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
     let session_subtrees = ct_nodes
@@ -31,16 +23,25 @@ pub(crate) fn gen_session_filter(
         add_node_match_arm(&mut body, statics, node);
     }
 
+    let mut branches = quote! {};
+    if !body.is_empty() {
+        branches = {
+            quote! {
+                for node in &conn_results.nonterminal_nodes {
+                    // TODO better to use nonterm bitmap to loop?
+                    if *node == std::usize::MAX { continue; }
+                    match node {
+                        #( #body )*
+                        _ => {}
+                    }
+                }
+            }
+        };
+    }
+
     quote! {
         let mut result = retina_core::filter::FilterResultData::new();
-        for node in &conn_results.nonterminal_nodes {
-            // TODO better to use nonterm bitmap to loop?
-            if *node == std::usize::MAX { continue; }
-            match node {
-                #( #body )*
-                _ => {}
-            }
-        }
+        #branches
         result
     }
 }
