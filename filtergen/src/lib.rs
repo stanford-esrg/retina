@@ -125,6 +125,7 @@ mod util;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse_macro_input;
+use serde_yaml::{Value, from_reader};
 
 use retina_core::filter::Filter;
 
@@ -155,17 +156,28 @@ use crate::session_filter::gen_session_filter;
 /// fn main() {}
 /// ```
 #[proc_macro_attribute]
-pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
-    let filter_str = parse_macro_input!(args as syn::LitStr).value();
+pub fn filter(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemFn);
-    // let input_sig = &input.sig.ident;
+    
+    let filter_def = get_filters_from_config();
 
-    let filter = Filter::from_str(&filter_str, false).unwrap();
+    let collapsed_ptree = Filter::from_str(&filter_def.collapsed_filter, false, 0)
+                                                .expect(&format!("Failed to generate collapsed filter: {}", &filter_def.collapsed_filter))
+                                                .to_ptree(0);
+    println!("Collapsed Filter:\n{}", collapsed_ptree);
 
-    let mut ptree = filter.to_ptree();
-    ptree.prune_branches();
+    let filter = Filter::from_str(&filter_def.filters[0], false, 0)
+                                        .expect(&format!("Failed to generate filter: {}", &filter_def.filters[0]));
+    let mut ptree = filter.to_ptree(0);
+    for i in 1..filter_def.filters.len() {
+        let filter = Filter::from_str(&filter_def.filters[i], false, i)
+                            .expect(&format!("Failed to generate filter: {}", &filter_def.filters[i]));
+        ptree.add_filter(&filter.get_patterns_flat(), i);
+    }
+    let collapsed_filter = filter_def.collapsed_filter.as_str().clone();
+    
     // Displays the predicate trie during compilation.
-    println!("{}", ptree);
+    println!("Complete Filter:\n{}", ptree);
 
     // store lazily evaluated statics like pre-compiled Regex
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
@@ -212,7 +224,7 @@ pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
             #packet_filter_fn
             #connection_filter_fn
             #session_filter_fn
-            retina_core::filter::FilterFactory::new(#filter_str, packet_filter, connection_filter, session_filter)
+            retina_core::filter::FilterFactory::new(#collapsed_filter, packet_filter, connection_filter, session_filter)
         }
 
         #lazy_statics
@@ -220,4 +232,52 @@ pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
 
     };
     filtergen.into()
+}
+
+struct FilterDef {
+    pub filters: Vec<String>,
+    pub collapsed_filter: String, 
+}
+
+fn get_filters_from_config() -> FilterDef {
+    let filepath_in = "/home/trossman/retina/subscription.yml"; //tmp 
+
+    let f_in = std::fs::File::open(filepath_in);
+    if let Err(e) = f_in {
+        panic!("Failed to read config filepath ({}) {:?}", filepath_in, e);
+    }
+    let data_in: Value = from_reader(f_in.unwrap())
+                                    .expect("Failed to read subscription config");
+
+    let filters = data_in.get("filters")
+                                 .expect("Must specify at least one \"filters\"");
+    let iter = filters.as_mapping().unwrap();
+
+    // Push all filters to vector. 
+    // TODOTR yml file format will be changed
+    let mut filters = vec![];
+    for (k, _v) in iter {
+        filters.push(k.as_str().unwrap().to_string());
+    }
+
+    // Generate boolean-style filter for packets of interest.
+    // Used by online runtime for hw filter.
+    // TODO: need to have a different way of getting parsers
+    let mut collapsed_filter = String::new(); 
+    if !filters.contains(&"".to_string()) {
+        collapsed_filter += "(";
+        collapsed_filter += filters[0].clone().as_str();
+        if filters.len() > 1 {
+            for filter in &filters[1..] {
+                collapsed_filter += ") or (";
+                collapsed_filter += filter.clone().as_str();
+            }
+        }
+        collapsed_filter += ")";
+    }
+
+    FilterDef {
+        filters,
+        collapsed_filter
+    }
 }

@@ -83,7 +83,7 @@ pub struct Filter {
 }
 
 impl Filter {
-    pub fn from_str(filter_raw: &str, split_combined: bool) -> Result<Filter> {
+    pub fn from_str(filter_raw: &str, split_combined: bool, filter_id: usize) -> Result<Filter> {
         let parser = FilterParser { split_combined };
         let raw_patterns = parser.parse_filter(filter_raw)?;
 
@@ -103,7 +103,7 @@ impl Filter {
 
         // prune redundant branches
         let flat_patterns: Vec<_> = fq_patterns.iter().map(|p| p.to_flat_pattern()).collect();
-        let mut ptree = PTree::new(&flat_patterns);
+        let mut ptree = PTree::new(&flat_patterns, filter_id);
         ptree.prune_branches();
 
         Ok(Filter {
@@ -125,8 +125,8 @@ impl Filter {
     }
 
     /// Returns predicate tree
-    pub fn to_ptree(&self) -> PTree {
-        PTree::new(&self.get_patterns_flat())
+    pub fn to_ptree(&self, filter_id: usize) -> PTree {
+        PTree::new(&self.get_patterns_flat(), filter_id)
     }
 
     /// Returns `true` if filter can be completely realized in hardware

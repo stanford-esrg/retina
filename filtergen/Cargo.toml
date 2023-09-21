@@ -14,3 +14,4 @@ quote = "1.0.26"
 regex = "1.7.3"
 retina-core = { path = "../core", default-features = false }
 syn = { version = "2.0.15", features = ["full", "extra-traits"] }
+serde_yaml = "0.9"

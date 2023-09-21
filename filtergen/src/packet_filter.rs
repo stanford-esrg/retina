@@ -6,7 +6,7 @@ use retina_core::filter::ast::*;
 use retina_core::filter::ptree::{PNode, PTree, Terminate};
 use retina_core::protocol;
 
-use crate::util::binary_to_tokens;
+use crate::util::{binary_to_tokens, terminal_match, nonterminal_match};
 
 // TODO: lots of opportunities to optimize further. But need to be careful about correctness
 // example: collapse if statements at each header?
@@ -15,10 +15,13 @@ pub(crate) fn gen_packet_filter(
     statics: &mut Vec<proc_macro2::TokenStream>,
 ) -> (proc_macro2::TokenStream, Vec<usize>) {
     
+    // Generate ethernet/empty filter, if applicable: 
     let mut root = quote! {};
-    if ptree.root.is_terminal {
-        // only ethernet - no filter specified
-        root = quote! { result.terminal_matches |= 0b1 << 0; };
+    if !ptree.root.is_terminal.is_empty() {
+        let (code, bitmask) = terminal_match(&ptree.root);
+        if bitmask != 0 {
+            root = code;
+        }
     }
 
     let name = "ethernet";
@@ -118,17 +121,13 @@ fn add_unary_pred(
 
     if matches!(node.terminates, Terminate::Packet) {
         pt_nodes.push(node.id);
-        let idx_lit = syn::LitInt::new(&node.id.to_string(), Span::call_site());
-
-        if node.is_terminal {
-            body.push(quote! {
-                result.terminal_matches |= 0b1 << 0;
-            })
-        } else {
-            body.push(quote! {
-                result.nonterminal_matches |= 0b1 << 0;
-                result.nonterminal_nodes[0] = #idx_lit;
-            });
+        let (code, terminal_bitmask) = terminal_match(&node);
+        if terminal_bitmask != 0 {
+            body.push(code);
+        }
+        let (code, nonterminal_bitmask) = nonterminal_match(&node, terminal_bitmask);
+        if nonterminal_bitmask != 0 {
+            body.push(code);
         }
     }
 
@@ -163,17 +162,13 @@ fn add_binary_pred(
     gen_packet_filter_util(pt_nodes, &mut body, statics, node, outer_protocol);
     if matches!(node.terminates, Terminate::Packet) {
         pt_nodes.push(node.id);
-        let idx_lit = syn::LitInt::new(&node.id.to_string(), Span::call_site());
-
-        if node.is_terminal {
-            body.push(quote! {
-                result.terminal_matches |= 0b1 << 0;
-            })
-        } else {
-            body.push(quote! {
-                result.nonterminal_matches |= 0b1 << 0; 
-                result.nonterminal_nodes[0] = #idx_lit;
-            });
+        let (code, terminal_bitmask) = terminal_match(&node);
+        if terminal_bitmask != 0 {
+            body.push(code);
+        }
+        let (code, nonterminal_bitmask) = nonterminal_match(&node, terminal_bitmask);
+        if nonterminal_bitmask != 0 {
+            body.push(code);
         }
     }
 

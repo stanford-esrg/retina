@@ -2,4 +2,7 @@ subscribed:
   five_tuple: -1
   tls: 0
   http: 1
+filters:
+  "tls.sni ~ '^.*\\.com$'": 0
+  "ipv4 or http": 1
 num_subscriptions: 2

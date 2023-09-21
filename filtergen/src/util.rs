@@ -1,4 +1,5 @@
 use retina_core::filter::ast::{BinOp, FieldName, ProtocolName, Value};
+use retina_core::filter::ptree::PNode;
 
 use heck::CamelCase;
 use proc_macro2::{Ident, Span};
@@ -277,4 +278,42 @@ fn standard_field(
             }
         }
     }
+}
+
+
+// Codegen utils shared between packet, connection, and session filters. //
+
+pub(crate) fn terminal_match(node: &PNode) -> (proc_macro2::TokenStream, usize) {
+    if node.is_terminal.is_empty() {
+        return (quote! {}, 0);
+    }
+    let mut bitmask = 0; 
+    for idx in &node.is_terminal {
+        bitmask |= 0b1 << idx;
+    }
+    let bitmask_lit = syn::LitInt::new(&bitmask.to_string(), Span::call_site());
+    (quote! { result.terminal_matches |= #bitmask_lit; }, bitmask)
+}
+
+pub(crate) fn nonterminal_match(node: &PNode, terminal_bitmask: usize) -> (proc_macro2::TokenStream, usize) {
+    if node.filter_ids.is_empty() {
+        return (quote! {}, 0);
+    }
+    let node_idx_lit = syn::LitInt::new(&node.id.to_string(), Span::call_site());
+    let mut bitmask = 0; 
+    let mut nonterminal_nodes = vec![];
+    for idx in &node.filter_ids {
+        if terminal_bitmask & 0b1 << idx == 0 {
+            let filter_idx_lit = syn::LitInt::new(&idx.to_string(), Span::call_site());
+            bitmask |= 0b1 << idx;
+            nonterminal_nodes.push(quote! {
+                result.nonterminal_nodes[#filter_idx_lit] = #node_idx_lit;
+            });
+        }
+    }
+    let bitmask_lit = syn::LitInt::new(&bitmask.to_string(), Span::call_site());
+    (quote! { 
+        result.nonterminal_matches |= #bitmask_lit;
+        #( #nonterminal_nodes )*
+    }, bitmask)
 }

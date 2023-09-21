@@ -2,6 +2,7 @@ use super::ast::*;
 use super::pattern::{FlatPattern, LayeredPattern};
 
 use std::fmt;
+use std::collections::HashSet;
 
 /// Represents the sub-filter that a predicate node terminates.
 #[derive(Debug, Clone)]
@@ -32,8 +33,12 @@ pub struct PNode {
     /// Predicate represented by this PNode
     pub pred: Predicate,
 
-    /// Whether the node terminates a pattern
-    pub is_terminal: bool,
+    /// Whether the node terminates a pattern for a filter
+    pub is_terminal: HashSet<usize>,
+
+    /// The filter IDs that this node matches
+    /// (terminal or non-terminal matches)
+    pub filter_ids: HashSet<usize>,
 
     /// Sub-filter terminal (packet, connection, or session)
     pub terminates: Terminate,
@@ -50,7 +55,8 @@ impl PNode {
         PNode {
             id,
             pred,
-            is_terminal: false,
+            is_terminal: HashSet::new(),
+            filter_ids: HashSet::new(),
             terminates: Terminate::None,
             patterns: vec![],
             children: vec![],
@@ -86,19 +92,20 @@ pub struct PTree {
 
 impl PTree {
     /// Creates a new predicate tree from a slice of FlatPatterns
-    pub fn new(patterns: &[FlatPattern]) -> Self {
+    pub fn new(patterns: &[FlatPattern], filter_id: usize) -> Self {
         let root = PNode {
             id: 0,
             pred: Predicate::Unary {
                 protocol: protocol!("ethernet"),
             },
-            is_terminal: false,
+            is_terminal: HashSet::new(),
+            filter_ids: HashSet::new(),
             terminates: Terminate::None,
             patterns: vec![],
             children: vec![],
         };
         let mut ptree = PTree { root, size: 1 };
-        ptree.build_tree(patterns);
+        ptree.build_tree(patterns, filter_id);
         ptree
     }
 
@@ -114,7 +121,7 @@ impl PTree {
             if *node.pred.get_protocol() != protocol!("ethernet") {
                 predicates.push(node.pred.to_owned());
             }
-            if node.is_terminal {
+            if !node.is_terminal.is_empty() {
                 patterns.push(FlatPattern {
                     predicates: predicates.to_vec(),
                 });
@@ -144,20 +151,28 @@ impl PTree {
         layered
     }
 
-    pub(crate) fn build_tree(&mut self, patterns: &[FlatPattern]) {
+    pub fn add_filter(&mut self, patterns: &[FlatPattern], filter_id: usize) {
+        self.build_tree(patterns, filter_id);
+    }
+
+    pub(crate) fn build_tree(&mut self, patterns: &[FlatPattern], filter_id: usize) {
         // add each pattern to tree
+        let mut added = false;
         for (i, pattern) in patterns.iter().enumerate() {
-            self.add_pattern(pattern, i);
+            added = added || !pattern.predicates.is_empty();
+            self.add_pattern(pattern, i, filter_id);
         }
 
         // TODO: maybe remove this to distinguish terminating a user-specified pattern
-        if self.root.children.is_empty() {
-            self.root.is_terminal = true;
+        if !added {
             self.root.terminates = Terminate::Packet;
+            self.root.is_terminal.insert(filter_id);
+            self.root.filter_ids.insert(filter_id);
         }
     }
 
-    pub(crate) fn add_pattern(&mut self, pattern: &FlatPattern, pattern_id: usize) {
+    pub(crate) fn add_pattern(&mut self, pattern: &FlatPattern, 
+                              pattern_id: usize, filter_id: usize) {
         let mut node = &mut self.root;
         node.patterns.push(pattern_id);
         for predicate in pattern.predicates.iter() {
@@ -167,21 +182,26 @@ impl PTree {
 
                 if node.pred.on_packet() && predicate.on_connection() {
                     node.terminates = Terminate::Packet;
+                    node.filter_ids.insert(filter_id);
                 } else if node.pred.on_connection() && predicate.on_session() {
                     node.terminates = Terminate::Connection;
+                    node.filter_ids.insert(filter_id);
                 }
             }
             node = node.get_child(predicate);
             node.patterns.push(pattern_id);
         }
 
-        node.is_terminal = true;
+        node.is_terminal.insert(filter_id);
         if node.pred.on_packet() {
             node.terminates = Terminate::Packet;
+            node.filter_ids.insert(filter_id);
         } else if node.pred.on_connection() {
             node.terminates = Terminate::Connection;
+            node.filter_ids.insert(filter_id);
         } else if node.pred.on_session() {
             node.terminates = Terminate::Session;
+            node.filter_ids.insert(filter_id);
         } else {
             log::error!("Terminal node but does not terminate a sub-filter")
         }
@@ -239,7 +259,7 @@ impl PTree {
     /// (e.g. "ipv4 or ipv4.src_addr = 1.2.3.4" will remove "ipv4.src_addr = 1.2.3.4")
     pub fn prune_branches(&mut self) {
         fn prune(node: &mut PNode) {
-            if node.is_terminal {
+            if node.filter_ids.len() == 1 && !node.is_terminal.is_empty() {
                 node.children.clear();
             }
             for child in node.children.iter_mut() {
@@ -253,24 +273,24 @@ impl PTree {
     fn pprint(&self) -> String {
         fn pprint(s: &mut String, node: &PNode, prefix: String, last: bool) {
             let prefix_current = if last { "`- " } else { "|- " };
-
-            if node.is_terminal {
-                s.push_str(
-                    format!(
-                        "{}{}{} ({}) {}*\n",
-                        prefix, prefix_current, node, node.id, node.terminates
-                    )
-                    .as_str(),
-                );
-            } else {
-                s.push_str(
-                    format!(
-                        "{}{}{} ({}) {}\n",
-                        prefix, prefix_current, node, node.id, node.terminates
-                    )
-                    .as_str(),
-                );
+            
+            let mut s_next = format!(
+                "{}{}{} ({}) {}: ",
+                prefix, prefix_current, node, node.id, node.terminates
+            );
+            for idx in &node.is_terminal {
+                s_next += &format!(" {}*", idx);
             }
+            // TODO - messy
+            let mut filter_ids = node.filter_ids.clone().into_iter().collect::<Vec<_>>();
+            filter_ids.sort();
+            for idx in filter_ids {
+                if !node.is_terminal.contains(&idx) {
+                    s_next += &format!(" {}", idx);
+                }
+            }
+
+            s.push_str(format!("{}\n", s_next).as_str());
 
             let prefix_child = if last { "   " } else { "|  " };
             let prefix = prefix + prefix_child;

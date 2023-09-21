@@ -44,7 +44,7 @@ impl<'a> HardwareFilter<'a> {
 
         // Prune some hidden (redundant) patterns.
         // Only removes those with same prefix
-        let mut hw_ptree = PTree::new(&hw_patterns);
+        let mut hw_ptree = PTree::new(&hw_patterns, 0);
         hw_ptree.prune_branches();
         let mut hw_patterns = hw_ptree.to_flat_patterns();
 

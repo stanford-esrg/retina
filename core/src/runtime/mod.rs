@@ -60,8 +60,9 @@ where
         cb: Vec<Box<dyn Fn(S::SubscribedData) + 'a>>,
     ) -> Result<Self> {
         let factory = factory();
+        // TODO: collapsed_str won't correctly get parsers; need to redo this.
         let filter =
-            Filter::from_str(factory.filter_str.as_str(), true).expect("Failed to parse filter");
+            Filter::from_str(factory.filter_str.as_str(), true, 0).expect("Failed to parse filter");
         let subscription = Arc::new(Subscription::new(factory, cb));
 
         println!("Initializing Retina runtime...");

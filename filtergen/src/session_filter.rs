@@ -3,9 +3,9 @@ use proc_macro2::{Ident, Span};
 use quote::quote;
 
 use retina_core::filter::ast::*;
-use retina_core::filter::ptree::{PNode, PTree, Terminate};
+use retina_core::filter::ptree::{PNode, PTree};
 
-use crate::util::binary_to_tokens;
+use crate::util::{binary_to_tokens, terminal_match};
 
 pub(crate) fn gen_session_filter(
     ptree: &PTree,
@@ -51,22 +51,15 @@ fn add_node_match_arm(
     statics: &mut Vec<proc_macro2::TokenStream>,
     node: &PNode,
 ) {
+
     let idx_lit = syn::LitInt::new(&node.id.to_string(), Span::call_site());
-    if node.is_terminal {
-        code.push(quote! {
-            #idx_lit => { 
-                result.terminal_matches |= 0b1 << 0; 
-            }
-        })
-    } else {
-        assert!(matches!(node.terminates, Terminate::Connection));
-        let mut body: Vec<proc_macro2::TokenStream> = vec![];
-        gen_session_filter_util(&mut body, statics, node);
+    let mut body: Vec<proc_macro2::TokenStream> = vec![];
+    gen_session_filter_util(&mut body, statics, node);
+    let service = node.pred.get_protocol().name();
+    let proto_name = Ident::new(service, Span::call_site());
+    let proto_variant = Ident::new(&service.to_camel_case(), Span::call_site());
 
-        let service = node.pred.get_protocol().name();
-        let proto_name = Ident::new(service, Span::call_site());
-        let proto_variant = Ident::new(&service.to_camel_case(), Span::call_site());
-
+    if !body.is_empty() {
         code.push(quote! {
             #idx_lit => {
                 if let retina_core::protocols::stream::SessionData::#proto_variant(#proto_name) = &session.data {
@@ -74,8 +67,8 @@ fn add_node_match_arm(
                 }
 
             }
-        })
-    }
+        });
+    }        
 }
 
 
@@ -115,17 +108,17 @@ fn add_binary_pred(
 ) {
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
     gen_session_filter_util(&mut body, statics, node);
-    if node.is_terminal {
-        // node terminates a session filter pattern
-        body.push(quote! {
-            result.terminal_matches |= 0b1 << 0;
-        });
+    let (terminal_code, terminal_bitmask) = terminal_match(node);
+    if terminal_bitmask != 0 {
+        body.push(terminal_code);
     }
 
-    let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
-    code.push(quote! {
-        if #pred_tokenstream {
-            #( #body )*
-        }
-    });
+    if !body.is_empty() {
+        let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
+        code.push(quote! {
+            if #pred_tokenstream {
+                #( #body )*
+            }
+        });
+    }
 }
