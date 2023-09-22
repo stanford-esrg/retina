@@ -8,7 +8,7 @@ impl TlsHandshakeData {
     #[inline]
     pub fn session_field() -> proc_macro2::TokenStream {
         quote! {
-            tls: Option<Tls>,
+            tls: Option<Rc<Tls>>,
         }
     }
 
@@ -29,7 +29,7 @@ impl TlsHandshakeData {
             return quote! {
                 else if let SessionData::Tls(tls) = session.data {
                     if self.match_data.matched_term_by_idx(#subscription_idx) {
-                        self.tls = Some(*tls); 
+                        self.tls = Some(Rc::new(*tls));
                     }
                 }
             };
@@ -37,7 +37,7 @@ impl TlsHandshakeData {
         quote! {
             if let SessionData::Tls(tls) = session.data {
                 if self.match_data.matched_term_by_idx(#subscription_idx) {
-                    self.tls = Some(*tls); 
+                    self.tls = Some(Rc::new(*tls));
                 }
             }
         }
@@ -55,6 +55,13 @@ impl TlsHandshakeData {
         ["five_tuple".to_string()].iter().cloned().collect()
     }
 
+    #[inline]
+    pub fn drop() -> proc_macro2::TokenStream {
+        quote! {
+            self.tls = None;
+        }
+    }
+
 }
 
 
@@ -68,7 +75,7 @@ impl TlsSubscription {
         quote! {
             #[derive(Debug)]
             pub struct TlsSubscription { 
-                pub tls: Tls,
+                pub tls: Rc<Tls>,
                 pub five_tuple: FiveTuple,
             }
         }
@@ -81,10 +88,10 @@ impl TlsSubscription {
         let subscription_idx = syn::LitInt::new(&idx.to_string(), Span::call_site());
         quote! {
             if self.match_data.matched_term_by_idx(#subscription_idx) {
-                if let Some(_data) = &self.tls {
+                if let Some(data) = &self.tls {
                     subscription.invoke_idx(
                         SubscribableEnum::Tls(TlsSubscription {
-                            tls: std::mem::take(&mut self.tls).unwrap(),
+                            tls: data.clone(),
                             five_tuple: self.five_tuple,
                         }),
                         #subscription_idx

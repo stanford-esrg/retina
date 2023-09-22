@@ -27,6 +27,7 @@ pub fn subscription_type(_args: TokenStream, _input: TokenStream) -> TokenStream
     let structs = cfg.gen_structs();
     let enum_fields = cfg.gen_enums();
     let subscriptions = cfg.gen_subscriptions();
+    let drop = cfg.gen_drop();
 
     let match_state = cfg.match_state();
 
@@ -71,6 +72,7 @@ pub fn subscription_type(_args: TokenStream, _input: TokenStream) -> TokenStream
             fn deliver_session_on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) -> ConnState {
                 #( #deliver_session_on_match )*
                 #( #subscriptions )*
+                #( #drop )*
                 #match_state
             }
 
@@ -139,6 +141,7 @@ fn deliverable_data(structs: Vec<proc_macro2::TokenStream>,
 fn imports() -> proc_macro2::TokenStream {
     // TODOTR customize
     quote! {
+        use std::rc::Rc;
         use crate::conntrack::conn_id::FiveTuple;
         use crate::conntrack::pdu::{L4Context, L4Pdu};
         use crate::conntrack::ConnTracker;
@@ -155,6 +158,7 @@ fn imports() -> proc_macro2::TokenStream {
 #[allow(dead_code)]
 fn pub_imports() -> proc_macro2::TokenStream {
     quote! {
+        use std::rc::Rc;
         use retina_core::conntrack::conn_id::FiveTuple;
         use retina_core::conntrack::pdu::{L4Context, L4Pdu};
         use retina_core::conntrack::ConnTracker;

@@ -1,0 +1,19 @@
+subscribed:
+  tls:
+    idx: 0
+    fields: ["default"]  # TODO: fields
+  http:
+    idx: 1
+    fields: ["http"]
+  tls: 
+    idx: 2
+    fields: ["five_tuple"] # TODO: repeated type
+filters:
+  "tls.sni ~ '^.*\\.com$'": 0
+  "ipv4 or http": 1
+  "tls.sni ~ '^.*\\.gov$'": 2
+callbacks:
+  callback1: 0
+  callback2: 1
+  callback3: 2
+num_subscriptions: 3

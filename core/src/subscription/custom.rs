@@ -1,10 +1,9 @@
-/*
 use retina_subscriptiongen::subscription_type;
 
 #[subscription_type]
 pub struct SubscribableWrapper;
- */
 
+/*
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
@@ -15,6 +14,7 @@ use crate::protocols::stream::http::{parser::HttpParser, Http};
 use crate::protocols::stream::{ConnParser, Session, SessionData, ConnData};
 use crate::conntrack::conn::conn_info::ConnState;
 use crate::subscription::{Trackable, MatchData, Subscription, Subscribable};
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum SubscribableEnum {
@@ -25,14 +25,14 @@ pub enum SubscribableEnum {
 
 #[derive(Debug)]
 pub struct TlsSubscription {
-    pub tls: Tls,
+    pub tls: Rc<Tls>,
     pub five_tuple: FiveTuple,
 }
 
 
 #[derive(Debug)]
 pub struct HttpSubscription {
-    pub http: Http,
+    pub http: Rc<Http>,
     pub five_tuple: FiveTuple,
 }
 pub struct SubscribableWrapper;
@@ -62,18 +62,18 @@ impl Subscribable for SubscribableWrapper {
 }
 pub struct TrackedWrapper {
     match_data: MatchData,
+    tls: Option<Rc<Tls>>,
+    http: Vec<Rc<Http>>,
     five_tuple: FiveTuple,
-    tls: Option<Tls>,
-    http: Vec<Http>,
 }
 impl Trackable for TrackedWrapper {
     type Subscribed = SubscribableWrapper;
     fn new(five_tuple: FiveTuple, result: FilterResultData) -> Self {
         Self {
             match_data: MatchData::new(result),
-            five_tuple: five_tuple,
             tls: None,
             http: Vec::new(),
+            five_tuple: five_tuple,
         }
     }
     fn update(
@@ -90,19 +90,19 @@ impl Trackable for TrackedWrapper {
     ) -> ConnState {
         if let SessionData::Tls(tls) = session.data {
             if self.match_data.matched_term_by_idx(0) {
-                self.tls = Some(*tls);
+                self.tls = Some(Rc::new(*tls));
             }
         } else if let SessionData::Http(http) = session.data {
             if self.match_data.matched_term_by_idx(1) {
-                self.http.push(*http);
+                self.http.push(Rc::new(*http));
             }
         }
         if self.match_data.matched_term_by_idx(0) {
-            if let Some(_data) = &self.tls {
+            if let Some(data) = &self.tls {
                 subscription
                     .invoke_idx(
                         SubscribableEnum::Tls(TlsSubscription {
-                            tls: std::mem::take(&mut self.tls).unwrap(),
+                            tls: data.clone(),
                             five_tuple: self.five_tuple,
                         }),
                         0,
@@ -110,16 +110,20 @@ impl Trackable for TrackedWrapper {
             }
         }
         if self.match_data.matched_term_by_idx(1) {
-            if let Some(data) = self.http.pop() {
+            if let Some(data) = self.http.last() {
                 subscription
                     .invoke_idx(
                         SubscribableEnum::Http(HttpSubscription {
-                            http: data,
+                            http: data.clone(),
                             five_tuple: self.five_tuple,
                         }),
                         1,
                     );
             }
+        }
+        self.tls = None;
+        if !self.http.is_empty() {
+            self.http.pop();
         }
         ConnState::Remove
     }
@@ -141,3 +145,4 @@ impl Trackable for TrackedWrapper {
         return self.match_data.filter_session(session, subscription);
     }
 }
+*/

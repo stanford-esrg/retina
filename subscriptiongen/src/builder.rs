@@ -15,6 +15,7 @@ pub(crate) struct MethodBuilder {
     defs: Vec<proc_macro2::TokenStream>,
     enums: Vec<proc_macro2::TokenStream>,
     subscriptions: Vec<proc_macro2::TokenStream>,
+    drop: Vec<proc_macro2::TokenStream>,
     raw_data: Option<Value>,
 }
 
@@ -41,6 +42,7 @@ impl MethodBuilder {
             defs: Vec::new(),
             enums: Vec::new(),
             subscriptions: Vec::new(),
+            drop: Vec::new(),
             raw_data: Some(data_in.unwrap()),
         }
     }
@@ -80,6 +82,10 @@ impl MethodBuilder {
     pub(crate) fn gen_subscriptions(&mut self) -> Vec<proc_macro2::TokenStream> {
         std::mem::take(&mut self.subscriptions)
     }
+    
+    pub(crate) fn gen_drop(&mut self) -> Vec<proc_macro2::TokenStream> {
+        std::mem::take(&mut self.drop)
+    }
 
     pub(crate) fn match_state(&self) -> proc_macro2::TokenStream {
         // TODO
@@ -115,6 +121,7 @@ impl MethodBuilder {
                     self.deliver_session_on_match.is_empty(),
                     idx
                 ));
+                self.drop.push(HttpTransactionData::drop());
                 self.parser.push(HttpTransactionData::parser());
                 self.add_subscription("http", idx);
                 if let Some(data) = required_data {
@@ -129,6 +136,7 @@ impl MethodBuilder {
                     self.deliver_session_on_match.is_empty(),
                     idx
                 ));
+                self.drop.push(TlsHandshakeData::drop());
                 self.parser.push(TlsHandshakeData::parser());
                 self.add_subscription("tls", idx);
                 if let Some(data) = required_data {

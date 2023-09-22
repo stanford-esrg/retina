@@ -9,7 +9,7 @@ impl HttpTransactionData {
     #[inline]
     pub fn session_field() -> proc_macro2::TokenStream {
         quote! {
-            http: Vec<Http>,
+            http: Vec<Rc<Http>>,
         }
     }
 
@@ -27,7 +27,7 @@ impl HttpTransactionData {
             return quote! {
                 else if let SessionData::Http(http) = session.data {
                     if self.match_data.matched_term_by_idx(#subscription_idx) {
-                        self.http.push(*http); 
+                        self.http.push(Rc::new(*http)); 
                     }
                 }
             };
@@ -35,7 +35,7 @@ impl HttpTransactionData {
         quote! {
             if let SessionData::Http(http) = session.data {
                 if self.match_data.matched_term_by_idx(#subscription_idx) {
-                    self.http.push(*http); 
+                    self.http.push(Rc::new(*http));
                 }
             }
         }
@@ -53,6 +53,10 @@ impl HttpTransactionData {
         ["five_tuple".to_string()].iter().cloned().collect()
     }
 
+    pub fn drop() -> proc_macro2::TokenStream {
+        quote! { if !self.http.is_empty() { self.http.pop(); } }
+    }
+
 }
 
 pub struct HttpSubscription;
@@ -63,7 +67,7 @@ impl HttpSubscription {
         quote! {
             #[derive(Debug)]
             pub struct HttpSubscription { 
-                pub http: Http,
+                pub http: Rc<Http>,
                 pub five_tuple: FiveTuple,
             }
         }
@@ -77,10 +81,10 @@ impl HttpSubscription {
         let subscription_idx = syn::LitInt::new(&idx.to_string(), Span::call_site());
         quote! {
             if self.match_data.matched_term_by_idx(#subscription_idx) {
-                if let Some(data) = self.http.pop() {
+                if let Some(data) = self.http.last() {
                     subscription.invoke_idx(
                         SubscribableEnum::Http(HttpSubscription {
-                            http: data,
+                            http: data.clone(),
                             five_tuple: self.five_tuple
                         }
                     ),
