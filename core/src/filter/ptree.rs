@@ -112,7 +112,7 @@ impl PTree {
     // Converts PTree to vector of FlatPatterns (all root->leaf paths).
     // Useful for using the PTree to prune redundant branches then
     // converting back to FlatPatterns
-    pub(crate) fn to_flat_patterns(&self) -> Vec<FlatPattern> {
+    pub fn to_flat_patterns(&self) -> Vec<FlatPattern> {
         fn build_pattern(
             patterns: &mut Vec<FlatPattern>,
             predicates: &mut Vec<Predicate>,

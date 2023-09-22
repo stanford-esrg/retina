@@ -10,7 +10,7 @@ use self::online::*;
 
 use crate::config::*;
 use crate::dpdk;
-use crate::filter::{Filter, FilterFactory};
+use crate::filter::FilterFactory;
 use crate::lcore::SocketId;
 use crate::memory::mempool::Mempool;
 use crate::subscription::*;
@@ -60,9 +60,8 @@ where
         cb: Vec<Box<dyn Fn(S::SubscribedData) + 'a>>,
     ) -> Result<Self> {
         let factory = factory();
-        // TODO: collapsed_str won't correctly get parsers; need to redo this.
-        let filter =
-            Filter::from_str(factory.filter_str.as_str(), true, 0).expect("Failed to parse filter");
+        let protocol_str = factory.protocol_str.clone();
+        let filter_str = factory.filter_str.clone();
         let subscription = Arc::new(Subscription::new(factory, cb));
 
         println!("Initializing Retina runtime...");
@@ -112,7 +111,8 @@ where
                 &config,
                 online_opts,
                 &mut mempools,
-                filter.clone(),
+                filter_str.clone(),
+                protocol_str.clone(),
                 Arc::clone(&subscription),
             )
         });
@@ -126,7 +126,7 @@ where
             OfflineRuntime::new(
                 offline_opts,
                 &mempools,
-                filter.clone(),
+                protocol_str.clone(),
                 Arc::clone(&subscription),
             )
         });

@@ -56,6 +56,7 @@ impl FilterResultData {
 
 pub struct FilterFactory {
     pub filter_str: String,
+    pub protocol_str: String,
     pub packet_filter: PacketFilterFn,
     pub conn_filter: ConnFilterFn,
     pub session_filter: SessionFilterFn,
@@ -64,12 +65,14 @@ pub struct FilterFactory {
 impl FilterFactory {
     pub fn new(
         filter_str: &str,
+        protocol_str: &str,
         packet_filter: PacketFilterFn,
         conn_filter: ConnFilterFn,
         session_filter: SessionFilterFn,
     ) -> FilterFactory {
         FilterFactory {
             filter_str: filter_str.to_string(),
+            protocol_str: protocol_str.to_string(),
             packet_filter,
             conn_filter,
             session_filter,

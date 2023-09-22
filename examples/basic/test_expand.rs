@@ -1,151 +1,229 @@
+Collapsed Filter:
+`- ethernet (0) : 
+   |- ipv4 (1) p:  0*
+   `- ipv6 (2) : 
+      `- tcp (3) p:  0
+         |- http (4) c:  0*
+         `- tls (5) c:  0
+            `- tls.sni matches ^.*\.com$ (6) s:  0*
+
+Complete Filter:
+`- ethernet (0) : 
+   |- ipv4 (1) p:  1*
+   |  `- tcp (2) p:  0
+   |     `- tls (3) c:  0
+   |        `- tls.sni matches ^.*\.com$ (4) s:  0*
+   `- ipv6 (5) : 
+      `- tcp (6) p:  0 1
+         |- tls (7) c:  0
+         |  `- tls.sni matches ^.*\.com$ (8) s:  0*
+         `- http (9) c:  1*
+
+Protocols for parsers:
+http or tls
 #![feature(prelude_import)]
 #[prelude_import]
 use std::prelude::rust_2021::*;
 #[macro_use]
 extern crate std;
-use retina_subscriptiongen::subscription_type;
-use retina_core::conntrack::conn_id::FiveTuple;
-use retina_core::conntrack::pdu::{L4Context, L4Pdu};
-use retina_core::conntrack::ConnTracker;
-use retina_core::filter::{FilterResult, FilterResultData};
-use retina_core::memory::mbuf::Mbuf;
-use retina_core::protocols::stream::tls::{parser::TlsParser, Tls};
-use retina_core::protocols::stream::http::{parser::HttpParser, Http};
-use retina_core::protocols::stream::{ConnParser, Session, SessionData, ConnData};
-use retina_core::conntrack::conn::conn_info::ConnState;
-use retina_core::subscription::{Trackable, MatchData, Subscription, Subscribable};
-pub enum SubscribableEnum {
-    Tls(TlsSubscription),
-    Http(HttpSubscription),
-}
-#[automatically_derived]
-impl ::core::fmt::Debug for SubscribableEnum {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        match self {
-            SubscribableEnum::Tls(__self_0) => {
-                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "Tls", &__self_0)
-            }
-            SubscribableEnum::Http(__self_0) => {
-                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "Http", &__self_0)
+use retina_core::config::default_config;
+use retina_core::subscription::{SubscribableEnum, SubscribableWrapper};
+use retina_core::Runtime;
+use retina_filtergen::filter;
+fn filter() -> retina_core::filter::FilterFactory {
+    #[inline]
+    fn packet_filter(mbuf: &retina_core::Mbuf) -> retina_core::filter::FilterResultData {
+        let mut result = retina_core::filter::FilterResultData::new();
+        if let Ok(ethernet)
+            = &retina_core::protocols::packet::Packet::parse_to::<
+                retina_core::protocols::packet::ethernet::Ethernet,
+            >(mbuf) {
+            if let Ok(ipv4)
+                = &retina_core::protocols::packet::Packet::parse_to::<
+                    retina_core::protocols::packet::ipv4::Ipv4,
+                >(ethernet) {
+                if let Ok(tcp)
+                    = &retina_core::protocols::packet::Packet::parse_to::<
+                        retina_core::protocols::packet::tcp::Tcp,
+                    >(ipv4) {
+                    result.nonterminal_matches |= 1;
+                    result.nonterminal_nodes[0] = 2;
+                }
+                result.terminal_matches |= 2;
+            } else if let Ok(ipv6)
+                = &retina_core::protocols::packet::Packet::parse_to::<
+                    retina_core::protocols::packet::ipv6::Ipv6,
+                >(ethernet) {
+                if let Ok(tcp)
+                    = &retina_core::protocols::packet::Packet::parse_to::<
+                        retina_core::protocols::packet::tcp::Tcp,
+                    >(ipv6) {
+                    result.nonterminal_matches |= 3;
+                    result.nonterminal_nodes[0] = 6;
+                    result.nonterminal_nodes[1] = 6;
+                }
             }
         }
+        return result;
+    }
+    #[inline]
+    fn connection_filter(
+        pkt_results: &retina_core::filter::FilterResultData,
+        conn: &retina_core::protocols::stream::ConnData,
+    ) -> retina_core::filter::FilterResultData {
+        let mut result = retina_core::filter::FilterResultData::new();
+        for node in &pkt_results.nonterminal_nodes {
+            if *node == std::usize::MAX {
+                continue;
+            }
+            match node {
+                2 => {
+                    if match conn.service() {
+                        retina_core::protocols::stream::ConnParser::Tls { .. } => true,
+                        _ => false,
+                    } {
+                        result.nonterminal_matches |= 1;
+                        result.nonterminal_nodes[0] = 3;
+                    }
+                }
+                6 => {
+                    if match conn.service() {
+                        retina_core::protocols::stream::ConnParser::Tls { .. } => true,
+                        _ => false,
+                    } {
+                        result.nonterminal_matches |= 1;
+                        result.nonterminal_nodes[0] = 7;
+                    }
+                    if match conn.service() {
+                        retina_core::protocols::stream::ConnParser::Http { .. } => true,
+                        _ => false,
+                    } {
+                        result.terminal_matches |= 2;
+                    }
+                }
+                _ => {}
+            }
+        }
+        result
+    }
+    #[inline]
+    fn session_filter(
+        session: &retina_core::protocols::stream::Session,
+        conn_results: &retina_core::filter::FilterResultData,
+    ) -> retina_core::filter::FilterResultData {
+        let mut result = retina_core::filter::FilterResultData::new();
+        for node in &conn_results.nonterminal_nodes {
+            if *node == std::usize::MAX {
+                continue;
+            }
+            match node {
+                3 => {
+                    if let retina_core::protocols::stream::SessionData::Tls(tls)
+                        = &session.data
+                    {
+                        if RE0.is_match(&tls.sni()[..]) {
+                            result.terminal_matches |= 1;
+                        }
+                    }
+                }
+                7 => {
+                    if let retina_core::protocols::stream::SessionData::Tls(tls)
+                        = &session.data
+                    {
+                        if RE1.is_match(&tls.sni()[..]) {
+                            result.terminal_matches |= 1;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        result
+    }
+    retina_core::filter::FilterFactory::new(
+        "(tls.sni ~ '^.*\\.com$') or (ipv4 or http)",
+        "http or tls",
+        packet_filter,
+        connection_filter,
+        session_filter,
+    )
+}
+#[allow(missing_copy_implementations)]
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+struct RE0 {
+    __private_field: (),
+}
+#[doc(hidden)]
+static RE0: RE0 = RE0 { __private_field: () };
+impl ::lazy_static::__Deref for RE0 {
+    type Target = regex::Regex;
+    fn deref(&self) -> &regex::Regex {
+        #[inline(always)]
+        fn __static_ref_initialize() -> regex::Regex {
+            regex::Regex::new("^.*\\.com$").unwrap()
+        }
+        #[inline(always)]
+        fn __stability() -> &'static regex::Regex {
+            static LAZY: ::lazy_static::lazy::Lazy<regex::Regex> = ::lazy_static::lazy::Lazy::INIT;
+            LAZY.get(__static_ref_initialize)
+        }
+        __stability()
     }
 }
-pub struct TlsSubscription {
-    pub tls: Tls,
-    pub five_tuple: FiveTuple,
+impl ::lazy_static::LazyStatic for RE0 {
+    fn initialize(lazy: &Self) {
+        let _ = &**lazy;
+    }
 }
-pub struct HttpSubscription {
-    pub http: Http,
-    pub five_tuple: FiveTuple,
+#[allow(missing_copy_implementations)]
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+struct RE1 {
+    __private_field: (),
 }
-pub struct SubscribableWrapper;
-impl Subscribable for SubscribableWrapper {
-    type Tracked = TrackedWrapper;
-    type SubscribedData = SubscribableEnum;
-    fn parsers() -> Vec<ConnParser> {
-        <[_]>::into_vec(
-            #[rustc_box]
-            ::alloc::boxed::Box::new([
-                ConnParser::Tls(TlsParser::default()),
-                ConnParser::Http(HttpParser::default()),
-            ]),
+#[doc(hidden)]
+static RE1: RE1 = RE1 { __private_field: () };
+impl ::lazy_static::__Deref for RE1 {
+    type Target = regex::Regex;
+    fn deref(&self) -> &regex::Regex {
+        #[inline(always)]
+        fn __static_ref_initialize() -> regex::Regex {
+            regex::Regex::new("^.*\\.com$").unwrap()
+        }
+        #[inline(always)]
+        fn __stability() -> &'static regex::Regex {
+            static LAZY: ::lazy_static::lazy::Lazy<regex::Regex> = ::lazy_static::lazy::Lazy::INIT;
+            LAZY.get(__static_ref_initialize)
+        }
+        __stability()
+    }
+}
+impl ::lazy_static::LazyStatic for RE1 {
+    fn initialize(lazy: &Self) {
+        let _ = &**lazy;
+    }
+}
+fn main() {
+    let cfg = default_config();
+    let callback = |tls: SubscribableEnum| {
+        {
+            ::std::io::_print(format_args!("CB 1: {0:?}\n", tls));
+        };
+    };
+    let callback2 = |http: SubscribableEnum| {
+        {
+            ::std::io::_print(format_args!("CB 2: {0:?}\n", http));
+        };
+    };
+    let mut runtime: Runtime<SubscribableWrapper> = Runtime::new(
+            cfg,
+            filter,
+            <[_]>::into_vec(
+                #[rustc_box]
+                ::alloc::boxed::Box::new([Box::new(callback), Box::new(callback2)]),
+            ),
         )
-    }
-    fn process_packet(
-        mbuf: Mbuf,
-        subscription: &Subscription<Self>,
-        conn_tracker: &mut ConnTracker<Self::Tracked>,
-    ) {
-        let result = subscription.filter_packet(&mbuf);
-        if result.terminal_matches != 0 || result.nonterminal_matches != 0 {
-            if let Ok(ctxt) = L4Context::new(&mbuf) {
-                conn_tracker.process(mbuf, ctxt, subscription, result);
-            }
-        } else {
-            drop(mbuf);
-        }
-    }
+        .unwrap();
+    runtime.run();
 }
-pub struct TrackedWrapper {
-    match_data: MatchData,
-    five_tuple: FiveTuple,
-    tls: Option<Tls>,
-    http: Vec<Http>,
-}
-impl Trackable for TrackedWrapper {
-    type Subscribed = SubscribableWrapper;
-    fn new(five_tuple: FiveTuple, result: FilterResultData) -> Self {
-        Self {
-            match_data: MatchData::new(result),
-            five_tuple: five_tuple,
-            tls: None,
-            http: Vec::new(),
-        }
-    }
-    fn update(
-        &mut self,
-        _pdu: L4Pdu,
-        _session_id: Option<usize>,
-        _subscription: &Subscription<Self::Subscribed>,
-    ) {}
-    fn on_terminate(&mut self, _subscription: &Subscription<Self::Subscribed>) {}
-    fn deliver_session_on_match(
-        &mut self,
-        session: Session,
-        subscription: &Subscription<Self::Subscribed>,
-    ) -> ConnState {
-        if let SessionData::Tls(tls) = session.data {
-            if self.match_data.matched_term_by_idx(0) {
-                self.tls = Some(*tls);
-            }
-        } else if let SessionData::Http(http) = session.data {
-            if self.match_data.matched_term_by_idx(1) {
-                self.http.push(*http);
-            }
-        }
-        if self.match_data.matched_term_by_idx(0) {
-            if let Some(_data) = &self.tls {
-                subscription
-                    .invoke_idx(
-                        SubscribableEnum::Tls(TlsSubscription {
-                            tls: std::mem::take(&mut self.tls).unwrap(),
-                            five_tuple: self.five_tuple,
-                        }),
-                        0,
-                    );
-            }
-        }
-        if self.match_data.matched_term_by_idx(1) {
-            if let Some(data) = self.http.pop() {
-                subscription
-                    .invoke_idx(
-                        SubscribableEnum::Http(HttpSubscription {
-                            http: data,
-                            five_tuple: self.five_tuple,
-                        }),
-                        1,
-                    );
-            }
-        }
-        ConnState::Remove
-    }
-    fn filter_packet(&mut self, pkt_filter_result: FilterResultData) {
-        self.match_data.filter_packet(pkt_filter_result);
-    }
-    fn filter_conn(
-        &mut self,
-        conn: &ConnData,
-        subscription: &Subscription<Self::Subscribed>,
-    ) -> FilterResult {
-        return self.match_data.filter_conn(conn, subscription);
-    }
-    fn filter_session(
-        &mut self,
-        session: &Session,
-        subscription: &Subscription<Self::Subscribed>,
-    ) -> bool {
-        return self.match_data.filter_session(session, subscription);
-    }
-}
-fn main() {}

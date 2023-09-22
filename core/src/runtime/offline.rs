@@ -20,7 +20,7 @@ where
     S: Subscribable,
 {
     pub(crate) mempool_name: String,
-    pub(crate) filter: Filter,
+    pub(crate) proto_filter: Filter,
     pub(crate) subscription: Arc<Subscription<'a, S>>,
     pub(crate) options: OfflineOptions,
 }
@@ -32,9 +32,11 @@ where
     pub(crate) fn new(
         options: OfflineOptions,
         mempools: &BTreeMap<SocketId, Mempool>,
-        filter: Filter,
+        protocol_filter: String,
         subscription: Arc<Subscription<'a, S>>,
     ) -> Self {
+        let proto_filter = Filter::from_str(&protocol_filter, true, 0)
+                                                    .expect("Failed to parse stream protocol filter");
         let core_id = CoreId(unsafe { dpdk::rte_lcore_id() } as u32);
         let mempool_name = mempools
             .get(&core_id.socket_id())
@@ -43,7 +45,7 @@ where
             .to_string();
         OfflineRuntime {
             mempool_name,
-            filter,
+            proto_filter,
             subscription,
             options,
         }
@@ -59,7 +61,7 @@ where
         let mut nb_bytes = 0;
 
         let config = TrackerConfig::from(&self.options.conntrack);
-        let registry = ParserRegistry::build::<S>(&self.filter).expect("Unable to build registry");
+        let registry = ParserRegistry::build::<S>(&self.proto_filter).expect("Unable to build registry");
         log::debug!("{:#?}", registry);
         let mut stream_table = ConnTracker::<S::Tracked>::new(config, registry);
 
