@@ -156,8 +156,12 @@ use crate::session_filter::gen_session_filter;
 #[proc_macro_attribute]
 pub fn filter(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemFn);
+
+    let input_configs = parse::get_configs();
     
-    let (ptree, collapsed_filter, application_protocols) = parse::get_filters_from_config();
+    let (ptree, collapsed_filter, application_protocols) = 
+                        parse::get_filters_from_config(input_configs.clone());
+    let callbacks = parse::get_callbacks_from_config(input_configs);
 
     // store lazily evaluated statics like pre-compiled Regex
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
@@ -208,6 +212,8 @@ pub fn filter(_args: TokenStream, input: TokenStream) -> TokenStream {
                                                     #application_protocols, 
                                                     packet_filter, connection_filter, session_filter)
         }
+
+        #callbacks
 
         #lazy_statics
         #input

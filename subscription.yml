@@ -4,4 +4,7 @@ subscribed:
 filters:
   "tls.sni ~ '^.*\\.com$'": 0
   "ipv4 or http": 1
+callbacks:
+  callback1: 0
+  callback2: 1
 num_subscriptions: 2

@@ -1,17 +1,22 @@
 use serde_yaml::{Value, from_reader};
 use std::collections::HashSet;
 use retina_core::filter::{Filter, ptree::PTree};
+use quote::quote;
+use proc_macro2::{Ident, Span};
+
+// --- Config Parsing ---
+pub(crate) fn get_configs() -> Value {
+    let filepath_in = "/home/trossman/retina/subscription.yml"; // tmp 
+    let f_in = std::fs::File::open(filepath_in)
+                .expect(&format!("Failed to read config filepath ({})", &filepath_in));
+    let data_in: Value = from_reader(f_in)
+                                    .expect("Failed to read subscription config");
+
+    data_in
+}
 
 // --- Filter Parsing ---
-pub(crate) fn get_filters_from_config() -> (PTree, String, String) {
-    let filepath_in = "/home/trossman/retina/subscription.yml"; // tmp 
-
-    let f_in = std::fs::File::open(filepath_in);
-    if let Err(e) = f_in {
-        panic!("Failed to read config filepath ({}) {:?}", filepath_in, e);
-    }
-    let data_in: Value = from_reader(f_in.unwrap())
-                                    .expect("Failed to read subscription config");
+pub(crate) fn get_filters_from_config(data_in: Value) -> (PTree, String, String) {
 
     // Read filters from yml file into vector.
     let filters = data_in.get("filters")
@@ -94,4 +99,28 @@ fn get_application_protocols(ptree: &PTree) -> String {
     println!("Protocols for parsers:\n- {}", &protocol_names);
 
     protocol_names
+}
+
+// ---- CB Parsing ----
+// TODO
+// fn callbacks() -> Vec<> ... 
+// vec![Box::new(callback1), Box::new(callback2)]
+
+pub(crate) fn get_callbacks_from_config(data_in: Value) -> proc_macro2::TokenStream {
+    let callbacks = data_in.get("callbacks")
+                                 .expect("Must specify at least one \"callbacks\"");
+    let iter = callbacks.as_mapping().unwrap(); 
+    let mut callbacks = vec![];
+    for (k, _v) in iter {
+        let callback_name = Ident::new(&k.as_str().unwrap(), Span::call_site());
+        let callback_param = quote! {
+            Box::new(#callback_name),
+        };
+        callbacks.push(callback_param);
+    }
+    quote! {
+        fn callbacks() -> Vec<Box<dyn Fn(SubscribableEnum)>> {
+            vec![#( #callbacks )* ]
+        }
+    }
 }

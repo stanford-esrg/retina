@@ -3,17 +3,19 @@ use retina_core::subscription::{SubscribableEnum, SubscribableWrapper};
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
+fn callback1(tls: SubscribableEnum) {
+    println!("CB 1: {:?}", tls);
+}
+
+fn callback2(http: SubscribableEnum) {
+    println!("CB 2: {:?}", http);
+}
+
 #[filter]
 fn main() {
     let cfg = default_config();
-    let callback = |tls: SubscribableEnum| {
-        println!("CB 1: {:?}", tls);
-    };
-    let callback2 = | http: SubscribableEnum| {
-        println!("CB 2: {:?}", http);
-    };
     let mut runtime: Runtime<SubscribableWrapper> = Runtime::new(cfg, filter, 
-                                                    vec![Box::new(callback), Box::new(callback2)]).unwrap();
+                                                    callbacks()).unwrap();
     runtime.run();
 }
 

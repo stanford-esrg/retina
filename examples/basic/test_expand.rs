@@ -20,7 +20,7 @@ Complete Filter:
          `- http (9) c:  1*
 
 Protocols for parsers:
-http or tls
+- tls or http
 #![feature(prelude_import)]
 #[prelude_import]
 use std::prelude::rust_2021::*;
@@ -30,6 +30,16 @@ use retina_core::config::default_config;
 use retina_core::subscription::{SubscribableEnum, SubscribableWrapper};
 use retina_core::Runtime;
 use retina_filtergen::filter;
+fn callback1(tls: SubscribableEnum) {
+    {
+        ::std::io::_print(format_args!("CB 1: {0:?}\n", tls));
+    };
+}
+fn callback2(http: SubscribableEnum) {
+    {
+        ::std::io::_print(format_args!("CB 2: {0:?}\n", http));
+    };
+}
 fn filter() -> retina_core::filter::FilterFactory {
     #[inline]
     fn packet_filter(mbuf: &retina_core::Mbuf) -> retina_core::filter::FilterResultData {
@@ -59,8 +69,8 @@ fn filter() -> retina_core::filter::FilterFactory {
                         retina_core::protocols::packet::tcp::Tcp,
                     >(ipv6) {
                     result.nonterminal_matches |= 3;
-                    result.nonterminal_nodes[0] = 6;
                     result.nonterminal_nodes[1] = 6;
+                    result.nonterminal_nodes[0] = 6;
                 }
             }
         }
@@ -142,10 +152,16 @@ fn filter() -> retina_core::filter::FilterFactory {
     }
     retina_core::filter::FilterFactory::new(
         "(tls.sni ~ '^.*\\.com$') or (ipv4 or http)",
-        "http or tls",
+        "tls or http",
         packet_filter,
         connection_filter,
         session_filter,
+    )
+}
+fn callbacks() -> Vec<Box<dyn Fn(SubscribableEnum)>> {
+    <[_]>::into_vec(
+        #[rustc_box]
+        ::alloc::boxed::Box::new([Box::new(callback1), Box::new(callback2)]),
     )
 }
 #[allow(missing_copy_implementations)]
@@ -206,23 +222,10 @@ impl ::lazy_static::LazyStatic for RE1 {
 }
 fn main() {
     let cfg = default_config();
-    let callback = |tls: SubscribableEnum| {
-        {
-            ::std::io::_print(format_args!("CB 1: {0:?}\n", tls));
-        };
-    };
-    let callback2 = |http: SubscribableEnum| {
-        {
-            ::std::io::_print(format_args!("CB 2: {0:?}\n", http));
-        };
-    };
     let mut runtime: Runtime<SubscribableWrapper> = Runtime::new(
             cfg,
             filter,
-            <[_]>::into_vec(
-                #[rustc_box]
-                ::alloc::boxed::Box::new([Box::new(callback), Box::new(callback2)]),
-            ),
+            callbacks(),
         )
         .unwrap();
     runtime.run();
