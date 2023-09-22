@@ -30,7 +30,7 @@ pub fn subscription_type(_args: TokenStream, _input: TokenStream) -> TokenStream
 
     let match_state = cfg.match_state();
 
-    let imports = pub_imports();
+    let imports = imports();
     let subscribable_type = subscribable_type(parsers);
     let deliverables = deliverable_data(structs, enum_fields);
 
@@ -144,11 +144,11 @@ fn imports() -> proc_macro2::TokenStream {
         use crate::conntrack::ConnTracker;
         use crate::filter::{FilterResult, FilterResultData};
         use crate::memory::mbuf::Mbuf;
-        use crate::protocols::stream::tls::{parser::TlsParser, Tls};
-        use crate::protocols::stream::http::{parser::HttpParser, Http};
         use crate::protocols::stream::{ConnParser, Session, SessionData, ConnData};
         use crate::conntrack::conn::conn_info::{ConnState};
         use crate::subscription::{Trackable, MatchData, Subscription, Subscribable};
+        use crate::protocols::stream::tls::{parser::TlsParser, Tls};
+        use crate::protocols::stream::http::{parser::HttpParser, Http};
     }
 }
 
@@ -160,10 +160,10 @@ fn pub_imports() -> proc_macro2::TokenStream {
         use retina_core::conntrack::ConnTracker;
         use retina_core::filter::{FilterResult, FilterResultData};
         use retina_core::memory::mbuf::Mbuf;
-        use retina_core::protocols::stream::tls::{parser::TlsParser, Tls};
-        use retina_core::protocols::stream::http::{parser::HttpParser, Http};
         use retina_core::protocols::stream::{ConnParser, Session, SessionData, ConnData};
         use retina_core::conntrack::conn::conn_info::{ConnState};
         use retina_core::subscription::{Trackable, MatchData, Subscription, Subscribable};
+        use retina_core::protocols::stream::tls::{parser::TlsParser, Tls};
+        use retina_core::protocols::stream::http::{parser::HttpParser, Http};
     }
 }

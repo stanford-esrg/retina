@@ -93,12 +93,16 @@ impl MethodBuilder {
         }
         let types = raw_data.get("subscribed").unwrap();
         let iter = types.as_mapping().unwrap();
+        let mut required_data = HashSet::new();
         for (k, v) in iter {
-            self.add_data(k.as_str().unwrap(), v.as_i64().unwrap());
+            self.add_data(k.as_str().unwrap(), v.as_i64().unwrap(), Some(&mut required_data));
+        }
+        for s in required_data {
+            self.add_data(&s, -1, None);
         }
     }
 
-    fn add_data(&mut self, input: &str, idx: i64) {
+    fn add_data(&mut self, input: &str, idx: i64, required_data: Option<&mut HashSet<String>>) {
         if self.fields_str.contains(input) {
             return;
         }
@@ -113,6 +117,9 @@ impl MethodBuilder {
                 ));
                 self.parser.push(HttpTransactionData::parser());
                 self.add_subscription("http", idx);
+                if let Some(data) = required_data {
+                    data.extend(HttpTransactionData::required_fields());
+                }
                 // add_data five tuple? 
             },
             "tls" => {
@@ -124,11 +131,13 @@ impl MethodBuilder {
                 ));
                 self.parser.push(TlsHandshakeData::parser());
                 self.add_subscription("tls", idx);
+                if let Some(data) = required_data {
+                    data.extend(TlsHandshakeData::required_fields());
+                }
             },
             "five_tuple" => {
                 self.fields.push(FiveTupleData::field());
                 self.new.push(FiveTupleData::gen_new());
-                // if separate subsc., separate out?
             },
             _ => {
                 panic!("Unrecognized field");

@@ -1,5 +1,6 @@
 use quote::quote;
 use proc_macro2::Span;
+use std::collections::HashSet;
 
 pub struct HttpTransactionData {}
 
@@ -47,6 +48,11 @@ impl HttpTransactionData {
         }
     }
 
+    #[inline]
+    pub fn required_fields() -> HashSet<String> {
+        ["five_tuple".to_string()].iter().cloned().collect()
+    }
+
 }
 
 pub struct HttpSubscription;
@@ -55,6 +61,7 @@ impl HttpSubscription {
 
     pub fn struct_def() -> proc_macro2::TokenStream {
         quote! {
+            #[derive(Debug)]
             pub struct HttpSubscription { 
                 pub http: Http,
                 pub five_tuple: FiveTuple,

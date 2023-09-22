@@ -1,3 +1,10 @@
+/*
+use retina_subscriptiongen::subscription_type;
+
+#[subscription_type]
+pub struct SubscribableWrapper;
+ */
+
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;

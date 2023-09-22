@@ -1,6 +1,6 @@
 use quote::quote;
 use proc_macro2::Span;
-
+use std::collections::HashSet;
 pub struct TlsHandshakeData;
 
 impl TlsHandshakeData {
@@ -50,6 +50,11 @@ impl TlsHandshakeData {
         }
     }
 
+    #[inline]
+    pub fn required_fields() -> HashSet<String> {
+        ["five_tuple".to_string()].iter().cloned().collect()
+    }
+
 }
 
 
@@ -61,6 +66,7 @@ impl TlsSubscription {
     pub fn struct_def() -> proc_macro2::TokenStream {
         // TODOTR: should 5-tuple be in here? If so, add `fields` logic.
         quote! {
+            #[derive(Debug)]
             pub struct TlsSubscription { 
                 pub tls: Tls,
                 pub five_tuple: FiveTuple,
