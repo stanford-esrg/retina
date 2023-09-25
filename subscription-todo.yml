@@ -1,13 +1,17 @@
 subscribed:
-  tls:
-    idx: 0
-    fields: ["default"]  # TODO: fields
-  http:
+  Tls:
+    idx: [0, 2]
+    fields: 
+      tls: default  # TODO: fields
+  HttpDepth:
     idx: 1
-    fields: ["http"]
-  tls: 
-    idx: 2
-    fields: ["five_tuple"] # TODO: repeated type
+    fields: 
+      http: [transaction_depth]
+      five_tuple:
+  ClientHello: 
+    idx: 3
+    fields:
+      tls: [client_hello]
 filters:
   "tls.sni ~ '^.*\\.com$'": 0
   "ipv4 or http": 1
