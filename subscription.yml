@@ -1,10 +1,9 @@
 subscribed:
-  tls: 0
-  http: 1
+  tls: [0]
+  http: [1]
 filters:
-  "tls.sni ~ '^.*\\.com$'": 0
-  "ipv4 or http": 1
+  "tls.sni ~ '^.*\\.com$'": [0]
+  "ipv4 and http": [1]
 callbacks:
-  callback1: 0
-  callback2: 1
+  callback1: [0, 1]
 num_subscriptions: 2

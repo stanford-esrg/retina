@@ -23,14 +23,19 @@ pub(crate) fn get_filters_from_config(data_in: Value) -> (PTree, String, String)
                                  .expect("Must specify at least one \"filters\"");
     let iter = filters.as_mapping().unwrap(); 
     let mut filters = vec![];
-    for (k, _v) in iter {
-        filters.push(k.as_str().unwrap().to_string());
+    let mut filter_idxs = vec![];
+    for (k, v) in iter {
+        let idxs = v.as_sequence().unwrap(); 
+        for idx in idxs {
+            filters.push(k.as_str().unwrap().to_string());
+            filter_idxs.push(idx.as_i64().unwrap());
+        }
     }
 
     // Collapsed (HW) Filter
     let collapsed_filter = get_collapsed_filter(&filters);
     // Complete (Indexed) Filter PTree
-    let ptree = get_ptree(&filters);
+    let ptree = get_ptree(&filters, &filter_idxs);
     // For building parser registry 
     let application_protocols = get_application_protocols(&ptree);
 
@@ -46,9 +51,11 @@ fn get_collapsed_filter(filters: &Vec<String>) -> String {
         collapsed_filter += "(";
         collapsed_filter += filters[0].clone().as_str();
         if filters.len() > 1 {
-            for filter in &filters[1..] {
+            for i in 1..filters.len() {
+                let filter_str = &filters[i];
+                if filter_str == &filters[i - 1] { continue; }
                 collapsed_filter += ") or (";
-                collapsed_filter += filter.clone().as_str();
+                collapsed_filter += filter_str.clone().as_str();
             }
         }
         collapsed_filter += ")";
@@ -62,12 +69,12 @@ fn get_collapsed_filter(filters: &Vec<String>) -> String {
     collapsed_filter
 }
 
-fn get_ptree(filters: &Vec<String>) -> PTree {
-    let filter = Filter::from_str(&filters[0], false, 0)
+fn get_ptree(filters: &Vec<String>, filter_idxs: &Vec<i64>) -> PTree {
+    let filter = Filter::from_str(&filters[0], false, filter_idxs[0] as usize)
                                         .expect(&format!("Failed to generate filter: {}", &filters[0]));
     let mut ptree = filter.to_ptree(0);
     for i in 1..filters.len() {
-        let filter = Filter::from_str(&filters[i], false, i)
+        let filter = Filter::from_str(&filters[i], false, filter_idxs[i] as usize)
                             .expect(&format!("Failed to generate filter: {}", &filters[i]));
         ptree.add_filter(&filter.get_patterns_flat(), i);
     }
@@ -110,14 +117,24 @@ pub(crate) fn get_callbacks_from_config(data_in: Value) -> proc_macro2::TokenStr
     let callbacks = data_in.get("callbacks")
                                  .expect("Must specify at least one \"callbacks\"");
     let iter = callbacks.as_mapping().unwrap(); 
-    let mut callbacks = vec![];
-    for (k, _v) in iter {
-        let callback_name = Ident::new(&k.as_str().unwrap(), Span::call_site());
-        let callback_param = quote! {
-            Box::new(#callback_name),
-        };
-        callbacks.push(callback_param);
+    let mut callback_names = vec![];
+    for (k, v) in iter {
+        let idxs = v.as_sequence().unwrap(); 
+        for idx in idxs {
+            let callback_name = Ident::new(&k.as_str().unwrap(), Span::call_site());
+            callback_names.push((
+                quote! { Box::new(#callback_name), },
+                idx.as_i64().unwrap()
+            ));
+        }
     }
+    callback_names.sort_by(
+        |a, b| a.1.cmp(&b.1));
+    let mut callbacks = vec![];
+    for cb in callback_names {
+        callbacks.push(cb.0);
+    }
+
     quote! {
         fn callbacks() -> Vec<Box<dyn Fn(SubscribableEnum)>> {
             vec![#( #callbacks )* ]

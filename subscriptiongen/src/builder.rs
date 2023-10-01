@@ -101,7 +101,10 @@ impl MethodBuilder {
         let iter = types.as_mapping().unwrap();
         let mut required_data = HashSet::new();
         for (k, v) in iter {
-            self.add_data(k.as_str().unwrap(), v.as_i64().unwrap(), Some(&mut required_data));
+            let vec = v.as_sequence().unwrap();
+            for i in vec {
+                self.add_data(k.as_str().unwrap(), i.as_i64().unwrap(), Some(&mut required_data));
+            }
         }
         for s in required_data {
             self.add_data(&s, -1, None);
@@ -109,10 +112,10 @@ impl MethodBuilder {
     }
 
     fn add_data(&mut self, input: &str, idx: i64, required_data: Option<&mut HashSet<String>>) {
-        if self.fields_str.contains(input) {
-            return;
-        }
+        let shared_data = self.fields_str.contains(input);
         self.fields_str.insert(input.to_string());
+        self.add_subscription(input, idx, shared_data);
+        if shared_data { return; } 
         match input {
             "http" => {
                 self.fields.push(HttpTransactionData::session_field());
@@ -123,7 +126,6 @@ impl MethodBuilder {
                 ));
                 self.drop.push(HttpTransactionData::drop());
                 self.parser.push(HttpTransactionData::parser());
-                self.add_subscription("http", idx);
                 if let Some(data) = required_data {
                     data.extend(HttpTransactionData::required_fields());
                 }
@@ -138,7 +140,6 @@ impl MethodBuilder {
                 ));
                 self.drop.push(TlsHandshakeData::drop());
                 self.parser.push(TlsHandshakeData::parser());
-                self.add_subscription("tls", idx);
                 if let Some(data) = required_data {
                     data.extend(TlsHandshakeData::required_fields());
                 }
@@ -153,16 +154,20 @@ impl MethodBuilder {
         }
     }
 
-    fn add_subscription(&mut self, input: &str, idx: i64) {
+    fn add_subscription(&mut self, input: &str, idx: i64, shared: bool) {
         match input {
             "tls" => {
-                self.defs.push(TlsSubscription::struct_def());
-                self.enums.push(TlsSubscription::enum_def());
+                if !shared {
+                    self.defs.push(TlsSubscription::struct_def());
+                    self.enums.push(TlsSubscription::enum_def());
+                }
                 self.subscriptions.push(TlsSubscription::from_data(idx));
             },
             "http" => {
-                self.defs.push(HttpSubscription::struct_def());
-                self.enums.push(HttpSubscription::enum_def());
+                if !shared {
+                    self.defs.push(HttpSubscription::struct_def());
+                    self.enums.push(HttpSubscription::enum_def());
+                }
                 self.subscriptions.push(HttpSubscription::from_data(idx));
             }
             _ => {}
