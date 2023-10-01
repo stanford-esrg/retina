@@ -1,6 +1,8 @@
 subscribed:
-  tls: [0]
-  http: [1]
+  tls: 
+    idx: [0]
+  http: 
+    idx: [1]
 filters:
   "tls.sni ~ '^.*\\.com$'": [0]
   "ipv4 and http": [1]

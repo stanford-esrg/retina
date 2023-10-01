@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use crate::prototypes::*;
-use serde_yaml::{Value, from_reader};
+use serde_yaml::{Value, Mapping, from_reader};
 use quote::quote;
 use proc_macro2::Span;
 
@@ -101,14 +101,27 @@ impl MethodBuilder {
         let iter = types.as_mapping().unwrap();
         let mut required_data = HashSet::new();
         for (k, v) in iter {
-            let vec = v.as_sequence().unwrap();
-            for i in vec {
-                self.add_data(k.as_str().unwrap(), i.as_i64().unwrap(), Some(&mut required_data));
-            }
+            let subscription_name = k.as_str().expect("Cannot read subscription name"); 
+            let subscription_data = v.as_mapping()
+                                             .expect(&format!("Cannot interpret subscription data as map: {}", subscription_name));
+            self.create_subscription(subscription_data, subscription_name, &mut required_data);
         }
         for s in required_data {
             self.add_data(&s, -1, None);
         }
+    }
+
+    fn create_subscription(&mut self, subscription_data: &Mapping, subscription_name: &str, 
+                           required_data: &mut HashSet<String>)
+    {
+        let idxs = subscription_data.get("idx")
+                            .expect("Must specify at least one \"idx\"")
+                            .as_sequence()
+                            .expect("\"idx\" field should be formatted as a list");
+        for i in idxs {
+            let idx = i.as_i64().expect("Found \"idx\" member that cannot be parsed as int");
+            self.add_data(subscription_name, idx, Some(required_data));
+        }        
     }
 
     fn add_data(&mut self, input: &str, idx: i64, required_data: Option<&mut HashSet<String>>) {
