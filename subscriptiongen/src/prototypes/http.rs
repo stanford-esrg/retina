@@ -83,7 +83,7 @@ impl HttpSubscription {
             if self.match_data.matched_term_by_idx(#subscription_idx) {
                 if let Some(data) = self.http.last() {
                     subscription.invoke_idx(
-                        SubscribableEnum::Http(HttpSubscription {
+                        Subscribed::Http(HttpSubscription {
                             http: data.clone(),
                             five_tuple: self.five_tuple
                         }

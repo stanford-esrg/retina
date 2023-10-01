@@ -98,7 +98,7 @@ fn subscribable_type(parsers: Vec<proc_macro2::TokenStream>) -> proc_macro2::Tok
 
         impl Subscribable for SubscribableWrapper {
             type Tracked = TrackedWrapper;
-            type SubscribedData = SubscribableEnum;
+            type SubscribedData = Subscribed;
         
             fn parsers() -> Vec<ConnParser> {
                 vec![ #( #parsers)* ]
@@ -129,7 +129,7 @@ fn deliverable_data(structs: Vec<proc_macro2::TokenStream>,
 
     quote! {
         #[derive(Debug)]
-        pub enum SubscribableEnum {
+        pub enum Subscribed {
             #( #enum_fields)*
         }
 

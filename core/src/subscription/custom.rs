@@ -17,7 +17,7 @@ use crate::subscription::{Trackable, MatchData, Subscription, Subscribable};
 use std::rc::Rc;
 
 #[derive(Debug)]
-pub enum SubscribableEnum {
+pub enum Subscribed {
     Tls(TlsSubscription),
     Http(HttpSubscription),
 }
@@ -38,7 +38,7 @@ pub struct HttpSubscription {
 pub struct SubscribableWrapper;
 impl Subscribable for SubscribableWrapper {
     type Tracked = TrackedWrapper;
-    type SubscribedData = SubscribableEnum;
+    type SubscribedData = Subscribed;
     fn parsers() -> Vec<ConnParser> {
         vec![
                 ConnParser::Tls(TlsParser::default()),
@@ -101,7 +101,7 @@ impl Trackable for TrackedWrapper {
             if let Some(data) = &self.tls {
                 subscription
                     .invoke_idx(
-                        SubscribableEnum::Tls(TlsSubscription {
+                        Subscribed::Tls(TlsSubscription {
                             tls: data.clone(),
                             five_tuple: self.five_tuple,
                         }),
@@ -113,7 +113,7 @@ impl Trackable for TrackedWrapper {
             if let Some(data) = self.http.last() {
                 subscription
                     .invoke_idx(
-                        SubscribableEnum::Http(HttpSubscription {
+                        Subscribed::Http(HttpSubscription {
                             http: data.clone(),
                             five_tuple: self.five_tuple,
                         }),

@@ -15,7 +15,7 @@ pub mod tls_handshake;
 pub mod tls_connection;
 
 pub mod custom;
-pub use self::custom::{SubscribableWrapper, SubscribableEnum};
+pub use self::custom::{SubscribableWrapper, Subscribed};
 
 // Re-export subscribable types for more convenient usage.
 pub use self::connection::{Connection, ConnectionSubscription};

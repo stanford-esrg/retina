@@ -1,22 +1,22 @@
 use retina_core::config::default_config;
-use retina_core::subscription::{SubscribableEnum, SubscribableWrapper};
+use retina_core::subscription::{Subscribed, SubscribableWrapper};
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
 #[allow(unused)]
-fn no_op(_data: SubscribableEnum) { }
+fn no_op(_data: Subscribed) { }
 
 #[allow(unused)]
-fn callback1(data: SubscribableEnum) {
-    if let SubscribableEnum::Tls(tls) = data {
+fn callback1(data: Subscribed) {
+    if let Subscribed::Tls(tls) = data {
         println!("CB 1: {:?}", tls);
-    } else if let SubscribableEnum::Http(http) = data {
+    } else if let Subscribed::Http(http) = data {
         println!("CB 1: {:?}", http);
     }
 }
 
 #[allow(unused)]
-fn callback2(data: SubscribableEnum) {
+fn callback2(data: Subscribed) {
     println!("CB 2: {:?}", data);
 }
 

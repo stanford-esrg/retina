@@ -90,7 +90,7 @@ impl TlsSubscription {
             if self.match_data.matched_term_by_idx(#subscription_idx) {
                 if let Some(data) = &self.tls {
                     subscription.invoke_idx(
-                        SubscribableEnum::Tls(TlsSubscription {
+                        Subscribed::Tls(TlsSubscription {
                             tls: data.clone(),
                             five_tuple: self.five_tuple,
                         }),
