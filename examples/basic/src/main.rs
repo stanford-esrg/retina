@@ -8,9 +8,9 @@ fn no_op(_data: Subscribed) { }
 
 #[allow(unused)]
 fn callback1(data: Subscribed) {
-    if let Subscribed::Tls(tls) = data {
+    if let Subscribed::TlsSubscription(tls) = data {
         println!("CB 1: {:?}", tls);
-    } else if let Subscribed::Http(http) = data {
+    } else if let Subscribed::HttpSubscription(http) = data {
         println!("CB 1: {:?}", http);
     }
 }

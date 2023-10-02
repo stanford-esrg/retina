@@ -1,8 +1,14 @@
 subscribed:
-  tls: 
+  TlsSubscription:
     idx: [0]
-  http: 
+    fields: 
+      tls: default
+      five_tuple:
+  HttpSubscription:
     idx: [1]
+    fields: 
+      http: default
+      five_tuple:
 filters:
   "tls.sni ~ '^.*\\.com$'": [0]
   "ipv4 and http": [1]

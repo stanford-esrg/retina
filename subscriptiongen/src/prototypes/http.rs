@@ -21,22 +21,17 @@ impl HttpTransactionData {
     }
 
     #[inline]
-    pub fn deliver_session_on_match(is_first: bool, idx: i64) -> proc_macro2::TokenStream {
-        let subscription_idx = syn::LitInt::new(&idx.to_string(), Span::call_site());
+    pub fn deliver_session_on_match(is_first: bool) -> proc_macro2::TokenStream {
         if !is_first {
             return quote! {
                 else if let SessionData::Http(http) = session.data {
-                    if self.match_data.matched_term_by_idx(#subscription_idx) {
-                        self.http.push(Rc::new(*http)); 
-                    }
+                    self.http.push(Rc::new(*http)); 
                 }
             };
         }
         quote! {
             if let SessionData::Http(http) = session.data {
-                if self.match_data.matched_term_by_idx(#subscription_idx) {
-                    self.http.push(Rc::new(*http));
-                }
+                self.http.push(Rc::new(*http));
             }
         }
     }
@@ -46,11 +41,6 @@ impl HttpTransactionData {
         quote! {
             ConnParser::Http(HttpParser::default()),
         }
-    }
-
-    #[inline]
-    pub fn required_fields() -> HashSet<String> {
-        ["five_tuple".to_string()].iter().cloned().collect()
     }
 
     pub fn drop() -> proc_macro2::TokenStream {
@@ -63,6 +53,24 @@ pub struct HttpSubscription;
 
 impl HttpSubscription {
 
+    pub fn delivered_field() -> (proc_macro2::TokenStream, HashSet<String>, proc_macro2::TokenStream) {
+        ( quote! { pub http: Rc<Http>, },
+          ["http".to_string()].iter().cloned().collect(),
+          quote! { http: data.clone(), } )
+    }
+
+    pub fn condition() -> proc_macro2::TokenStream {
+        quote! { 
+            let Some(data) = self.http.last()
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub struct DefaultHttpSubscription;
+
+#[allow(dead_code)]
+impl DefaultHttpSubscription {
     pub fn struct_def() -> proc_macro2::TokenStream {
         quote! {
             #[derive(Debug)]
@@ -98,5 +106,9 @@ impl HttpSubscription {
         quote! {
             Http(HttpSubscription),
         }
+    }
+
+    pub fn required_fields() -> HashSet<String> {
+        ["five_tuple".to_string()].iter().cloned().collect()
     }
 }

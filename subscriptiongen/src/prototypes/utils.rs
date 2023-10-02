@@ -14,4 +14,16 @@ impl FiveTupleData {
             five_tuple: five_tuple,
         }
     }
+
+    pub fn delivered_field() -> proc_macro2::TokenStream {
+        quote! {
+            pub five_tuple: FiveTuple,
+        }
+    }
+
+    pub fn extract_field() -> proc_macro2::TokenStream {
+        quote! {
+            five_tuple: self.five_tuple,
+        }
+    }
 }

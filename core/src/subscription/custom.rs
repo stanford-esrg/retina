@@ -99,8 +99,7 @@ impl Trackable for TrackedWrapper {
         }
         if self.match_data.matched_term_by_idx(0) {
             if let Some(data) = &self.tls {
-                subscription
-                    .invoke_idx(
+                subscription.invoke_idx(
                         Subscribed::Tls(TlsSubscription {
                             tls: data.clone(),
                             five_tuple: self.five_tuple,

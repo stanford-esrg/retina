@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use crate::prototypes::*;
 use serde_yaml::{Value, Mapping, from_reader};
 use quote::quote;
-use proc_macro2::Span;
+use proc_macro2::{Span, Ident};
 
 pub(crate) struct MethodBuilder {
     fields_str: HashSet<String>,
@@ -104,44 +104,103 @@ impl MethodBuilder {
             let subscription_name = k.as_str().expect("Cannot read subscription name"); 
             let subscription_data = v.as_mapping()
                                              .expect(&format!("Cannot interpret subscription data as map: {}", subscription_name));
-            self.create_subscription(subscription_data, subscription_name, &mut required_data);
+            self.build_subscription(subscription_data, subscription_name, &mut required_data);
         }
         for s in required_data {
-            self.add_data(&s, -1, None);
+            self.add_tracked_data(&s);
         }
     }
 
-    fn create_subscription(&mut self, subscription_data: &Mapping, subscription_name: &str, 
+    fn build_subscription(&mut self, subscription_data: &Mapping, subscription_name: &str, 
                            required_data: &mut HashSet<String>)
     {
+        /* Build struct */
+        let fields = subscription_data.get("fields")
+                            .expect(&format!("Must specify desired fields for \"{}\"", subscription_name))
+                            .as_mapping()
+                            .expect(&format!("Fields must be interpretable as mapping: \"{}\"", subscription_name));
+
+        let mut struct_fields = vec![];
+        let mut deliver_data = vec![];
+        let mut condition = quote!{ True };
+        for (k, v) in fields {
+            // e.g., "tls", "five_tuple"... 
+            let field_name = k.as_str().unwrap(); 
+            // e.g., "default", "transaction_depth", None...
+            let field_value = v.as_str();
+            let (fields, 
+                 field_names,
+                 extract_field_data) = build_field(field_name, field_value);
+            // e.g., pub tls: Tls, ...
+            struct_fields.push(fields);
+            // e.g., tls: self.tls.clone(), ...
+            deliver_data.extend(extract_field_data);
+            required_data.extend(field_names);
+
+            // e.g., check that session data is Tls
+            if let Some(cond) = build_condition(field_name) {
+                condition = cond;
+            }
+        }
+
+        /* Since data may be shared, need to check and deliver to callbacks for each index. */
+        let name = Ident::new(subscription_name, Span::call_site());
+
+        let struct_deliver = quote! {
+            Subscribed::#name(#name {
+                #( #deliver_data)*
+            })
+        };  
+
+        /* Set up data delivery */
         let idxs = subscription_data.get("idx")
                             .expect("Must specify at least one \"idx\"")
                             .as_sequence()
                             .expect("\"idx\" field should be formatted as a list");
+        
         for i in idxs {
             let idx = i.as_i64().expect("Found \"idx\" member that cannot be parsed as int");
-            self.add_data(subscription_name, idx, Some(required_data));
-        }        
+            let subscription_idx = syn::LitInt::new(&idx.to_string(), Span::call_site());
+            let from_data = quote! {
+                if self.match_data.matched_term_by_idx(#subscription_idx) {
+                    if #condition {
+                        subscription.invoke_idx(
+                            #struct_deliver,
+                            #subscription_idx,
+                        );
+                    }
+                }
+            };
+            self.subscriptions.push(from_data);
+        }      
+
+        /* Define type */
+        let struct_def = quote! {
+            #[derive(Debug)]
+            pub struct #name { 
+                #( #struct_fields )*
+            }
+        };
+        self.defs.push(struct_def);
+
+        /* Define enum variant */
+        let enum_def = quote! { #name(#name), };
+        self.enums.push(enum_def);
+
     }
 
-    fn add_data(&mut self, input: &str, idx: i64, required_data: Option<&mut HashSet<String>>) {
-        let shared_data = self.fields_str.contains(input);
+    fn add_tracked_data(&mut self, input: &str) {
+        if self.fields_str.contains(input) { return; }
         self.fields_str.insert(input.to_string());
-        self.add_subscription(input, idx, shared_data);
-        if shared_data { return; } 
         match input {
             "http" => {
                 self.fields.push(HttpTransactionData::session_field());
                 self.new.push(HttpTransactionData::gen_new());
                 self.deliver_session_on_match.push(HttpTransactionData::deliver_session_on_match(
                     self.deliver_session_on_match.is_empty(),
-                    idx
                 ));
                 self.drop.push(HttpTransactionData::drop());
                 self.parser.push(HttpTransactionData::parser());
-                if let Some(data) = required_data {
-                    data.extend(HttpTransactionData::required_fields());
-                }
                 // add_data five tuple? 
             },
             "tls" => {
@@ -149,13 +208,9 @@ impl MethodBuilder {
                 self.new.push(TlsHandshakeData::gen_new());
                 self.deliver_session_on_match.push(TlsHandshakeData::deliver_session_on_match(
                     self.deliver_session_on_match.is_empty(),
-                    idx
                 ));
                 self.drop.push(TlsHandshakeData::drop());
                 self.parser.push(TlsHandshakeData::parser());
-                if let Some(data) = required_data {
-                    data.extend(TlsHandshakeData::required_fields());
-                }
             },
             "five_tuple" => {
                 self.fields.push(FiveTupleData::field());
@@ -164,26 +219,6 @@ impl MethodBuilder {
             _ => {
                 panic!("Unrecognized field");
             }
-        }
-    }
-
-    fn add_subscription(&mut self, input: &str, idx: i64, shared: bool) {
-        match input {
-            "tls" => {
-                if !shared {
-                    self.defs.push(TlsSubscription::struct_def());
-                    self.enums.push(TlsSubscription::enum_def());
-                }
-                self.subscriptions.push(TlsSubscription::from_data(idx));
-            },
-            "http" => {
-                if !shared {
-                    self.defs.push(HttpSubscription::struct_def());
-                    self.enums.push(HttpSubscription::enum_def());
-                }
-                self.subscriptions.push(HttpSubscription::from_data(idx));
-            }
-            _ => {}
         }
     }
 
