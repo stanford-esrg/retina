@@ -154,7 +154,7 @@ use crate::session_filter::gen_session_filter;
 /// fn main() {}
 /// ```
 #[proc_macro_attribute]
-pub fn filter(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn retina_main(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemFn);
 
     let input_configs = parse::get_configs();

@@ -1,7 +1,7 @@
 use retina_core::config::default_config;
 use retina_core::subscription::{Subscribed, SubscribableWrapper};
 use retina_core::Runtime;
-use retina_filtergen::filter;
+use retina_filtergen::retina_main;
 
 #[allow(unused)]
 fn no_op(_data: Subscribed) { }
@@ -20,7 +20,7 @@ fn callback2(data: Subscribed) {
     println!("CB 2: {:?}", data);
 }
 
-#[filter]
+#[retina_main]
 fn main() {
     let cfg = default_config();
     let mut runtime: Runtime<SubscribableWrapper> = Runtime::new(cfg, filter, 
