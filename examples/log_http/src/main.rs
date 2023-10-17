@@ -1,5 +1,5 @@
 use retina_core::config::default_config;
-use retina_core::subscription::{HttpTransaction, HttpTransactionSubscription};
+use retina_core::subscription::HttpTransaction;
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
@@ -43,7 +43,7 @@ fn main() -> Result<()> {
             cnt.fetch_add(1, Ordering::Relaxed);
         }
     };
-    let mut runtime: Runtime<HttpTransactionSubscription> = Runtime::new(config, filter, vec![Box::new(callback)])?;
+    let mut runtime: Runtime<HttpTransaction> = Runtime::new(config, filter, vec![Box::new(callback)])?;
     runtime.run();
 
     let mut wtr = file.lock().unwrap();

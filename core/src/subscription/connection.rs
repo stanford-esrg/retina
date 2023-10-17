@@ -156,11 +156,9 @@ impl fmt::Display for Connection {
     }
 }
 
-pub struct ConnectionSubscription;
-
-impl Subscribable for ConnectionSubscription {
+impl Subscribable for Connection {
     type Tracked = TrackedConnection;
-    type SubscribedData = Connection;
+    type SubscribedData = Self;
 
     // TODO: return a vector of all known parsers.
     fn parsers() -> Vec<ConnParser> {
@@ -252,7 +250,7 @@ impl TrackedConnection {
 }
 
 impl Trackable for TrackedConnection {
-    type Subscribed = ConnectionSubscription;
+    type Subscribed = Connection;
 
     fn new(five_tuple: FiveTuple, pkt_results: FilterResultData) -> Self {
         let now = Instant::now();

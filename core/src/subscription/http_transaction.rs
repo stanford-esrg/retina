@@ -53,11 +53,10 @@ impl HttpTransaction {
     }
 }
 
-pub struct HttpTransactionSubscription;
 
-impl Subscribable for HttpTransactionSubscription {
+impl Subscribable for HttpTransaction {
     type Tracked = TrackedHttp;
-    type SubscribedData = HttpTransaction;
+    type SubscribedData = Self;
 
     fn parsers() -> Vec<ConnParser> {
         vec![ConnParser::Http(HttpParser::default())]
@@ -98,7 +97,7 @@ pub struct TrackedHttp {
 }
 
 impl Trackable for TrackedHttp {
-    type Subscribed = HttpTransactionSubscription;
+    type Subscribed = HttpTransaction;
 
     fn new(five_tuple: FiveTuple, pkt_results: FilterResultData) -> Self {
         TrackedHttp { 

@@ -1,5 +1,5 @@
 use retina_core::config::load_config;
-use retina_core::subscription::{TlsHandshake, TlsHandshakeSubscription};
+use retina_core::subscription::TlsHandshake;
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
@@ -39,7 +39,7 @@ fn main() -> Result<()> {
         let mut randoms = client_randoms.lock().unwrap();
         *randoms.entry(tls.data.client_random()).or_insert(0) += 1;
     };
-    let mut runtime: Runtime<TlsHandshakeSubscription> = Runtime::new(config, filter, vec![Box::new(callback)])?;
+    let mut runtime: Runtime<TlsHandshake> = Runtime::new(config, filter, vec![Box::new(callback)])?;
     runtime.run();
 
     let randoms = client_randoms.lock().unwrap();

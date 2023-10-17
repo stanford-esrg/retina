@@ -45,7 +45,7 @@ fn main() -> Result<()> {
             cnt.fetch_add(1, Ordering::Relaxed);
         }
     };
-    let mut runtime = Runtime::new(config, filter, callback)?;
+    let mut runtime: Runtime<TlsHandshake> = Runtime::new(config, filter, vec![Box::new(callback)])?;
     runtime.run();
 
     let mut wtr = file.lock().unwrap();

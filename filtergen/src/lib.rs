@@ -126,6 +126,7 @@ mod parse;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse_macro_input;
+use retina_core::filter::Filter;
 
 use crate::connection_filter::gen_connection_filter;
 use crate::packet_filter::gen_packet_filter;
@@ -214,6 +215,81 @@ pub fn retina_main(_args: TokenStream, input: TokenStream) -> TokenStream {
         }
 
         #callbacks
+
+        #lazy_statics
+        #input
+
+    };
+    filtergen.into()
+}
+
+
+#[proc_macro_attribute]
+pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
+    let filter_str = parse_macro_input!(args as syn::LitStr).value();
+    let input = parse_macro_input!(input as syn::ItemFn);
+    // let input_sig = &input.sig.ident;
+
+    let filter = Filter::from_str(&filter_str, false, 0).unwrap();
+
+    let mut ptree = filter.to_ptree(0);
+    ptree.prune_branches();
+    // Displays the predicate trie during compilation.
+    println!("{}", ptree);
+
+    // store lazily evaluated statics like pre-compiled Regex
+    let mut statics: Vec<proc_macro2::TokenStream> = vec![];
+
+    let (packet_filter_body, pt_nodes) = gen_packet_filter(&ptree, &mut statics);
+    let (connection_filter_body, ct_nodes) = gen_connection_filter(&ptree, &mut statics, pt_nodes);
+    let session_filter_body = gen_session_filter(&ptree, &mut statics, ct_nodes);
+
+    let application_protocols = parse::get_application_protocols(&ptree);
+
+    let lazy_statics = if statics.is_empty() {
+        quote! {}
+    } else {
+        quote! {
+            lazy_static::lazy_static! {
+                #( #statics )*
+            }
+        }
+    };
+
+    let packet_filter_fn = quote! {
+        #[inline]
+        fn packet_filter(mbuf: &retina_core::Mbuf) -> retina_core::filter::FilterResultData {
+            #packet_filter_body
+        }
+    };
+
+    let connection_filter_fn = quote! {
+        #[inline]
+        fn connection_filter(pkt_results: &retina_core::filter::FilterResultData, 
+                             conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::FilterResultData {
+            #connection_filter_body
+        }
+    };
+
+    let session_filter_fn = quote! {
+        #[inline]
+        fn session_filter(session: &retina_core::protocols::stream::Session, 
+                          conn_results: &retina_core::filter::FilterResultData) -> retina_core::filter::FilterResultData {
+            #session_filter_body
+        }
+    };
+
+    let filtergen = quote! {
+        fn filter() -> retina_core::filter::FilterFactory {
+            #packet_filter_fn
+            #connection_filter_fn
+            #session_filter_fn
+            retina_core::filter::FilterFactory::new(#filter_str, 
+                                #application_protocols,
+                                packet_filter, 
+                                connection_filter, 
+                                session_filter)
+        }
 
         #lazy_statics
         #input

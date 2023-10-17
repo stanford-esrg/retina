@@ -51,4 +51,5 @@ retina-subscriptiongen = { path = "../subscriptiongen" }
 [features]
 timing = []
 mlx5 = []
+no_custom = []
 default = []

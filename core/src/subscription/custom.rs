@@ -1,7 +1,19 @@
+#[cfg(not(no_custom))]
 use retina_subscriptiongen::subscription_type;
 
-#[subscription_type]
-pub struct SubscribableWrapper;
+#[cfg(not(no_custom))]
+#[subscription_type] 
+pub mod custom_data {
+    pub struct SubscribableWrapper;
+    pub struct Subscribed;
+}
+
+/// Avoid compiler errors. 
+#[cfg(no_custom)]
+pub mod custom_data {
+    pub struct SubscribableWrapper;
+    pub struct Subscribed;
+}
 
 /*
 use crate::conntrack::conn_id::FiveTuple;

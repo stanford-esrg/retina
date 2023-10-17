@@ -54,11 +54,9 @@ impl TlsHandshake {
     }
 }
 
-pub struct TlsHandshakeSubscription;
-
-impl Subscribable for TlsHandshakeSubscription {
+impl Subscribable for TlsHandshake {
     type Tracked = TrackedTls;
-    type SubscribedData = TlsHandshake;
+    type SubscribedData = Self;
 
     fn parsers() -> Vec<ConnParser> {
         vec![ConnParser::Tls(TlsParser::default())]
@@ -98,7 +96,7 @@ pub struct TrackedTls {
 }
 
 impl Trackable for TrackedTls {
-    type Subscribed = TlsHandshakeSubscription;
+    type Subscribed = TlsHandshake;
 
     fn new(five_tuple: FiveTuple, pkt_results: FilterResultData) -> Self {
         TrackedTls { 

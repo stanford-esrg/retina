@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     let callback = |_: TlsHandshake| {
         spin(cycles);
     };
-    let mut runtime = Runtime::new(config, filter, callback)?;
+    let mut runtime: Runtime<TlsHandshake> = Runtime::new(config, filter, vec![Box::new(callback)])?;
     runtime.run();
     Ok(())
 }

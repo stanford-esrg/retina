@@ -63,11 +63,9 @@ impl Frame {
     }
 }
 
-pub struct FrameSubscription;
-
-impl Subscribable for FrameSubscription {
+impl Subscribable for Frame {
     type Tracked = TrackedFrame;
-    type SubscribedData = Frame;
+    type SubscribedData = Self;
 
     fn parsers() -> Vec<ConnParser> {
         vec![]
@@ -106,7 +104,7 @@ pub struct TrackedFrame {
 }
 
 impl Trackable for TrackedFrame {
-    type Subscribed = FrameSubscription;
+    type Subscribed = Frame;
 
     fn new(_five_tuple: FiveTuple, pkt_results: FilterResultData) -> Self {
         TrackedFrame {

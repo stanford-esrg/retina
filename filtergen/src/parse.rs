@@ -85,7 +85,7 @@ fn get_ptree(filters: &Vec<String>, filter_idxs: &Vec<i64>) -> PTree {
 
 }
 
-fn get_application_protocols(ptree: &PTree) -> String {
+pub(crate) fn get_application_protocols(ptree: &PTree) -> String {
     let mut protocol_names = String::new(); 
 
     let mut protocols = HashSet::new();

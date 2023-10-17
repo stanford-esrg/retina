@@ -36,7 +36,7 @@ pub fn subscription_type(_args: TokenStream, _input: TokenStream) -> TokenStream
     let deliverables = deliverable_data(structs, enum_fields);
 
     let fns = quote! {
-            
+    pub mod custom_data {
         #imports
 
         #deliverables
@@ -86,6 +86,7 @@ pub fn subscription_type(_args: TokenStream, _input: TokenStream) -> TokenStream
                 return self.match_data.filter_session(session, subscription);
             }
         }
+    }
     };
 
     fns.into()

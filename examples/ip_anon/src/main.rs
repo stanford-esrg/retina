@@ -1,5 +1,5 @@
 use retina_core::config::load_config;
-use retina_core::subscription::{ConnectionFrameSubscription, ConnectionFrame};
+use retina_core::subscription::ConnectionFrame;
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
@@ -35,7 +35,7 @@ fn main() -> Result<()> {
             }
         }
     };
-    let mut runtime: Runtime<ConnectionFrameSubscription> = Runtime::new(config, filter, vec![Box::new(callback)]).unwrap();
+    let mut runtime: Runtime<ConnectionFrame> = Runtime::new(config, filter, vec![Box::new(callback)]).unwrap();
     runtime.run();
     Ok(())
 }

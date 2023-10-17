@@ -19,11 +19,9 @@ pub struct TlsConnection {
     pub connection_frames: Vec<Frame>,
 }
 
-pub struct TlsConnectionSubscription;
-
-impl Subscribable for TlsConnectionSubscription {
+impl Subscribable for TlsConnection {
     type Tracked = TrackedTlsConnection;
-    type SubscribedData = TlsConnection;
+    type SubscribedData = Self;
 
     fn parsers() -> Vec<ConnParser> {
         vec![ConnParser::Tls(TlsParser::default())]
@@ -54,7 +52,7 @@ pub struct TrackedTlsConnection {
 }
 
 impl Trackable for TrackedTlsConnection {
-    type Subscribed = TlsConnectionSubscription;
+    type Subscribed = TlsConnection;
 
     fn new(five_tuple: FiveTuple, pkt_results: FilterResultData) -> Self {
         TrackedTlsConnection { 

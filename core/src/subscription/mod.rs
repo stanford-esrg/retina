@@ -7,25 +7,25 @@
 
 pub mod connection;
 pub mod connection_frame;
-// pub mod dns_transaction;
+pub mod dns_transaction;
 pub mod frame;
 pub mod http_transaction;
 pub mod tls_handshake;
-//pub mod zc_frame;
+pub mod zc_frame;
 pub mod tls_connection;
+pub mod custom; 
 
-pub mod custom;
-pub use self::custom::{SubscribableWrapper, Subscribed};
+pub use self::custom::custom_data::{SubscribableWrapper, Subscribed};
 
 // Re-export subscribable types for more convenient usage.
-pub use self::connection::{Connection, ConnectionSubscription};
-pub use self::connection_frame::{ConnectionFrame, ConnectionFrameSubscription};
-//pub use self::dns_transaction::DnsTransaction;
-pub use self::frame::{Frame, FrameSubscription};
-pub use self::http_transaction::{HttpTransaction, HttpTransactionSubscription};
-pub use self::tls_handshake::{TlsHandshake, TlsHandshakeSubscription};
-//pub use self::zc_frame::ZcFrame;
-pub use self::tls_connection::{TlsConnection, TlsConnectionSubscription};
+pub use self::connection::Connection;
+pub use self::connection_frame::ConnectionFrame;
+pub use self::dns_transaction::DnsTransaction;
+pub use self::frame::Frame;
+pub use self::http_transaction::HttpTransaction;
+pub use self::tls_handshake::TlsHandshake;
+pub use self::zc_frame::ZcFrame;
+pub use self::tls_connection::TlsConnection;
 
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
@@ -40,6 +40,7 @@ use retina_subscriptiongen::num_subscriptions;
 #[cfg(feature = "timing")]
 use crate::timing::timer::Timers;
 
+/// This is filled in by user configuration.
 #[num_subscriptions]
 pub const NUM_SUBSCRIPTIONS: usize = 1;
 
@@ -158,6 +159,7 @@ where
     }
 
     /// Invoke the `idx`th callback on `S`.
+    #[allow(dead_code)]
     pub(crate) fn invoke_idx(&self, obj: S::SubscribedData, idx: usize) {
         tsc_start!(t0);
         (self.callbacks[idx])(obj);

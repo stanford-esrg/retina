@@ -105,7 +105,7 @@ fn main() -> Result<()> {
             }
         }
     };
-    let mut runtime = Runtime::new(config, filter, callback)?;
+    let mut runtime: Runtime<Connection> = Runtime::new(config, filter, vec![Box::new(callback)])?;
     runtime.run();
 
     wtr.lock().unwrap().flush()?;
