@@ -1,3 +1,6 @@
+/// Reads from user-provided yaml file to generate subscription data. 
+/// File format is described in README.
+
 mod prototypes; 
 mod builder; 
 
@@ -7,11 +10,13 @@ use proc_macro::TokenStream;
 use quote::quote;
 
 
+/// Temp: NUM_SUBSCRIPTIONS in configuration file must be correct
 #[proc_macro_attribute]
 pub fn num_subscriptions(_args: TokenStream, _input: TokenStream) -> TokenStream {
     read_subscriptions("/home/trossman/retina/subscription.yml").into() // tmp
 }
 
+/// Embeds all data tracking and delivery in Retina core framework (subscription/custom module).
 #[proc_macro_attribute]
 pub fn subscription_type(_args: TokenStream, _input: TokenStream) -> TokenStream {
 

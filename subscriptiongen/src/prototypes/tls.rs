@@ -21,10 +21,7 @@ impl TlsHandshakeData {
 
     #[inline]
     pub fn deliver_session_on_match(is_first: bool) -> proc_macro2::TokenStream {
-        // TODOTR figure out where to put #subscription -- should be in its 
-        // own conceptual module
         if !is_first {
-            // TODOTR clean this up
             return quote! {
                 else if let SessionData::Tls(tls) = session.data {
                     self.tls = Some(Rc::new(*tls));
@@ -47,9 +44,8 @@ impl TlsHandshakeData {
 
     #[inline]
     pub fn drop() -> proc_macro2::TokenStream {
-        quote! {
-            self.tls = None;
-        }
+        quote! {}
+        // quote! { self.tls = None; }
     }
 
 }
@@ -80,7 +76,6 @@ pub struct DefaultTlsSubscription;
 #[allow(unused)]
 impl DefaultTlsSubscription {
     pub fn struct_def() -> proc_macro2::TokenStream {
-        // TODOTR: should 5-tuple be in here? If so, add `fields` logic.
         quote! {
             #[derive(Debug)]
             pub struct TlsSubscription { 
@@ -107,12 +102,6 @@ impl DefaultTlsSubscription {
                     );
                 }
             }
-        }
-    }
-
-    pub fn enum_def() -> proc_macro2::TokenStream {
-        quote! {
-            Tls(TlsSubscription),
         }
     }
 

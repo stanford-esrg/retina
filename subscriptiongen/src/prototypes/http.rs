@@ -44,7 +44,8 @@ impl HttpTransactionData {
     }
 
     pub fn drop() -> proc_macro2::TokenStream {
-        quote! { if !self.http.is_empty() { self.http.pop(); } }
+        quote! {}
+        // quote! { if !self.http.is_empty() { self.http.pop(); } }
     }
 
 }
@@ -99,12 +100,6 @@ impl DefaultHttpSubscription {
                     #subscription_idx);
                 }
             }
-        }
-    }
-
-    pub fn enum_def() -> proc_macro2::TokenStream {
-        quote! {
-            Http(HttpSubscription),
         }
     }
 

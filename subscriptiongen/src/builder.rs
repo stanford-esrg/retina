@@ -4,6 +4,9 @@ use serde_yaml::{Value, Mapping, from_reader};
 use quote::quote;
 use proc_macro2::{Span, Ident};
 
+/// TODO: this is very messy and, if we move forward with this,
+/// should be cleaned up. 
+
 pub(crate) struct MethodBuilder {
     fields_str: HashSet<String>,
     fields: Vec<proc_macro2::TokenStream>,
@@ -47,6 +50,8 @@ impl MethodBuilder {
         }
     }
 
+    /// Read operations to generate code
+
     pub(crate) fn gen_struct(&mut self) -> Vec<proc_macro2::TokenStream> {
         std::mem::take(&mut self.fields)
     }
@@ -87,20 +92,29 @@ impl MethodBuilder {
         std::mem::take(&mut self.drop)
     }
 
+    /// Uses `matching` data to determine whether conn_track should
+    /// maintain the connection. Note that the filter may also have 
+    /// requirements. The framework will continue tracking if the filter 
+    /// OR subscription want to keep tracking.
+    
     pub(crate) fn match_state(&self) -> proc_macro2::TokenStream {
         // TODO
         quote! { ConnState::Remove }
     }
 
+    /// Parse raw data into code.
     pub(crate) fn parse(&mut self) {
         let raw_data = std::mem::take(&mut self.raw_data).unwrap();
         if raw_data.get("subscribed").is_none() {
             panic!("Must specify at least one \"subscribed\"");
         }
+        // Subscribable types
         let types = raw_data.get("subscribed").unwrap();
         let iter = types.as_mapping().unwrap();
+        // String rep. of required data that will be tracked, across all subscriptions. 
         let mut required_data = HashSet::new();
         for (k, v) in iter {
+            // Customizable
             let subscription_name = k.as_str().expect("Cannot read subscription name"); 
             let subscription_data = v.as_mapping()
                                              .expect(&format!("Cannot interpret subscription data as map: {}", subscription_name));
@@ -111,6 +125,10 @@ impl MethodBuilder {
         }
     }
 
+    /// Build the information necessary for a subscription. 
+    /// - The subscription struct
+    /// - Subscription delivery
+    /// Store data that needs to be tracked for later tracking. 
     fn build_subscription(&mut self, subscription_data: &Mapping, subscription_name: &str, 
                            required_data: &mut HashSet<String>)
     {
@@ -131,9 +149,7 @@ impl MethodBuilder {
             let (fields, 
                  field_names,
                  extract_field_data) = build_field(field_name, field_value);
-            // e.g., pub tls: Tls, ...
             struct_fields.push(fields);
-            // e.g., tls: self.tls.clone(), ...
             deliver_data.extend(extract_field_data);
             required_data.extend(field_names);
 
@@ -143,7 +159,8 @@ impl MethodBuilder {
             }
         }
 
-        /* Since data may be shared, need to check and deliver to callbacks for each index. */
+        /* Since data may be shared, need to check and 
+         * deliver to callbacks for each index. */
         let name = Ident::new(subscription_name, Span::call_site());
 
         let struct_deliver = quote! {
@@ -189,6 +206,7 @@ impl MethodBuilder {
 
     }
 
+    /// *Track* data when delivered. E.g., store TLS session in struct. 
     fn add_tracked_data(&mut self, input: &str) {
         if self.fields_str.contains(input) { return; }
         self.fields_str.insert(input.to_string());

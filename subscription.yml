@@ -1,17 +1,17 @@
 subscribed:
   TlsSubscription:
-    idx: [0]
+    idx: [0, 1]
     fields: 
       tls: default
       five_tuple:
   HttpSubscription:
-    idx: [1]
+    idx: [2]
     fields: 
       http: default
       five_tuple:
 filters:
-  "tls.sni ~ '^.*\\.com$'": [0]
-  "ipv4 and http": [1]
+  "tls.sni ~ '^.*\\.com$'": [0, 1]
+  "ipv4 and http": [2]
 callbacks:
-  callback1: [0, 1]
-num_subscriptions: 2
+  callback1: [0, 1, 2]
+num_subscriptions: 3
