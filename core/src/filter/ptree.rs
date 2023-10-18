@@ -187,6 +187,12 @@ impl PTree {
                     node.terminates = Terminate::Connection;
                     node.filter_ids.insert(filter_id);
                 }
+            } else {
+                // Add filter ID for a terminal or non-terminal match.
+                if (node.pred.on_packet() && predicate.on_connection()) || 
+                    (node.pred.on_connection() && predicate.on_session()) {
+                        node.filter_ids.insert(filter_id);
+                }
             }
             node = node.get_child(predicate);
             node.patterns.push(pattern_id);

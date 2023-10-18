@@ -299,18 +299,22 @@ pub(crate) fn nonterminal_match(node: &PNode, terminal_bitmask: usize) -> (proc_
     if node.filter_ids.is_empty() {
         return (quote! {}, 0);
     }
+    // Need to build up the bitmask to cover all non-terminal matches
     let node_idx_lit = syn::LitInt::new(&node.id.to_string(), Span::call_site());
     let mut bitmask = 0; 
     let mut nonterminal_nodes = vec![];
     for idx in &node.filter_ids {
         if terminal_bitmask & 0b1 << idx == 0 {
-            let filter_idx_lit = syn::LitInt::new(&idx.to_string(), Span::call_site());
             bitmask |= 0b1 << idx;
-            nonterminal_nodes.push(quote! {
-                result.nonterminal_nodes[#filter_idx_lit] = #node_idx_lit;
-            });
         }
     }
+    // Only need to store one non-terminal node to cover the match arm for all filter IDs.
+    // TODO, these should all go at beginning of arr., then stop when first invalid ID is hit.
+    let filter_idx_lit = syn::LitInt::new(&node.filter_ids.iter().next().unwrap().to_string(), 
+                                                  Span::call_site());
+    nonterminal_nodes.push(quote! {
+        result.nonterminal_nodes[#filter_idx_lit] = #node_idx_lit;
+    });
     let bitmask_lit = syn::LitInt::new(&bitmask.to_string(), Span::call_site());
     (quote! { 
         result.nonterminal_matches |= #bitmask_lit;
