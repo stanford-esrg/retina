@@ -20,6 +20,7 @@ pub(crate) struct MethodBuilder {
     subscriptions: Vec<proc_macro2::TokenStream>,
     drop: Vec<proc_macro2::TokenStream>,
     connection_bitmask: usize,
+    tracking_bitmask: usize,
     raw_data: Option<Value>,
 }
 
@@ -48,6 +49,7 @@ impl MethodBuilder {
             subscriptions: Vec::new(),
             drop: Vec::new(),
             connection_bitmask: 0,
+            tracking_bitmask: 0,
             raw_data: Some(data_in.unwrap()),
         }
     }
@@ -104,9 +106,9 @@ impl MethodBuilder {
     /// OR subscription want to keep tracking.
     
     pub(crate) fn match_state(&self) -> proc_macro2::TokenStream {
-        let conn_bitmask = syn::LitInt::new(&self.connection_bitmask.to_string(), Span::call_site());
+        let track_bitmask = syn::LitInt::new(&self.tracking_bitmask.to_string(), Span::call_site());
         quote! { 
-            if self.match_data.matching_by_bitmask(#conn_bitmask) {
+            if self.match_data.matching_by_bitmask(#track_bitmask) {
                 return ConnState::Tracking;
             }
             ConnState::Remove 
@@ -158,7 +160,12 @@ impl MethodBuilder {
                     fields.into_iter()
                     .map( | (k, v) | (k.as_str().unwrap(), v ))
                     .collect();
+        
+        // Connection data should be updated.
         let is_connection = fields.contains_key("connection");
+        // Should continue to be tracked after match
+        let is_tracking = is_connection || self.should_track(&fields);
+        
         let mut struct_fields = vec![];
         let mut deliver_data = vec![];
         for (field_name, v) in fields {
@@ -205,9 +212,10 @@ impl MethodBuilder {
                     );
                 }
             };
-            if is_connection {
+            if is_tracking {
                 self.terminate.push_back(from_data);
-                self.connection_bitmask |= 0b1 << idx;
+                if is_connection { self.connection_bitmask |= 0b1 << idx; }
+                self.tracking_bitmask |= 0b1 << idx;
             } else {
                 self.subscriptions.push(from_data);
             }
@@ -226,6 +234,11 @@ impl MethodBuilder {
         let enum_def = quote! { #name(#name), };
         self.enums.push(enum_def);
 
+    }
+
+    // Placeholder for request to track connection without collecting all data?
+    fn should_track(&self, fields: &std::collections::HashMap<&str, &Value>) -> bool {
+        fields.contains_key("five_tuple") && fields.len() == 1
     }
 
     /// *Track* data when delivered. E.g., store TLS session in struct. 
