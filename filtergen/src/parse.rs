@@ -3,11 +3,13 @@ use std::collections::HashSet;
 use retina_core::filter::{Filter, ptree::PTree};
 use quote::quote;
 use proc_macro2::{Ident, Span};
+use std::env; 
 
 // --- Config Parsing ---
 pub(crate) fn get_configs() -> Value {
-    let filepath_in = "/home/trossman/retina/subscription.yml"; // tmp 
-    let f_in = std::fs::File::open(filepath_in)
+    let filepath_in = env::var("IN_FILE")
+                              .expect("Provide IN_FILE yaml file variable");
+    let f_in = std::fs::File::open(&filepath_in)
                 .expect(&format!("Failed to read config filepath ({})", &filepath_in));
     let data_in: Value = from_reader(f_in)
                                     .expect("Failed to read subscription config");

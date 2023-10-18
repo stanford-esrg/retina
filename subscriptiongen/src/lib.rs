@@ -8,19 +8,24 @@ use builder::{MethodBuilder, read_subscriptions};
 
 use proc_macro::TokenStream;
 use quote::quote;
+use std::env; 
 
 
 /// Temp: NUM_SUBSCRIPTIONS in configuration file must be correct
 #[proc_macro_attribute]
 pub fn num_subscriptions(_args: TokenStream, _input: TokenStream) -> TokenStream {
-    read_subscriptions("/home/trossman/retina/subscription.yml").into() // tmp
+    let filepath_in = env::var("IN_FILE")
+                                .expect("Provide IN_FILE yaml file variable");
+    read_subscriptions(&filepath_in).into() // tmp
 }
 
 /// Embeds all data tracking and delivery in Retina core framework (subscription/custom module).
 #[proc_macro_attribute]
 pub fn subscription_type(_args: TokenStream, _input: TokenStream) -> TokenStream {
 
-    let mut cfg = MethodBuilder::new("/home/trossman/retina/subscription.yml"); // tmp
+    let filepath_in = env::var("IN_FILE")
+                                .expect("Provide IN_FILE yaml file variable");
+    let mut cfg = MethodBuilder::new(&filepath_in);
     cfg.parse();
 
     let def = cfg.gen_struct(); 
