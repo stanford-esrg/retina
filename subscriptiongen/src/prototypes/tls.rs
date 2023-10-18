@@ -7,14 +7,14 @@ impl TlsHandshakeData {
     #[inline]
     pub fn session_field() -> proc_macro2::TokenStream {
         quote! {
-            tls: Option<Rc<Tls>>,
+            tls: Rc<Option<Tls>>,
         }
     }
 
     #[inline]
     pub fn gen_new() -> proc_macro2::TokenStream {
         quote! {
-            tls: None,
+            tls: Rc::new(None),
         }
     }
 
@@ -23,13 +23,13 @@ impl TlsHandshakeData {
         if !is_first {
             return quote! {
                 else if let SessionData::Tls(tls) = session.data {
-                    self.tls = Some(Rc::new(*tls));
+                    self.tls = Rc::new(Some(*tls));
                 }
             };
         }
         quote! {
             if let SessionData::Tls(tls) = session.data {
-                self.tls = Some(Rc::new(*tls));
+                self.tls = Rc::new(Some(*tls));
             }
         }
     }
@@ -56,15 +56,15 @@ pub struct TlsSubscription;
 impl TlsSubscription {
 
     pub fn delivered_field() -> (proc_macro2::TokenStream, HashSet<String>, proc_macro2::TokenStream) {
-        (quote! { pub tls: Rc<Tls>, },
+        (quote! { pub tls: Rc<Option<Tls>>, },
          ["tls".to_string()].iter().cloned().collect(),
-         quote! { tls: data.clone(), } )
+         quote! { tls: self.tls.clone(), } )
     }
 
+    #[allow(dead_code)]
     pub fn condition() -> proc_macro2::TokenStream {
-        quote! {  
-            let Some(data) = &self.tls
-        }
+        // quote! { self.tls.is_some() }
+        quote! {}
     }
 
 }

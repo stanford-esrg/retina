@@ -2,18 +2,18 @@ subscribed:
   TlsConnSubscription: 
     idx: [0]
     fields: 
-      tls: default
+      tls:
       five_tuple: 
       connection:
   TlsSubscription:
     idx: [1]
     fields: 
-      tls: default
+      tls:
       five_tuple:
   HttpSubscription:
     idx: [2]
     fields: 
-      http: default
+      http:
       five_tuple:
       connection:
 filters:

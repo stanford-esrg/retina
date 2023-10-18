@@ -161,7 +161,6 @@ impl MethodBuilder {
         let is_connection = fields.contains_key("connection");
         let mut struct_fields = vec![];
         let mut deliver_data = vec![];
-        let mut condition = quote!{ True };
         for (field_name, v) in fields {
             let field_value: Option<Vec<&str>> = match v.as_sequence() {
                     Some(seq) => Some(seq.into_iter().map( | v | v.as_str().unwrap() ).collect() ),
@@ -169,18 +168,13 @@ impl MethodBuilder {
             };
             let (fields, 
                  field_names,
-                 extract_field_data) = build_field(field_name, field_value);
+                 extract_field_data) = build_field(field_name, field_value, is_connection);
             struct_fields.push(fields);
             deliver_data.extend(extract_field_data);
             if field_name == "connection" {
                 required_conn_data.extend(field_names);
             } else {
                 required_data.extend(field_names);
-            }
-
-            // e.g., check that session data is Tls
-            if let Some(cond) = build_condition(field_name) {
-                condition = cond;
             }
         }
 
@@ -201,16 +195,14 @@ impl MethodBuilder {
                             .expect("\"idx\" field should be formatted as a list");
         
         for i in idxs {
-            let idx = i.as_i64().expect("Found \"idx\" member that cannot be parsed as int");
+            let idx = i.as_i64().expect("Found \"idx\" that cannot be parsed as int");
             let subscription_idx = syn::LitInt::new(&idx.to_string(), Span::call_site());
             let from_data = quote! {
                 if self.match_data.matched_term_by_idx(#subscription_idx) {
-                    if #condition {
-                        subscription.invoke_idx(
-                            #struct_deliver,
-                            #subscription_idx,
-                        );
-                    }
+                    subscription.invoke_idx(
+                        #struct_deliver,
+                        #subscription_idx,
+                    );
                 }
             };
             if is_connection {

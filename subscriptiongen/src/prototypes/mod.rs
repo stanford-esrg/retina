@@ -24,7 +24,8 @@ pub const TLS_FIELD: &str = "tls";
 /// - struct field(s) for the delivered data,
 /// - the name(s) of the field(s), as a string, and
 /// - code to extract data from the tracker to deliver it to the user.
-pub(crate) fn build_field(field_name: &str, field_value: Option<Vec<&str>>) -> 
+pub(crate) fn build_field(field_name: &str, field_value: Option<Vec<&str>>, 
+                            is_connection: bool) -> 
               (proc_macro2::TokenStream, HashSet<String>, proc_macro2::TokenStream) {
     // TODO: filter out [more] sub-fields. 
     // No advantage now, since fields are parsed anyway by filter.
@@ -36,7 +37,10 @@ pub(crate) fn build_field(field_name: &str, field_value: Option<Vec<&str>>) ->
             TlsSubscription::delivered_field()
         },
         "http" => {
-            HttpSubscription::delivered_field()
+            match is_connection {
+                true => { HttpSubscription::conn_delivered_field() },
+                false => { HttpSubscription::delivered_field() }
+            }
         }, 
         "five_tuple" => {
             (FiveTupleData::delivered_field(), 
@@ -51,8 +55,10 @@ pub(crate) fn build_field(field_name: &str, field_value: Option<Vec<&str>>) ->
     };
 }
 
+/// [Not currently used.]
 /// Return code for a "check" that may need to happen to deliver data to the user.
 /// For example: check if received session is Tls.
+#[allow(dead_code)]
 pub(crate) fn build_condition(field_name: &str) -> Option<proc_macro2::TokenStream> {
     match field_name {
         "tls" => {  

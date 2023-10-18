@@ -33,13 +33,20 @@ To define a `subscribed` data type, the following data is required:
 
 Data types currently supported as struct fields: 
 - Application-layer protocols:
-  - HTTP: `http`. Delivered data type: `Http`.
-  - TLS: `tls`. Delivered data type: `Tls`.
+  - HTTP: `http`. Delivered data type: `Option<Rc<Http>>` OR `Vec<Rc<Http>>` for connection-level subscriptions.
+  - TLS: `tls`. Delivered data type: `Rc<Option<Tls>>`.
 - Connection: 
+  - All connection data: `connection`. Delivered data type: `Rc<Connection>` (see `subscription/connection` mod).
+- Misc.:
   - Five tuple: `five_tuple`. Delivered data type: `FiveTuple`.
-  - All connection data: `connection`. Delivered data type: `Connection` (from `subscription` mod).
 
-Note: right now, "or" conditions in the data types don't reliably work -- i.e., you cannot include `http` and `tls` in the same subscription. (This is a bug.) If you need to do this, use multiple filters to approximate it. 
+Note: `tls` and `http` can be requested in a data type but not ultimately delivered. 
+For example, if you filter for `TCP` connections but request `tls` data, the callback will 
+be invoked when the filter is matched, regardless of whether the `tls` field is `Some`. 
+
+For session filters and data types (those not requesting `connection` data), sessions are delivered 
+as they are matched. If `connection` data is requested alongside applicationd ata, session(s) are delivered
+on connection termination.
 
 ### Defining filters
 
@@ -368,23 +375,20 @@ pub mod custom {
          * Again, `Debug` derivations are omitted. */ 
 
         pub struct TlsConnSubscription {
-           /* KNOWN ISSUE: As noted above, data like `Tls` should be 
-            * an option to enable an "or" type for session data.
-            * Delivering this data requires the Tls session to exist. */
-            pub tls: Rc<Tls>,
+            pub tls: Rc<Option<Tls>>,
             pub five_tuple: FiveTuple,
             pub connection: Rc<Connection>,
         }
         
         pub struct TlsSubscription {
-            pub tls: Rc<Tls>,
             pub five_tuple: FiveTuple,
+            pub tls: Rc<Option<Tls>>,
         }
         
         pub struct HttpSubscription {
             pub five_tuple: FiveTuple,
-            pub http: Rc<Http>,
             pub connection: Rc<Connection>,
+            pub http: Vec<Rc<Http>>,
         }
         
         /* The "wrapper" for all subscribable types. */
@@ -440,9 +444,9 @@ pub mod custom {
          * - The `connection` type relies on the code in `subscription/connection`. */
         pub struct TrackedWrapper {
             match_data: MatchData,
-            http: Vec<Rc<Http>>,
-            tls: Option<Rc<Tls>>,
+            tls: Rc<Option<Tls>>,
             five_tuple: FiveTuple,
+            http: Vec<Rc<Http>>,
             connection: TrackedConnection,
         }
 
@@ -455,12 +459,12 @@ pub mod custom {
             fn new(five_tuple: FiveTuple, result: FilterResultData) -> Self {
                 Self {
                     match_data: MatchData::new(result),
-                    http: Vec::new(),
-                    tls: None,
+                    tls: Rc::new(None),
                     five_tuple: five_tuple,
+                    http: Vec::new(),
                     connection: TrackedConnection::new(
                         five_tuple,
-                        // This is dummy data, s.t. we can reuse TrackedConnection code. 
+                        // Dummy data; here to reuse code.
                         FilterResultData::new(),
                     ),
                 }
@@ -496,30 +500,26 @@ pub mod custom {
                  * based on the matched filter. */
 
                 if self.match_data.matched_term_by_idx(0) {
-                    if let Some(data) = &self.tls {
-                        subscription
-                            .invoke_idx(
-                                Subscribed::TlsConnSubscription(TlsConnSubscription {
-                                    tls: data.clone(),
-                                    five_tuple: self.five_tuple,
-                                    connection: connection.clone(),
-                                }),
-                                0,
-                            );
-                    }
+                    subscription
+                        .invoke_idx(
+                            Subscribed::TlsConnSubscription(TlsConnSubscription {
+                                tls: self.tls.clone(),
+                                five_tuple: self.five_tuple,
+                                connection: connection.clone(),
+                            }),
+                            0,
+                        );
                 }
                 if self.match_data.matched_term_by_idx(2) {
-                    if let Some(data) = self.http.last() {
-                        subscription
-                            .invoke_idx(
-                                Subscribed::HttpSubscription(HttpSubscription {
-                                    five_tuple: self.five_tuple,
-                                    http: data.clone(),
-                                    connection: connection.clone(),
-                                }),
-                                2,
-                            );
-                    }
+                    subscription
+                        .invoke_idx(
+                            Subscribed::HttpSubscription(HttpSubscription {
+                                five_tuple: self.five_tuple,
+                                connection: connection.clone(),
+                                http: self.http.clone(),
+                            }),
+                            2,
+                        );
                 }
             }
 
@@ -536,28 +536,28 @@ pub mod custom {
                 session: Session,
                 subscription: &Subscription<Self::Subscribed>,
             ) -> ConnState {
-                if let SessionData::Http(http) = session.data {
+                if let SessionData::Tls(tls) = session.data {
+                    self.tls = Rc::new(Some(*tls));
+                } else if let SessionData::Http(http) = session.data {
                     self.http.push(Rc::new(*http));
-                } else if let SessionData::Tls(tls) = session.data {
-                    self.tls = Some(Rc::new(*tls));
                 }
                 if self.match_data.matched_term_by_idx(1) {
-                    if let Some(data) = &self.tls {
-                        subscription
-                            .invoke_idx(
-                                Subscribed::TlsSubscription(TlsSubscription {
-                                    tls: data.clone(),
-                                    five_tuple: self.five_tuple,
-                                }),
-                                1,
-                            );
-                    }
+                    subscription
+                        .invoke_idx(
+                            Subscribed::TlsSubscription(TlsSubscription {
+                                five_tuple: self.five_tuple,
+                                tls: self.tls.clone(),
+                            }),
+                            1,
+                        );
                 }
                 if self.match_data.matching_by_bitmask(5) {
-                    /* Connection-level subscriptions are being terminally 
-                     * or non-terminally matched. */
+                    /* If connection-level subscriptions are matched, 
+                     * force connection to continue tracking. */
                     return ConnState::Tracking;
                 }
+                /* Else, okay to remove from perspective of data. 
+                 * Note Filter logic may dictate a different decision. */
                 ConnState::Remove
             }
 
