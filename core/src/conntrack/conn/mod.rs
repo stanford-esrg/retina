@@ -141,9 +141,11 @@ where
     /// - the connection expires due to inactivity
     /// - the connection is drained at the end of the run
     pub(crate) fn terminate(&mut self, subscription: &Subscription<T::Subscribed>) {
+        let conn_matched = matches!(self.info.sdata.filter_conn(&self.info.cdata, subscription), 
+                                          FilterResult::MatchTerminal(_));
         match self.info.state {
             ConnState::Probing => {
-                if let FilterResult::MatchTerminal(_) = self.info.sdata.filter_conn(&self.info.cdata, subscription) {
+                if conn_matched {
                     self.info.sdata.on_terminate(subscription);
                 }
             }
@@ -156,7 +158,7 @@ where
                         self.info.sdata.deliver_session_on_match(session, subscription);
                     }
                 }
-                if session_matched {
+                if session_matched || conn_matched {
                     self.info.sdata.on_terminate(subscription);
                 }
             }
