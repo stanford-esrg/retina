@@ -27,7 +27,7 @@ pub fn subscription_type(_args: TokenStream, _input: TokenStream) -> TokenStream
     let new = cfg.gen_new();
     let update = cfg.gen_update(); 
     let deliver_session_on_match = cfg.gen_deliver_session_on_match();
-    let terminate = cfg.gen_terminate(); 
+    let (get_term_data, terminate) = cfg.gen_terminate(); 
     let parsers = cfg.gen_parsers();
     let structs = cfg.gen_structs();
     let enum_fields = cfg.gen_enums();
@@ -64,13 +64,14 @@ pub fn subscription_type(_args: TokenStream, _input: TokenStream) -> TokenStream
             }
 
             fn update(&mut self, 
-                _pdu: L4Pdu, 
-                _session_id: Option<usize>,
-                _subscription: &Subscription<Self::Subscribed>) {
+                pdu: L4Pdu, 
+                session_id: Option<usize>,
+                subscription: &Subscription<Self::Subscribed>) {
                 #( #update )*
             }
 
-            fn on_terminate(&mut self, _subscription: &Subscription<Self::Subscribed>) {
+            fn on_terminate(&mut self, subscription: &Subscription<Self::Subscribed>) {
+                #get_term_data
                 #( #terminate )*
             }
 
@@ -156,24 +157,12 @@ fn imports() -> proc_macro2::TokenStream {
         use crate::protocols::stream::{ConnParser, Session, SessionData, ConnData};
         use crate::conntrack::conn::conn_info::{ConnState};
         use crate::subscription::{Trackable, MatchData, Subscription, Subscribable};
-        use crate::protocols::stream::tls::{parser::TlsParser, Tls};
-        use crate::protocols::stream::http::{parser::HttpParser, Http};
-    }
-}
 
-#[allow(dead_code)]
-fn pub_imports() -> proc_macro2::TokenStream {
-    quote! {
-        use std::rc::Rc;
-        use retina_core::conntrack::conn_id::FiveTuple;
-        use retina_core::conntrack::pdu::{L4Context, L4Pdu};
-        use retina_core::conntrack::ConnTracker;
-        use retina_core::filter::{FilterResult, FilterResultData};
-        use retina_core::memory::mbuf::Mbuf;
-        use retina_core::protocols::stream::{ConnParser, Session, SessionData, ConnData};
-        use retina_core::conntrack::conn::conn_info::{ConnState};
-        use retina_core::subscription::{Trackable, MatchData, Subscription, Subscribable};
-        use retina_core::protocols::stream::tls::{parser::TlsParser, Tls};
-        use retina_core::protocols::stream::http::{parser::HttpParser, Http};
+        #[allow(unused_imports)]
+        use crate::protocols::stream::tls::{parser::TlsParser, Tls};
+        #[allow(unused_imports)]
+        use crate::protocols::stream::http::{parser::HttpParser, Http};
+        #[allow(unused_imports)]
+        use crate::subscription::{Connection, connection::TrackedConnection};
     }
 }

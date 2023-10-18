@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use crate::prototypes::*;
 use serde_yaml::{Value, Mapping, from_reader};
 use quote::quote;
@@ -13,12 +13,13 @@ pub(crate) struct MethodBuilder {
     new: Vec<proc_macro2::TokenStream>,
     update: Vec<proc_macro2::TokenStream>,
     deliver_session_on_match: Vec<proc_macro2::TokenStream>,
-    terminate: Vec<proc_macro2::TokenStream>,
+    terminate: VecDeque<proc_macro2::TokenStream>,
     parser: Vec<proc_macro2::TokenStream>,
     defs: Vec<proc_macro2::TokenStream>,
     enums: Vec<proc_macro2::TokenStream>,
     subscriptions: Vec<proc_macro2::TokenStream>,
     drop: Vec<proc_macro2::TokenStream>,
+    connection_bitmask: usize,
     raw_data: Option<Value>,
 }
 
@@ -40,12 +41,13 @@ impl MethodBuilder {
             new: Vec::new(),
             update: Vec::new(),
             deliver_session_on_match: Vec::new(),
-            terminate: Vec::new(),
+            terminate: VecDeque::new(),
             parser: Vec::new(),
             defs: Vec::new(),
             enums: Vec::new(),
             subscriptions: Vec::new(),
             drop: Vec::new(),
+            connection_bitmask: 0,
             raw_data: Some(data_in.unwrap()),
         }
     }
@@ -68,8 +70,12 @@ impl MethodBuilder {
         std::mem::take(&mut self.deliver_session_on_match)
     }
 
-    pub(crate) fn gen_terminate(&mut self) -> Vec<proc_macro2::TokenStream> {
-        std::mem::take(&mut self.terminate)
+    pub(crate) fn gen_terminate(&mut self) -> (proc_macro2::TokenStream, Vec<proc_macro2::TokenStream>) {
+        let get_conn = match self.terminate.is_empty() {
+            true => { quote! {} },
+            false => { ConnectionData::get_conn() }
+        };
+        ( get_conn , Vec::from(std::mem::take(&mut self.terminate)) )
     }
 
     pub(crate) fn gen_parsers(&mut self) -> Vec<proc_macro2::TokenStream> {
@@ -98,8 +104,13 @@ impl MethodBuilder {
     /// OR subscription want to keep tracking.
     
     pub(crate) fn match_state(&self) -> proc_macro2::TokenStream {
-        // TODO
-        quote! { ConnState::Remove }
+        let conn_bitmask = syn::LitInt::new(&self.connection_bitmask.to_string(), Span::call_site());
+        quote! { 
+            if self.match_data.matching_by_bitmask(#conn_bitmask) {
+                return ConnState::Tracking;
+            }
+            ConnState::Remove 
+        }
     }
 
     /// Parse raw data into code.
@@ -113,15 +124,20 @@ impl MethodBuilder {
         let iter = types.as_mapping().unwrap();
         // String rep. of required data that will be tracked, across all subscriptions. 
         let mut required_data = HashSet::new();
+        let mut required_conn_data = HashSet::new();
         for (k, v) in iter {
             // Customizable
             let subscription_name = k.as_str().expect("Cannot read subscription name"); 
             let subscription_data = v.as_mapping()
                                              .expect(&format!("Cannot interpret subscription data as map: {}", subscription_name));
-            self.build_subscription(subscription_data, subscription_name, &mut required_data);
+            self.build_subscription(subscription_data, subscription_name, &mut required_data, &mut required_conn_data);
         }
         for s in required_data {
             self.add_tracked_data(&s);
+        }
+        if !required_conn_data.is_empty() {
+            // Temporary - customizing connection not supported
+            self.add_tracked_data("connection");
         }
     }
 
@@ -130,7 +146,7 @@ impl MethodBuilder {
     /// - Subscription delivery
     /// Store data that needs to be tracked for later tracking. 
     fn build_subscription(&mut self, subscription_data: &Mapping, subscription_name: &str, 
-                           required_data: &mut HashSet<String>)
+                           required_data: &mut HashSet<String>, required_conn_data: &mut HashSet<String>)
     {
         /* Build struct */
         let fields = subscription_data.get("fields")
@@ -138,20 +154,29 @@ impl MethodBuilder {
                             .as_mapping()
                             .expect(&format!("Fields must be interpretable as mapping: \"{}\"", subscription_name));
 
+        let fields: std::collections::HashMap<&str, &Value> = 
+                    fields.into_iter()
+                    .map( | (k, v) | (k.as_str().unwrap(), v ))
+                    .collect();
+        let is_connection = fields.contains_key("connection");
         let mut struct_fields = vec![];
         let mut deliver_data = vec![];
         let mut condition = quote!{ True };
-        for (k, v) in fields {
-            // e.g., "tls", "five_tuple"... 
-            let field_name = k.as_str().unwrap(); 
-            // e.g., "default", "transaction_depth", None...
-            let field_value = v.as_str();
+        for (field_name, v) in fields {
+            let field_value: Option<Vec<&str>> = match v.as_sequence() {
+                    Some(seq) => Some(seq.into_iter().map( | v | v.as_str().unwrap() ).collect() ),
+                    None => None,
+            };
             let (fields, 
                  field_names,
                  extract_field_data) = build_field(field_name, field_value);
             struct_fields.push(fields);
             deliver_data.extend(extract_field_data);
-            required_data.extend(field_names);
+            if field_name == "connection" {
+                required_conn_data.extend(field_names);
+            } else {
+                required_data.extend(field_names);
+            }
 
             // e.g., check that session data is Tls
             if let Some(cond) = build_condition(field_name) {
@@ -188,7 +213,12 @@ impl MethodBuilder {
                     }
                 }
             };
-            self.subscriptions.push(from_data);
+            if is_connection {
+                self.terminate.push_back(from_data);
+                self.connection_bitmask |= 0b1 << idx;
+            } else {
+                self.subscriptions.push(from_data);
+            }
         }      
 
         /* Define type */
@@ -234,6 +264,11 @@ impl MethodBuilder {
                 self.fields.push(FiveTupleData::field());
                 self.new.push(FiveTupleData::gen_new());
             },
+            "connection" => {
+                self.fields.push(ConnectionData::tracked_field());
+                self.new.push(ConnectionData::gen_new());
+                self.update.push(ConnectionData::gen_update(self.connection_bitmask));
+            }
             _ => {
                 panic!("Unrecognized field");
             }
@@ -242,6 +277,7 @@ impl MethodBuilder {
 
 }
 
+/// yaml parsing...
 pub(crate) fn read_subscriptions(filepath_in: &str) -> proc_macro2::TokenStream {
     let f_in = std::fs::File::open(filepath_in);
     if let Err(e) = f_in {

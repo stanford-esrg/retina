@@ -24,17 +24,6 @@ fn callback2(data: Subscribed) {
 fn main() {
     let cfg = default_config();
     let mut runtime: Runtime<SubscribableWrapper> = Runtime::new(cfg, filter, 
-                                                    callbacks()).unwrap();
-    
+                                                    callbacks()).unwrap();  
     runtime.run();
 }
-
-
-/*
-use retina_subscriptiongen::subscription_type;
-
-#[subscription_type]
-struct Dummy {}
-
-fn main() {}
- */

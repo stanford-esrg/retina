@@ -1,9 +1,11 @@
 pub(crate) mod tls; 
 pub(crate) mod http; 
 pub(crate) mod utils;
+pub(crate) mod connection;
 
 pub use self::tls::{TlsHandshakeData, TlsSubscription};
 pub use self::http::{HttpTransactionData, HttpSubscription};
+pub use self::connection::{ConnectionSubscription, ConnectionData};
 pub use self::utils::FiveTupleData;
 
 use std::collections::HashSet;
@@ -22,12 +24,12 @@ pub const TLS_FIELD: &str = "tls";
 /// - struct field(s) for the delivered data,
 /// - the name(s) of the field(s), as a string, and
 /// - code to extract data from the tracker to deliver it to the user.
-pub(crate) fn build_field(field_name: &str, field_value: Option<&str>) -> 
+pub(crate) fn build_field(field_name: &str, field_value: Option<Vec<&str>>) -> 
               (proc_macro2::TokenStream, HashSet<String>, proc_macro2::TokenStream) {
     // TODO: filter out [more] sub-fields. 
     // No advantage now, since fields are parsed anyway by filter.
-    if let Some(value) = field_value {
-        assert!(value == "default");
+    if field_value.is_some() {
+        println!("Warning: will ignore provided sub-fields");
     }
     return match field_name {
         "tls" => {  
@@ -42,6 +44,9 @@ pub(crate) fn build_field(field_name: &str, field_value: Option<&str>) ->
              FiveTupleData::extract_field()
             )
         },
+        "connection" => {
+            ConnectionSubscription::delivered_field()
+        }
         _ => { panic!( "Unknown field" ) }
     };
 }

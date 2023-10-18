@@ -1,6 +1,12 @@
 subscribed:
+  TlsConnSubscription: 
+    idx: [0]
+    fields: 
+      tls: default
+      five_tuple: 
+      connection:
   TlsSubscription:
-    idx: [0, 1]
+    idx: [1]
     fields: 
       tls: default
       five_tuple:
@@ -9,9 +15,11 @@ subscribed:
     fields: 
       http: default
       five_tuple:
+      connection:
 filters:
-  "tls.sni ~ '^.*\\.com$'": [0, 1]
+  "tls.sni ~ '^.*\\.com$'": [0]
+  "tls and ipv4": [1]
   "ipv4 and http": [2]
 callbacks:
-  callback1: [0, 1, 2]
+  callback2: [0, 1, 2]
 num_subscriptions: 3

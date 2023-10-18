@@ -1,5 +1,4 @@
 use quote::quote;
-use proc_macro2::Span;
 use std::collections::HashSet;
 
 pub struct HttpTransactionData {}
@@ -64,46 +63,5 @@ impl HttpSubscription {
         quote! { 
             let Some(data) = self.http.last()
         }
-    }
-}
-
-#[allow(dead_code)]
-pub struct DefaultHttpSubscription;
-
-#[allow(dead_code)]
-impl DefaultHttpSubscription {
-    pub fn struct_def() -> proc_macro2::TokenStream {
-        quote! {
-            #[derive(Debug)]
-            pub struct HttpSubscription { 
-                pub http: Rc<Http>,
-                pub five_tuple: FiveTuple,
-            }
-        }
-    }
-
-    pub fn from_data(idx: i64) -> proc_macro2::TokenStream {
-        // TODOTR iterate? 
-        if idx < 0 {
-            return quote! {};
-        }
-        let subscription_idx = syn::LitInt::new(&idx.to_string(), Span::call_site());
-        quote! {
-            if self.match_data.matched_term_by_idx(#subscription_idx) {
-                if let Some(data) = self.http.last() {
-                    subscription.invoke_idx(
-                        Subscribed::Http(HttpSubscription {
-                            http: data.clone(),
-                            five_tuple: self.five_tuple
-                        }
-                    ),
-                    #subscription_idx);
-                }
-            }
-        }
-    }
-
-    pub fn required_fields() -> HashSet<String> {
-        ["five_tuple".to_string()].iter().cloned().collect()
     }
 }

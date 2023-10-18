@@ -1,5 +1,4 @@
 use quote::quote;
-use proc_macro2::Span;
 use std::collections::HashSet;
 pub struct TlsHandshakeData;
 
@@ -68,44 +67,4 @@ impl TlsSubscription {
         }
     }
 
-}
-
-#[allow(unused)]
-pub struct DefaultTlsSubscription; 
-
-#[allow(unused)]
-impl DefaultTlsSubscription {
-    pub fn struct_def() -> proc_macro2::TokenStream {
-        quote! {
-            #[derive(Debug)]
-            pub struct TlsSubscription { 
-                pub tls: Rc<Tls>,
-                pub five_tuple: FiveTuple,
-            }
-        }
-    }
-
-    pub fn from_data(idx: i64) -> proc_macro2::TokenStream {
-        if idx < 0 {
-            return quote! {};
-        }
-        let subscription_idx = syn::LitInt::new(&idx.to_string(), Span::call_site());
-        quote! {
-            if self.match_data.matched_term_by_idx(#subscription_idx) {
-                if let Some(data) = &self.tls {
-                    subscription.invoke_idx(
-                        Subscribed::Tls(TlsSubscription {
-                            tls: data.clone(),
-                            five_tuple: self.five_tuple,
-                        }),
-                        #subscription_idx
-                    );
-                }
-            }
-        }
-    }
-
-    pub fn required_fields() -> HashSet<String> {
-        ["five_tuple".to_string()].iter().cloned().collect()
-    }
 }

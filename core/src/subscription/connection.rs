@@ -201,7 +201,7 @@ pub struct TrackedConnection {
 
 impl TrackedConnection {
     #[inline]
-    fn update(&mut self, segment: L4Pdu) {
+    pub(crate) fn update_data(&mut self, segment: L4Pdu) {
         let now = Instant::now();
         let inactivity = now - self.last_seen_ts;
         if inactivity > self.max_inactivity {
@@ -247,6 +247,35 @@ impl TrackedConnection {
             insert(&mut self.history, HIST_DATA ^ mask);
         }
     }
+
+    #[allow(unused)]
+    pub(crate) fn to_connection(&mut self) -> Connection {
+        let (duration, max_inactivity, time_to_second_packet) =
+            if self.ctos.nb_pkts + self.stoc.nb_pkts == 1 {
+                (
+                    Duration::default(),
+                    Duration::default(),
+                    Duration::default(),
+                )
+            } else {
+                (
+                    self.last_seen_ts - self.first_seen_ts,
+                    self.max_inactivity,
+                    self.second_seen_ts - self.first_seen_ts,
+                )
+            };
+
+        Connection {
+            five_tuple: self.five_tuple,
+            ts: self.first_seen_ts,
+            duration,
+            max_inactivity,
+            time_to_second_packet,
+            history: self.history.clone(),
+            orig: self.ctos.clone(),
+            resp: self.stoc.clone(),
+        }
+    }
 }
 
 impl Trackable for TrackedConnection {
@@ -277,36 +306,11 @@ impl Trackable for TrackedConnection {
         _session_id: Option<usize>,
         _subscription: &Subscription<Self::Subscribed>)
     {
-        self.update(pdu);
+        self.update_data(pdu);
     }
 
     fn on_terminate(&mut self, subscription: &Subscription<Self::Subscribed>) {
-        let (duration, max_inactivity, time_to_second_packet) =
-            if self.ctos.nb_pkts + self.stoc.nb_pkts == 1 {
-                (
-                    Duration::default(),
-                    Duration::default(),
-                    Duration::default(),
-                )
-            } else {
-                (
-                    self.last_seen_ts - self.first_seen_ts,
-                    self.max_inactivity,
-                    self.second_seen_ts - self.first_seen_ts,
-                )
-            };
-
-        let conn = Connection {
-            five_tuple: self.five_tuple,
-            ts: self.first_seen_ts,
-            duration,
-            max_inactivity,
-            time_to_second_packet,
-            history: self.history.clone(),
-            orig: self.ctos.clone(),
-            resp: self.stoc.clone(),
-        };
-        subscription.invoke(conn);
+        subscription.invoke(self.to_connection());
     }
 
     fn filter_packet(&mut self, pkt_filter_result: FilterResultData) {

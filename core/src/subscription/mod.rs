@@ -244,6 +244,11 @@ impl MatchData {
     }
 
     #[inline]
+    pub fn matching_by_bitmask(&self, bitmask: u32) -> bool {
+        (self.nonterminal_matches() | self.terminal_matches()) & bitmask != 0
+    }
+
+    #[inline]
     pub fn matched_nonterm_by_idx(&self, idx: usize) -> bool {
         self.nonterminal_matches() & (0b1 << idx) != 0
     }
