@@ -8,7 +8,7 @@ use self::flow_item::*;
 
 use super::ast::*;
 use super::pattern::*;
-use super::ptree::PTree;
+use super::ptree_flat::FlatPTree;
 use super::Filter;
 
 use crate::dpdk;
@@ -44,7 +44,8 @@ impl<'a> HardwareFilter<'a> {
 
         // Prune some hidden (redundant) patterns.
         // Only removes those with same prefix
-        let mut hw_ptree = PTree::new(&hw_patterns, 0);
+        // TODOTR
+        let mut hw_ptree = FlatPTree::new(&hw_patterns);
         hw_ptree.prune_branches();
         let mut hw_patterns = hw_ptree.to_flat_patterns();
 
@@ -220,7 +221,7 @@ fn validate_rule(
     // Need to update flow_action_rss here
     // reta_raw needs to stay in scope until after rte_flow_validate() succeeds
     let reta_raw = port.reta.iter().map(|q| q.raw()).collect::<Vec<_>>();
-    for mut a in action.rules.iter_mut() {
+    for a in action.rules.iter_mut() {
         if let dpdk::rte_flow_action_type_RTE_FLOW_ACTION_TYPE_RSS = a.type_ {
             action.rss[0].queue_num = port.queue_map.len() as u32;
             action.rss[0].queue = reta_raw.as_ptr();
@@ -282,7 +283,7 @@ fn create_rule(
     // Need to update flow_action_rss here
     // reta_raw needs to stay in scope until after rte_flow_create() succeeds
     let reta_raw = port.reta.iter().map(|q| q.raw()).collect::<Vec<_>>();
-    for mut a in action.rules.iter_mut() {
+    for a in action.rules.iter_mut() {
         if let dpdk::rte_flow_action_type_RTE_FLOW_ACTION_TYPE_RSS = a.type_ {
             action.rss[0].queue_num = port.queue_map.len() as u32;
             action.rss[0].queue = reta_raw.as_ptr();

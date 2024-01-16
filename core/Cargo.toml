@@ -46,10 +46,10 @@ thiserror = "1.0"
 tls-parser = { git = "https://github.com/thegwan/tls-parser.git" }
 toml = "0.5.11"
 x509-parser = "0.13.2"
-retina-subscriptiongen = { path = "../subscriptiongen" }
+bitmask = "0.5.0"
 
 [features]
 timing = []
 mlx5 = []
 no_custom = []
-default = ["mlx5"]
+default = []

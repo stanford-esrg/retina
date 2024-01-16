@@ -77,7 +77,7 @@ pub struct L4Context {
 }
 
 impl L4Context {
-    pub(crate) fn new(mbuf: &Mbuf) -> Result<Self> {
+    pub fn new(mbuf: &Mbuf) -> Result<Self> {
         if let Ok(eth) = mbuf.parse_to::<Ethernet>() {
             if let Ok(ipv4) = eth.parse_to::<Ipv4>() {
                 if let Ok(tcp) = ipv4.parse_to::<Tcp>() {

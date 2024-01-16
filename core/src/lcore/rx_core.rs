@@ -15,7 +15,7 @@ use itertools::Itertools;
 
 /// A RxCore polls from `rxqueues` and reduces the stream of packets into
 /// a stream of higher-level network events to be processed by the user.
-pub(crate) struct RxCore<'a, S>
+pub(crate) struct RxCore<S>
 where
     S: Subscribable,
 {
@@ -23,11 +23,11 @@ where
     pub(crate) rxqueues: Vec<RxQueue>,
     pub(crate) filter: Filter,
     pub(crate) conntrack: ConnTrackConfig,
-    pub(crate) subscription: Arc<Subscription<'a, S>>,
+    pub(crate) subscription: Arc<Subscription<S>>,
     pub(crate) is_running: Arc<AtomicBool>,
 }
 
-impl<'a, S> RxCore<'a, S>
+impl<S> RxCore<S>
 where
     S: Subscribable,
 {
@@ -36,7 +36,7 @@ where
         rxqueues: Vec<RxQueue>,
         filter: Filter,
         conntrack: ConnTrackConfig,
-        subscription: Arc<Subscription<'a, S>>,
+        subscription: Arc<Subscription<S>>,
         is_running: Arc<AtomicBool>,
     ) -> Self {
         RxCore {

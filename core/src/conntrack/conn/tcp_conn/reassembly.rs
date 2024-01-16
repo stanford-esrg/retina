@@ -1,11 +1,16 @@
-use crate::conntrack::conn::conn_info::{ConnInfo, ConnState};
+use crate::conntrack::conn::conn_info::ConnInfo;
 use crate::conntrack::pdu::L4Pdu;
 use crate::protocols::packet::tcp::{ACK, FIN, RST, SYN};
 use crate::protocols::stream::ParserRegistry;
 use crate::subscription::{Subscription, Trackable};
+use crate::filter::Actions;
 
 use anyhow::{bail, Result};
 use std::collections::VecDeque;
+
+/// TODOTR: 
+/// - Instead of having this invoke conninfo, have a 
+///   "drain" buffer & method instead.
 
 /// Represents a uni-directional TCP flow
 #[derive(Debug)]
@@ -106,7 +111,8 @@ impl TcpFlow {
     fn buffer_ooo_seg<T: Trackable>(&mut self, segment: L4Pdu, info: &mut ConnInfo<T>) {
         if self.ooo_buf.insert_back(segment).is_err() {
             log::warn!("Out-of-order buffer overflow");
-            info.state = ConnState::Remove;
+            // Clear actions
+            info.actions = Actions::new();
         }
     }
 
@@ -121,7 +127,7 @@ impl TcpFlow {
         subscription: &Subscription<T::Subscribed>,
         registry: &ParserRegistry,
     ) {
-        if info.state == ConnState::Remove {
+        if info.actions.drop() {
             return;
         }
         let next_seq = self.ooo_buf.flush_ordered::<T>(
@@ -183,7 +189,7 @@ impl OutOfOrderBuffer {
         let mut next_seq = expected_seq;
         let mut index = 0;
         while index < self.len() {
-            if info.state == ConnState::Remove {
+            if info.actions.drop() {
                 return next_seq;
             }
 

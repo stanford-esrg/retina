@@ -1,3 +1,6 @@
+pub mod actions;
+pub use actions::{Actions, ActionFlags, ActionData};
+
 #[macro_use]
 pub mod macros;
 pub mod ast;
@@ -5,77 +8,71 @@ mod hardware;
 #[allow(clippy::upper_case_acronyms)]
 mod parser;
 mod pattern;
+pub mod ptree_flat;
 pub mod ptree;
 
 use crate::filter::hardware::{flush_rules, HardwareFilter};
 use crate::filter::parser::FilterParser;
 use crate::filter::pattern::{FlatPattern, LayeredPattern};
-use crate::filter::ptree::PTree;
+use crate::filter::ptree_flat::FlatPTree;
 use crate::memory::mbuf::Mbuf;
 use crate::port::Port;
 use crate::protocols::stream::{ConnData, Session};
-use crate::subscription::NUM_SUBSCRIPTIONS;
+use crate::subscription::Trackable;
 
 use std::fmt;
 
 use anyhow::{bail, Result};
 use thiserror::Error;
 
-pub type PacketFilterFn = fn(&Mbuf) -> FilterResultData;
-pub type ConnFilterFn = fn(&FilterResultData, &ConnData) -> FilterResultData;
-pub type SessionFilterFn = fn(&Session, &FilterResultData) -> FilterResultData;
+/// Filter types
+pub type PacketFilterFn = fn(&Mbuf) -> Actions;
+pub type ConnFilterFn = fn(&ConnData) -> Actions;
+pub type SessionFilterFn = fn(&Session, &ConnData) -> Actions;
 
-/// Represents the result of an intermediate filter.
-#[derive(Debug, Clone, Copy)]
-pub enum FilterResult {
-    /// Matches a terminal pattern in the filter.
-    MatchTerminal(usize),
-    /// Matches sub-filter, but non-terminal.
-    MatchNonTerminal(usize),
-    /// Matches none of the patterns in the filter.
-    NoMatch,
-}
+// Subscription deliver functions
+// \note Rust won't enforce trait bounds on type alias
+pub type PacketDeliverFn = fn(&Mbuf);
+pub type ConnDeliverFn<T> = fn(&ConnData, &T);
+pub type SessionDeliverFn<T> = fn(&Session, &ConnData, &T);
 
-#[derive(Debug, Clone)]
-pub struct FilterResultData {
-    // Bitmaps
-    pub terminal_matches: u32,
-    pub nonterminal_matches: u32,
-    pub nonterminal_nodes: [usize; NUM_SUBSCRIPTIONS],
-}
-
-impl FilterResultData {
-    pub fn new() -> Self {
-        Self {
-            terminal_matches: 0,
-            nonterminal_matches: 0,
-            nonterminal_nodes: [std::usize::MAX; NUM_SUBSCRIPTIONS],
-        }
-    }
-}
-
-pub struct FilterFactory {
+pub struct FilterFactory<T>
+where 
+    T: Trackable
+{
     pub filter_str: String,
     pub protocol_str: String,
     pub packet_filter: PacketFilterFn,
     pub conn_filter: ConnFilterFn,
     pub session_filter: SessionFilterFn,
+    pub packet_deliver: PacketDeliverFn,
+    pub conn_deliver: ConnDeliverFn<T>,
+    pub session_deliver: SessionDeliverFn<T>,
 }
 
-impl FilterFactory {
+impl<T> FilterFactory<T>
+where
+    T: Trackable
+{
     pub fn new(
         filter_str: &str,
         protocol_str: &str,
         packet_filter: PacketFilterFn,
         conn_filter: ConnFilterFn,
         session_filter: SessionFilterFn,
-    ) -> FilterFactory {
+        packet_deliver: PacketDeliverFn,
+        conn_deliver: ConnDeliverFn<T>,
+        session_deliver: SessionDeliverFn<T>
+    ) -> Self {
         FilterFactory {
             filter_str: filter_str.to_string(),
             protocol_str: protocol_str.to_string(),
             packet_filter,
             conn_filter,
             session_filter,
+            packet_deliver, 
+            conn_deliver, 
+            session_deliver
         }
     }
 }
@@ -86,8 +83,8 @@ pub struct Filter {
 }
 
 impl Filter {
-    pub fn from_str(filter_raw: &str, split_combined: bool, filter_id: usize) -> Result<Filter> {
-        let parser = FilterParser { split_combined };
+    pub fn from_str(filter_raw: &str) -> Result<Filter> {
+        let parser = FilterParser { split_combined: true /* TODOTR */ };
         let raw_patterns = parser.parse_filter(filter_raw)?;
 
         let flat_patterns = raw_patterns
@@ -106,7 +103,7 @@ impl Filter {
 
         // prune redundant branches
         let flat_patterns: Vec<_> = fq_patterns.iter().map(|p| p.to_flat_pattern()).collect();
-        let mut ptree = PTree::new(&flat_patterns, filter_id);
+        let mut ptree = FlatPTree::new(&flat_patterns);
         ptree.prune_branches();
 
         Ok(Filter {
@@ -128,8 +125,8 @@ impl Filter {
     }
 
     /// Returns predicate tree
-    pub fn to_ptree(&self, filter_id: usize) -> PTree {
-        PTree::new(&self.get_patterns_flat(), filter_id)
+    pub fn to_ptree(&self) -> FlatPTree {
+        FlatPTree::new(&self.get_patterns_flat())
     }
 
     /// Returns `true` if filter can be completely realized in hardware

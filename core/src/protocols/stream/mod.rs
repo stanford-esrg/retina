@@ -11,7 +11,6 @@ pub mod tls;
 use self::dns::{parser::DnsParser, Dns};
 use self::http::{parser::HttpParser, Http};
 use self::tls::{parser::TlsParser, Tls};
-use crate::conntrack::conn::conn_info::ConnState;
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
 use crate::filter::Filter;
@@ -133,11 +132,8 @@ pub(crate) trait ConnParsable {
     /// Removes all sessions in the connection parser and returns them.
     fn drain_sessions(&mut self) -> Vec<Session>;
 
-    /// Default state to set the tracked connection to on a matched session.
-    fn session_match_state(&self) -> ConnState;
-
-    /// Default state to set the tracked connection to on a non-matched session.
-    fn session_nomatch_state(&self) -> ConnState;
+    /// Indicates whether we expect to see >1 sessions per connection
+    fn session_parsed_state(&self) -> SessionState;
 }
 
 /// Data required to filter on connections.
@@ -283,23 +279,22 @@ impl ConnParser {
         }
     }
 
-    /// Returns the state that a connection should transition to on a session filter match.
-    pub(crate) fn session_match_state(&self) -> ConnState {
+    pub(crate) fn session_parsed_state(&self) -> SessionState {
         match self {
-            ConnParser::Tls(parser) => parser.session_match_state(),
-            ConnParser::Dns(parser) => parser.session_match_state(),
-            ConnParser::Http(parser) => parser.session_match_state(),
-            ConnParser::Unknown => ConnState::Remove,
+            ConnParser::Tls(parser) => parser.session_parsed_state(),
+            ConnParser::Dns(parser) => parser.session_parsed_state(),
+            ConnParser::Http(parser) => parser.session_parsed_state(),
+            ConnParser::Unknown => SessionState::Remove,
         }
     }
+}
 
-    /// Returns the state that a connection should transition to on a failed session filter match.
-    pub(crate) fn session_nomatch_state(&self) -> ConnState {
-        match self {
-            ConnParser::Tls(parser) => parser.session_nomatch_state(),
-            ConnParser::Dns(parser) => parser.session_nomatch_state(),
-            ConnParser::Http(parser) => parser.session_nomatch_state(),
-            ConnParser::Unknown => ConnState::Remove,
-        }
-    }
+#[derive(Debug)]
+pub enum SessionState {
+    /// Unknown application-layer protocol, needs probing.
+    Probing,
+    /// Known application-layer protocol, needs parsing.
+    Parsing,
+    /// No more sessions expected in connection.
+    Remove,
 }

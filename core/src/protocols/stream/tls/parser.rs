@@ -14,9 +14,8 @@ use super::handshake::{
     ServerRSAParams,
 };
 use super::Tls;
-use crate::conntrack::conn::conn_info::ConnState;
 use crate::conntrack::pdu::L4Pdu;
-use crate::protocols::stream::{ConnParsable, ParseResult, ProbeResult, Session, SessionData};
+use crate::protocols::stream::{ConnParsable, ParseResult, ProbeResult, Session, SessionData, SessionState};
 
 use tls_parser::*;
 
@@ -91,12 +90,8 @@ impl ConnParsable for TlsParser {
             .collect()
     }
 
-    fn session_match_state(&self) -> ConnState {
-        ConnState::Remove
-    }
-
-    fn session_nomatch_state(&self) -> ConnState {
-        ConnState::Remove
+    fn session_parsed_state(&self) -> SessionState {
+        SessionState::Remove
     }
 }
 

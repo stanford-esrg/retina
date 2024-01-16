@@ -1,19 +1,24 @@
+// Consume_PDU [invoked on first pkt and UDP [in update], + via reassembled TCP]
+// Update [invoked on non-first pkt]
+// Must now store actions
+// Terminate handler
+// Probe, parse, etc.
+
+use crate::filter::{Actions, ActionFlags}; 
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
-use crate::filter::FilterResult;
 use crate::protocols::stream::{
-    ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, Session,
+    ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, SessionState
 };
 use crate::subscription::{Subscription, Trackable};
-use crate::filter::FilterResultData;
 
 #[derive(Debug)]
 pub(crate) struct ConnInfo<T>
 where
     T: Trackable,
 {
-    /// State of Conn
-    pub(crate) state: ConnState,
+    /// Actions to perform (connection state)
+    pub(crate) actions: Actions,
     /// Connection data (for filtering)
     pub(crate) cdata: ConnData,
     /// Subscription data (for delivering)
@@ -21,14 +26,14 @@ where
 }
 
 impl<T> ConnInfo<T>
-where
+where 
     T: Trackable,
-{
-    pub(super) fn new(five_tuple: FiveTuple, pkt_result: FilterResultData) -> Self {
+{   
+    pub(super) fn new(five_tuple: FiveTuple, pkt_actions: Actions) -> Self {
         ConnInfo {
-            state: ConnState::Probing,
+            actions: pkt_actions,
             cdata: ConnData::new(five_tuple),
-            sdata: T::new(five_tuple, pkt_result),
+            sdata: T::new(five_tuple),
         }
     }
 
@@ -38,126 +43,150 @@ where
         subscription: &Subscription<T::Subscribed>,
         registry: &ParserRegistry,
     ) {
-        match self.state {
-            ConnState::Probing => {
-                self.on_probe(pdu, subscription, registry);
-            }
-            ConnState::Parsing => {
-                self.on_parse(pdu, subscription);
-            }
-            ConnState::Tracking => {
-                self.on_track(pdu, subscription);
-            }
-            ConnState::Remove => {
-                drop(pdu);
-            }
+
+        if self.actions.drop() {
+            drop(pdu);
+            return;
+        }
+
+        if self.actions.parse_any() {
+            self.handle_parse(&pdu, subscription, registry);
+        }
+
+        // Note: tracking must happen after parsing, as the above
+        // may update connection state.
+        if self.actions.track_pdu() {
+            // deliver data to Tracked::Update
+            self.sdata.update(pdu, None, /* TODO */&self.actions.data);
+        }
+
+    }
+
+    fn handle_parse(&mut self,
+        pdu: &L4Pdu,
+        subscription: &Subscription<T::Subscribed>,
+        registry: &ParserRegistry) 
+    {
+        // In probing stage: application-layer protocol unknown
+        if self.actions.session_probe() {
+            self.on_probe(pdu, subscription, registry);
+        }
+
+        // State change may occur in `probe`; need to check `parse`
+        // Parsing ongoing: application-layer protocol known
+        if self.actions.session_parse() {
+            self.on_parse(pdu, subscription, registry);
         }
     }
 
-    fn on_probe(
-        &mut self,
-        pdu: L4Pdu,
+    fn on_probe(&mut self,
+        pdu: &L4Pdu,
         subscription: &Subscription<T::Subscribed>,
-        registry: &ParserRegistry,
-    ) {
-        match registry.probe_all(&pdu) {
+        registry: &ParserRegistry) 
+    {
+        match registry.probe_all(pdu) {
             ProbeRegistryResult::Some(conn_parser) => {
+                // Application-layer protocol known
                 self.cdata.conn_parser = conn_parser;
-                match self.sdata.filter_conn(&self.cdata, subscription) {
-                    FilterResult::MatchTerminal(_idx) | FilterResult::MatchNonTerminal(_idx) => {
-                        self.state = ConnState::Parsing;
-                        self.on_parse(pdu, subscription);
-                    }
-                    FilterResult::NoMatch => {
-                        self.state = ConnState::Remove;
-                    }
-                }
+                self.handle_conn(subscription);
             }
             ProbeRegistryResult::None => {
-                // conn_parser remains Unknown
-                self.sdata.update(pdu, None, subscription);
-                match self.sdata.filter_conn(&self.cdata, subscription) {
-                    FilterResult::MatchTerminal(_idx) => {
-                        let subscription_state = self.sdata.deliver_session_on_match(Session::default(), subscription);
-                        self.state = self.get_match_state(subscription_state);
-                    }
-                    FilterResult::MatchNonTerminal(_idx) => {
-                        // If no session data, can't apply a session filter.
-                        self.state = ConnState::Remove;
-                    }
-                    FilterResult::NoMatch => {
-                        self.state = ConnState::Remove;
-                    }
-                }
+                // All relevant parsers have failed to match
+                // Handle connection state change 
+                self.handle_conn(subscription);
+                // TODOTR ensure Session::Default not needed
             }
-            ProbeRegistryResult::Unsure => {
-                self.sdata.update(pdu, None, subscription);
-            }
+            ProbeRegistryResult::Unsure => { /* Continue */ }
         }
     }
 
-    fn on_parse(&mut self, pdu: L4Pdu, subscription: &Subscription<T::Subscribed>) {
-        match self.cdata.conn_parser.parse(&pdu) {
+    fn handle_conn(&mut self, 
+                   subscription: &Subscription<T::Subscribed>) {
+
+        #[cfg(debug_assertions)]
+        {
+            if !self.actions.data.contains(ActionFlags::ConnFilter) {
+                assert!(self.actions.drop() || !self.actions.terminal_actions.is_none());
+            }
+        }
+        if self.actions.data.contains(ActionFlags::ConnFilter) {
+            let actions = subscription.filter_conn(&self.cdata);
+            self.actions.update(&actions);
+        } 
+    }
+
+    fn on_parse(&mut self,
+        pdu: &L4Pdu,
+        subscription: &Subscription<T::Subscribed>,
+        _registry: &ParserRegistry /* tmp */) 
+    {
+        match self.cdata.conn_parser.parse(pdu) {
+            // Got the full session
             ParseResult::Done(id) => {
-                self.sdata.update(pdu, Some(id), subscription);
-                if let Some(session) = self.cdata.conn_parser.remove_session(id) {
-                    /* TODOTR CHECK THIS LOGIC */
-                    if self.sdata.filter_session(&session, subscription) {
-                        // Does the subscription want the connection to stay tracked? 
-                        let subscription_state = self.sdata.deliver_session_on_match(session, subscription);
-                        self.state = self.get_match_state(subscription_state);
-                    } else {
-                        /* TODOTR CHECK THIS LOGIC */
-                        // May want dependence on subscribable types 
-                        // (e.g., force remove if you want to match Connection only on first Session?)
-                        self.state = self.cdata.conn_parser.session_nomatch_state();
-                    }
-                } else {
-                    log::error!("Done parse but no mru");
-                    self.state = ConnState::Remove;
+                self.handle_session(subscription, id);                
+            }
+            _ => { }
+        }
+    }
+
+    fn handle_session(&mut self, subscription: &Subscription<T::Subscribed>, id: usize) {
+        if let Some(session) = self.cdata.conn_parser.remove_session(id) {
+            if self.actions.apply_session_filter() {
+                let actions = subscription.filter_session(&session, &self.cdata);
+                self.actions.update(&actions);
+            }
+            if self.actions.session_deliver() {
+                self.sdata.deliver_session(session, 
+                                           subscription, 
+                                           &self.actions.data, &self.cdata);
+                self.actions.session_delivered();
+            }
+        } else {
+            log::error!("Done parsing but no session found");
+        }
+
+        match self.cdata.conn_parser.session_parsed_state() {
+            // TODOTR confirm this logic
+            SessionState::Probing => {
+                // Additional sessions could be a different protocol
+                self.actions.data.set(ActionFlags::ConnParse);
+                self.actions.data.unset(ActionFlags::SessionParse);
+            }
+            SessionState::Remove => {
+                // Done parsing: we expect no more sessions for this connection.
+                self.actions.session_clear_parse();
+            }
+            _ => { // TODOTR
+                // SessionFilter and SessionParse are always terminal actions at the 
+                // connection filtering stage. By default, they will be preserved.
+            }
+        }
+
+    }
+
+    pub fn handle_terminate(&mut self, subscription: &Subscription<T::Subscribed>)
+    {
+        // Session parsing is ongoing: drain any remaining sessions
+        if self.actions.session_parse() {
+            for session in self.cdata.conn_parser.drain_sessions() {
+                if self.actions.data.contains(ActionFlags::SessionFilter) {
+                    let actions = subscription.filter_session(&session, &self.cdata);
+                    self.actions.update(&actions);
+                }
+                if self.actions.session_deliver() {
+                    // Deliver session
+                    self.sdata.deliver_session(session, subscription,&self.actions.data, &self.cdata);
+                    self.actions.session_delivered();
                 }
             }
-            ParseResult::Continue(id) => {
-                self.sdata.update(pdu, Some(id), subscription);
-            }
-            ParseResult::Skipped => {
-                self.sdata.update(pdu, None, subscription);
-            }
+        }
+
+        // Once sessions are cleared, deliver all connection data
+
+        // TODOTR do we need to re-apply the connection filter here?
+        if self.actions.connection_matched() {
+            self.sdata.deliver_conn(subscription, &self.actions.data, &self.cdata);
         }
     }
 
-    fn on_track(&mut self, pdu: L4Pdu, subscription: &Subscription<T::Subscribed>) {
-        self.sdata.update(pdu, None, subscription);
-    }
-
-    fn get_match_state(&mut self, subscription_state: ConnState) -> ConnState {
-        // Does the filter want the connection to stay tracked? 
-        let filter_state = self.cdata.conn_parser.session_match_state();
-        return {
-            if subscription_state == ConnState::Remove && filter_state == ConnState::Remove {
-                ConnState::Remove
-            } else if filter_state == ConnState::Parsing {
-                // Example: filtering for `Http` may have multiple sessions per connection
-                // - Regardless of subscribable type, keep tracking sessions
-                ConnState::Parsing
-            } else {
-                // Example: filtering for `Tls`, but want the whole connection.
-                // - No need to keep parsing after the handshake, but should still track.
-                ConnState::Tracking
-            }
-        }
-    }
-
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ConnState {
-    /// Unknown application-layer protocol, needs probing.
-    Probing,
-    /// Known application-layer protocol, needs parsing.
-    Parsing,
-    /// No need to probe or parse, just track. Application-layer protocol may or may not be known.
-    Tracking,
-    /// Connection will be removed
-    Remove,
 }

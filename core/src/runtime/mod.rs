@@ -25,19 +25,19 @@ use anyhow::{bail, Result};
 ///
 /// The runtime initializes the DPDK environment abstraction layer, creates memory pools, launches
 /// the packet processing cores, and manages logging and display output.
-pub struct Runtime<'a, S>
+pub struct Runtime<S>
 where
     S: Subscribable,
 {
     #[allow(dead_code)]
     mempools: BTreeMap<SocketId, Mempool>,
-    online: Option<OnlineRuntime<'a, S>>,
-    offline: Option<OfflineRuntime<'a, S>>,
+    online: Option<OnlineRuntime<S>>,
+    offline: Option<OfflineRuntime<S>>,
     #[cfg(feature = "timing")]
-    subscription: Arc<Subscription<'a, S>>,
+    subscription: Arc<Subscription<S>>,
 }
 
-impl<'a, S> Runtime<'a, S>
+impl<S> Runtime<S>
 where
     S: Subscribable,
 {
@@ -56,13 +56,12 @@ where
     /// ```
     pub fn new(
         config: RuntimeConfig,
-        factory: fn() -> FilterFactory,
-        cb: Vec<Box<dyn Fn(S::SubscribedData) + 'a>>,
+        factory: fn() -> FilterFactory<S::Tracked>,
     ) -> Result<Self> {
         let factory = factory();
         let protocol_str = factory.protocol_str.clone();
         let filter_str = factory.filter_str.clone();
-        let subscription = Arc::new(Subscription::new(factory, cb));
+        let subscription = Arc::new(Subscription::new(factory));
 
         println!("Initializing Retina runtime...");
         log::info!("Initializing EAL...");

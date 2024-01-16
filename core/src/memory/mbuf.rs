@@ -138,6 +138,10 @@ impl Mbuf {
     pub(crate) fn mark(&self) -> u32 {
         unsafe { self.raw().__bindgen_anon_2.hash.fdir.hi }
     }
+
+    pub(crate) fn add_mark(&mut self, mark: u32) {
+        self.raw_mut().__bindgen_anon_2.hash.fdir.hi = mark;
+    }
 }
 
 impl<'a> Packet<'a> for Mbuf {

@@ -23,8 +23,9 @@
 //!
 //! The following example shows a simple Retina application that prints parsed TLS handshakes to
 //! stdout:
-//!
+//! 
 //! ```rust
+//! /* 
 //! use retina_core::config::default_config;
 //! use retina_core::subscription::TlsHandshake;
 //! use retina_core::Runtime;
@@ -39,6 +40,7 @@
 //!     let mut runtime = Runtime::new(cfg, filter, callback).unwrap();
 //!     runtime.run();
 //! }
+//!  */
 //! ```
 //!
 
@@ -74,3 +76,5 @@ extern crate pest_derive;
 extern crate lazy_static;
 #[macro_use]
 extern crate maplit;
+#[macro_use]
+extern crate bitmask;

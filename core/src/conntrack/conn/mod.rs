@@ -1,18 +1,18 @@
 //! State management for connections.
 //!
-//! Tracks a TCP or UDP connection, performs stream reassembly, and manages protocol parser state
-//! throughout the duration of the connection.
+//! Tracks a TCP or UDP connection, performs stream reassembly, and (via ConnInfo)
+//! manages protocol parser state throughout the duration of the connection.
 
 pub mod conn_info;
 pub(crate) mod tcp_conn;
 pub(crate) mod udp_conn;
 
-use self::conn_info::{ConnInfo, ConnState};
+use self::conn_info::ConnInfo;
 use self::tcp_conn::TcpConn;
 use self::udp_conn::UdpConn;
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
-use crate::filter::{FilterResult, FilterResultData};
+use crate::filter::Actions;
 use crate::protocols::packet::tcp::{ACK, RST, SYN};
 use crate::protocols::stream::ParserRegistry;
 use crate::subscription::{Subscription, Trackable};
@@ -39,7 +39,7 @@ where
     pub(crate) inactivity_window: usize,
     /// Layer-4 connection tracking.
     pub(crate) l4conn: L4Conn,
-    /// Connection information for filtering and parsing.
+    /// Connection tracking for filtering and parsing.
     pub(crate) info: ConnInfo<T>,
 }
 
@@ -54,7 +54,7 @@ where
     pub(super) fn new_tcp(ctxt: L4Context, 
                           initial_timeout: usize, 
                           max_ooo: usize,
-                          pkt_results: FilterResultData) -> Result<Self> {
+                          pkt_actions: Actions) -> Result<Self> {
         let five_tuple = FiveTuple::from_ctxt(ctxt);
         let tcp_conn = if ctxt.flags & SYN != 0 && ctxt.flags & ACK == 0 && ctxt.flags & RST == 0 {
             TcpConn::new_on_syn(ctxt, max_ooo)
@@ -65,7 +65,7 @@ where
             last_seen_ts: Instant::now(),
             inactivity_window: initial_timeout,
             l4conn: L4Conn::Tcp(tcp_conn),
-            info: ConnInfo::new(five_tuple, pkt_results),
+            info: ConnInfo::new(five_tuple, pkt_actions),
         })
     }
 
@@ -74,14 +74,14 @@ where
     #[allow(clippy::unnecessary_wraps)]
     pub(super) fn new_udp(ctxt: L4Context, 
                           initial_timeout: usize,
-                          pkt_results: FilterResultData) -> Result<Self> {
+                          actions: Actions) -> Result<Self> {
         let five_tuple = FiveTuple::from_ctxt(ctxt);
         let udp_conn = UdpConn;
         Ok(Conn {
             last_seen_ts: Instant::now(),
             inactivity_window: initial_timeout,
             l4conn: L4Conn::Udp(udp_conn),
-            info: ConnInfo::new(five_tuple, pkt_results),
+            info: ConnInfo::new(five_tuple, actions),
         })
     }
 
@@ -94,18 +94,10 @@ where
     ) {
         match &mut self.l4conn {
             L4Conn::Tcp(tcp_conn) => {
-                if self.info.state == ConnState::Tracking {
-                    if tcp_conn.ctos.ooo_buf.len() != 0 {
-                        tcp_conn.ctos.ooo_buf.buf.clear();
-                    }
-                    if tcp_conn.stoc.ooo_buf.len() != 0 {
-                        tcp_conn.stoc.ooo_buf.buf.clear();
-                    }
-                    tcp_conn.update_term_condition(pdu.flags(), pdu.dir);
-                    self.info.sdata.update(pdu, None, subscription);
-                } else {
-                    tcp_conn.reassemble(pdu, &mut self.info, subscription, registry);
-                }
+                // TODOTR take out reassembly by default
+                // - Could have an action for "deliver without reassembly"; 
+                //   see original implementation here.
+                tcp_conn.reassemble(pdu, &mut self.info, subscription, registry);
             }
             L4Conn::Udp(_udp_conn) => self.info.consume_pdu(pdu, subscription, registry),
         }
@@ -117,8 +109,8 @@ where
     }
 
     /// Returns the connection state.
-    pub(super) fn state(&self) -> ConnState {
-        self.info.state
+    pub(super) fn remove(&self) -> bool {
+        self.info.actions.drop()
     }
 
     /// Returns `true` if the connection has been naturally terminated.
@@ -141,33 +133,6 @@ where
     /// - the connection expires due to inactivity
     /// - the connection is drained at the end of the run
     pub(crate) fn terminate(&mut self, subscription: &Subscription<T::Subscribed>) {
-        let conn_matched = matches!(self.info.sdata.filter_conn(&self.info.cdata, subscription), 
-                                          FilterResult::MatchTerminal(_));
-        match self.info.state {
-            ConnState::Probing => {
-                if conn_matched {
-                    self.info.sdata.on_terminate(subscription);
-                }
-            }
-            ConnState::Parsing => {
-                // call `on_terminate` if any sessions matched.
-                let mut session_matched = false; 
-                for session in self.info.cdata.conn_parser.drain_sessions() {
-                    if self.info.sdata.filter_session(&session, subscription) {
-                        session_matched = true;
-                        self.info.sdata.deliver_session_on_match(session, subscription);
-                    }
-                }
-                if session_matched || conn_matched {
-                    self.info.sdata.on_terminate(subscription);
-                }
-            }
-            ConnState::Tracking => {
-                self.info.sdata.on_terminate(subscription);
-            }
-            ConnState::Remove => {
-                // do nothing
-            }
-        }
+        self.info.handle_terminate(subscription);
     }
 }

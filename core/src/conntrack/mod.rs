@@ -9,7 +9,6 @@ pub mod conn_id;
 pub mod pdu;
 mod timerwheel;
 
-use self::conn::conn_info::ConnState;
 use self::conn::{Conn, L4Conn};
 use self::conn_id::ConnId;
 use self::pdu::{L4Context, L4Pdu};
@@ -20,7 +19,7 @@ use crate::protocols::packet::tcp::TCP_PROTOCOL;
 use crate::protocols::packet::udp::UDP_PROTOCOL;
 use crate::protocols::stream::ParserRegistry;
 use crate::subscription::{Subscription, Trackable};
-use crate::filter::FilterResultData;
+use crate::filter::Actions;
 
 use std::cmp;
 use std::time::Instant;
@@ -74,12 +73,12 @@ where
     }
 
     /// Process a single incoming packet `mbuf` with layer-4 context `ctxt`.
-    pub(crate) fn process(
+    pub fn process(
         &mut self,
         mbuf: Mbuf,
         ctxt: L4Context,
         subscription: &Subscription<T::Subscribed>,
-        pkt_results: FilterResultData
+        pkt: Actions
     ) {
         let conn_id = ConnId::new(ctxt.src, ctxt.dst, ctxt.proto);
         match self.table.raw_entry_mut().from_key(&conn_id) {
@@ -91,13 +90,12 @@ where
                     L4Conn::Tcp(_) => self.config.tcp_inactivity_timeout,
                     L4Conn::Udp(_) => self.config.udp_inactivity_timeout,
                 };
-                if conn.state() == ConnState::Remove {
-                    log::error!("Conn in Remove state when occupied in table");
+                if conn.remove() {
+                    log::error!("Conn in Drop state when occupied in table");
                 }
                 let pdu = L4Pdu::new(mbuf, ctxt, dir);
-                conn.info.sdata.filter_packet(pkt_results);
                 conn.update(pdu, subscription, &self.registry);
-                if conn.state() == ConnState::Remove {
+                if conn.remove() {
                     occupied.remove();
                     return;
                 }
@@ -114,17 +112,17 @@ where
                             ctxt,
                             self.config.tcp_establish_timeout,
                             self.config.max_out_of_order,
-                            pkt_results
+                            pkt
                         ),
                         UDP_PROTOCOL => Conn::new_udp(ctxt, 
                                               self.config.udp_inactivity_timeout, 
-                                                            pkt_results),
+                                                            pkt),
                         _ => Err(anyhow!("Invalid L4 Protocol")),
                     };
                     if let Ok(mut conn) = conn {
                         let pdu = L4Pdu::new(mbuf, ctxt, true);
                         conn.info.consume_pdu(pdu, subscription, &self.registry);
-                        if conn.state() != ConnState::Remove {
+                        if !conn.remove() {
                             self.timerwheel.insert(
                                 &conn_id,
                                 conn.last_seen_ts,

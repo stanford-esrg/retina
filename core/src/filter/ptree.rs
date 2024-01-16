@@ -1,25 +1,69 @@
 use super::ast::*;
-use super::pattern::{FlatPattern, LayeredPattern};
+use super::pattern::FlatPattern;
+use super::Filter;
+use super::actions::*;
 
 use std::fmt;
 use std::collections::HashSet;
 
-/// Represents the sub-filter that a predicate node terminates.
+/// Indicates whether the filter will deliver a subscription 
+/// or return an action.
 #[derive(Debug, Clone)]
-pub enum Terminate {
-    Packet,
-    Connection,
-    Session,
-    None,
+pub enum FilterType {
+    /// Leaf nodes (per sub-filter) are 
+    /// expected to contain action(s) to be applied
+    Action(FilterLayer),
+    /// Leaf nodes (per sub-filter) are 
+    /// expected to contain subscription id(s) for delivery
+    Deliver(FilterLayer)
 }
 
-impl fmt::Display for Terminate {
+impl fmt::Display for FilterType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Terminate::Packet => write!(f, "p"),
-            Terminate::Connection => write!(f, "c"),
-            Terminate::Session => write!(f, "s"),
-            Terminate::None => write!(f, ""),
+            FilterType::Action(layer) => write!(f, "Action: {}", layer),
+            FilterType::Deliver(layer) => write!(f, "Deliver: {}", layer),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum FilterLayer {
+    /// Action filters ///
+    
+    /// Filter applied to map a packet to actions
+    Packet, 
+    /// Filter applied to map connection data to actions
+    Connection, 
+    /// Filter applied to map session data to actions
+    Session,
+
+    /// Delivery filters  ///
+    /// Will deliver reference to data to correct subscription. ///
+
+    /// Filter applied when a packet is ready to be delivered
+    PacketDeliver,
+    /// Filter applied when connection data is ready to be
+    /// delivered (`on terminate` for matched connection)
+    ConnectionDeliver,
+    /// Filter applied when parsed session data is ready to be
+    /// delivered (`deliver session` on match).
+    SessionDeliver, 
+
+    /// Unknown
+    None
+}
+
+impl fmt::Display for FilterLayer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FilterLayer::Packet => write!(f, "P"),
+            FilterLayer::Connection => write!(f, "C"),
+            FilterLayer::Session => write!(f, "S"),
+            FilterLayer::PacketDeliver => write!(f, "P (deliver_frame)"),
+            FilterLayer::ConnectionDeliver => write!(f, "C (on_terminate)"),
+            FilterLayer::SessionDeliver => write!(f, "S (session_on_match)"),
+            FilterLayer::None => write!(f, "Unknown"),
         }
     }
 }
@@ -33,21 +77,20 @@ pub struct PNode {
     /// Predicate represented by this PNode
     pub pred: Predicate,
 
-    /// Whether the node terminates a pattern for a filter
-    pub is_terminal: HashSet<usize>,
+    /// Actions to apply at this node 
+    /// [for action filters]
+    pub actions: Actions,
 
-    /// The filter IDs that this node matches
-    /// (terminal or non-terminal matches)
-    pub filter_ids: HashSet<usize>,
-
-    /// Sub-filter terminal (packet, connection, or session)
-    pub terminates: Terminate,
+    /// Subscriptions to deliver, by index, at this node
+    /// Empty for non-delivery filters.
+    pub deliver: HashSet<usize>,
 
     /// The patterns for which the predicate is a part of
     pub patterns: Vec<usize>,
 
     /// Child PNodes
     pub children: Vec<PNode>,
+
 }
 
 impl PNode {
@@ -55,9 +98,8 @@ impl PNode {
         PNode {
             id,
             pred,
-            is_terminal: HashSet::new(),
-            filter_ids: HashSet::new(),
-            terminates: Terminate::None,
+            actions: Actions::new(),
+            deliver: HashSet::new(),
             patterns: vec![],
             children: vec![],
         }
@@ -75,12 +117,31 @@ impl PNode {
 impl fmt::Display for PNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.pred)?;
+        if !self.actions.data.is_none() {
+            write!(f, " -- A: {:?}", self.actions.data)?;
+        }
+        if !self.actions.terminal_actions.is_none() {
+            write!(f, ", Term. A: {:?}", self.actions.terminal_actions)?;
+        }
+        if !self.deliver.is_empty() {
+            write!(f, " D: ")?;
+            for i in &self.deliver {
+                write!(f, "{} ", i)?;
+            }
+        }
         Ok(())
     }
 }
 
-/// A n-ary tree representing a Filter.
-/// Paths from root to leaf represent a pattern for a frame to match.
+/// \todo 
+/// - This should be a BDD.
+/// - There should be a better way to prune/parse here
+///   to optimize for number of checks that are likely to be required.
+
+/// A n-ary tree representing a Filter as applied by each lcore
+/// to connection-level data.
+/// Paths from root to leaf represent a pattern for data to match
+/// on an action or subscription delivery.
 #[derive(Debug)]
 pub struct PTree {
     /// Root node
@@ -88,128 +149,105 @@ pub struct PTree {
 
     /// Number of nodes in tree
     pub size: usize,
+
+    /// Possible actions
+    pub actions: Actions,
+
+    /// Which filter this PTree represents
+    pub filter_type: FilterType,
 }
 
 impl PTree {
+
+    pub fn new_from_str(filter_raw: &str, 
+                        filter_type: FilterType, 
+                        actions: &Actions, 
+                        filter_id: usize) -> Option<Self> {
+
+        if let Ok(filter) = Filter::from_str(filter_raw) {
+            return Some(PTree::new(&filter.get_patterns_flat(), 
+                        filter_type, actions, filter_id));
+        }
+        None
+    }
+
     /// Creates a new predicate tree from a slice of FlatPatterns
-    pub fn new(patterns: &[FlatPattern], filter_id: usize) -> Self {
-        let root = PNode {
-            id: 0,
-            pred: Predicate::Unary {
-                protocol: protocol!("ethernet"),
-            },
-            is_terminal: HashSet::new(),
-            filter_ids: HashSet::new(),
-            terminates: Terminate::None,
-            patterns: vec![],
-            children: vec![],
+    pub fn new(patterns: &[FlatPattern], 
+               filter_type: FilterType,
+               actions: &Actions,
+               filter_id: usize) -> Self {
+        let pred = Predicate::Unary { protocol: protocol!("ethernet"), };
+        let root = PNode::new(pred, 0); 
+        let mut ptree = PTree { 
+            root, 
+            size: 1, 
+            actions: actions.clone(), // Starting value for possible actions
+            filter_type 
         };
-        let mut ptree = PTree { root, size: 1 };
-        ptree.build_tree(patterns, filter_id);
+        ptree.build_tree(patterns, actions, filter_id);
         ptree
     }
 
-    // Converts PTree to vector of FlatPatterns (all root->leaf paths).
-    // Useful for using the PTree to prune redundant branches then
-    // converting back to FlatPatterns
-    pub fn to_flat_patterns(&self) -> Vec<FlatPattern> {
-        fn build_pattern(
-            patterns: &mut Vec<FlatPattern>,
-            predicates: &mut Vec<Predicate>,
-            node: &PNode,
-        ) {
-            if *node.pred.get_protocol() != protocol!("ethernet") {
-                predicates.push(node.pred.to_owned());
-            }
-            if !node.is_terminal.is_empty() {
-                patterns.push(FlatPattern {
-                    predicates: predicates.to_vec(),
-                });
-            } else {
-                for child in node.children.iter() {
-                    build_pattern(patterns, predicates, child);
-                }
-            }
-            predicates.pop();
+    /// Add a filter to an existing PTree
+    /// Applied for multiple subscriptions, when multiple actions 
+    /// and/or delivery filters will be checked at the same stage
+    pub fn add_filter(&mut self, patterns: &[FlatPattern], 
+                      actions: &Actions, filter_id: usize) {
+        self.build_tree(patterns, actions, filter_id);
+        if matches!(self.filter_type, FilterType::Action(_)) {
+            self.actions.update(&actions); // Possible actions
         }
-        let mut patterns = vec![];
-        let mut predicates = vec![];
-
-        build_pattern(&mut patterns, &mut predicates, &self.root);
-        patterns
     }
 
-    // Converts PTree to vector of LayeredPatterns (all root->leaf paths).
-    // Useful for using the PTree to prune redundant branches then
-    // converting back to LayeredPatterns
-    pub(crate) fn to_layered_patterns(&self) -> Vec<LayeredPattern> {
-        let flat_patterns = self.to_flat_patterns();
-        let mut layered = vec![];
-        for pattern in flat_patterns.iter() {
-            layered.extend(pattern.to_fully_qualified().expect("fully qualified"));
+    pub fn add_filter_from_str(&mut self, filter_raw: &str, 
+                                actions: &Actions, filter_id: usize) {
+        if let Ok(filter) = Filter::from_str(filter_raw) {
+            self.add_filter(&filter.get_patterns_flat(), 
+                            actions, filter_id);
         }
-        layered
     }
 
-    pub fn add_filter(&mut self, patterns: &[FlatPattern], filter_id: usize) {
-        self.build_tree(patterns, filter_id);
-    }
-
-    pub(crate) fn build_tree(&mut self, patterns: &[FlatPattern], filter_id: usize) {
+    /// Add all given patterns (root-to-leaf paths) to a PTree
+    pub(crate) fn build_tree(&mut self, patterns: &[FlatPattern], 
+                             actions: &Actions, filter_id: usize) {
         // add each pattern to tree
         let mut added = false;
         for (i, pattern) in patterns.iter().enumerate() {
             added = added || !pattern.predicates.is_empty();
-            self.add_pattern(pattern, i, filter_id);
+            self.add_pattern(pattern, i, actions, filter_id);
         }
 
-        // TODO: maybe remove this to distinguish terminating a user-specified pattern
+        // Need to terminate somewhere
         if !added {
-            self.root.terminates = Terminate::Packet;
-            self.root.is_terminal.insert(filter_id);
-            self.root.filter_ids.insert(filter_id);
+            if matches!(self.filter_type, FilterType::Action(_)) {
+                self.root.actions.update(actions);
+            } else {
+                self.root.deliver.insert(filter_id);
+            }
         }
     }
 
+    /// Add a single pattern (root-to-leaf path) to the tree.
+    /// Add nodes that don't exist. Update actions or subscription IDs
+    /// for terminal nodes at this stage.
     pub(crate) fn add_pattern(&mut self, pattern: &FlatPattern, 
-                              pattern_id: usize, filter_id: usize) {
+                              pattern_id: usize, actions: &Actions,
+                              filter_id: usize) {
         let mut node = &mut self.root;
         node.patterns.push(pattern_id);
         for predicate in pattern.predicates.iter() {
             if !node.has_child(predicate) {
                 node.children.push(PNode::new(predicate.clone(), self.size));
                 self.size += 1;
-
-                if node.pred.on_packet() && predicate.on_connection() {
-                    node.terminates = Terminate::Packet;
-                    node.filter_ids.insert(filter_id);
-                } else if node.pred.on_connection() && predicate.on_session() {
-                    node.terminates = Terminate::Connection;
-                    node.filter_ids.insert(filter_id);
-                }
-            } else {
-                // Add filter ID for a terminal or non-terminal match.
-                if (node.pred.on_packet() && predicate.on_connection()) || 
-                    (node.pred.on_connection() && predicate.on_session()) {
-                        node.filter_ids.insert(filter_id);
-                }
             }
             node = node.get_child(predicate);
             node.patterns.push(pattern_id);
         }
 
-        node.is_terminal.insert(filter_id);
-        if node.pred.on_packet() {
-            node.terminates = Terminate::Packet;
-            node.filter_ids.insert(filter_id);
-        } else if node.pred.on_connection() {
-            node.terminates = Terminate::Connection;
-            node.filter_ids.insert(filter_id);
-        } else if node.pred.on_session() {
-            node.terminates = Terminate::Session;
-            node.filter_ids.insert(filter_id);
+        if matches!(self.filter_type, FilterType::Action(_)) {
+            node.actions.update(actions);
         } else {
-            log::error!("Terminal node but does not terminate a sub-filter")
+            node.deliver.insert(filter_id);
         }
     }
 
@@ -229,74 +267,16 @@ impl PTree {
         get_subtree(id, &self.root)
     }
 
-    /// Returns list of subtrees rooted at packet terminal nodes.
-    /// Used to generate connection filter.
-    pub fn get_connection_subtrees(&self) -> Vec<PNode> {
-        fn get_connection_subtrees(node: &PNode, list: &mut Vec<PNode>) {
-            if matches!(node.terminates, Terminate::Packet) {
-                list.push(node.clone());
-            }
-            for child in node.children.iter() {
-                get_connection_subtrees(child, list);
-            }
-        }
-        let mut list = vec![];
-        get_connection_subtrees(&self.root, &mut list);
-        list
-    }
-
-    /// Returns list of subtrees rooted at connection terminal nodes.
-    /// Used to generate session filter.
-    pub fn get_session_subtrees(&self) -> Vec<PNode> {
-        fn get_session_subtrees(node: &PNode, list: &mut Vec<PNode>) {
-            if matches!(node.terminates, Terminate::Connection) {
-                list.push(node.clone());
-            }
-            for child in node.children.iter() {
-                get_session_subtrees(child, list);
-            }
-        }
-        let mut list = vec![];
-        get_session_subtrees(&self.root, &mut list);
-        list
-    }
-
-    /// Removes some patterns that are covered by others, but not all.
-    /// (e.g. "ipv4 or ipv4.src_addr = 1.2.3.4" will remove "ipv4.src_addr = 1.2.3.4")
-    pub fn prune_branches(&mut self) {
-        fn prune(node: &mut PNode) {
-            if node.filter_ids.len() == 1 && !node.is_terminal.is_empty() {
-                node.children.clear();
-            }
-            for child in node.children.iter_mut() {
-                prune(child);
-            }
-        }
-        prune(&mut self.root);
-    }
-
     /// modified from https://vallentin.dev/2019/05/14/pretty-print-tree
     fn pprint(&self) -> String {
         fn pprint(s: &mut String, node: &PNode, prefix: String, last: bool) {
             let prefix_current = if last { "`- " } else { "|- " };
             
-            let mut s_next = format!(
-                "{}{}{} ({}) {}: ",
-                prefix, prefix_current, node, node.id, node.terminates
+            let s_next = format!(
+                "{}{}{}: {}\n",
+                prefix, prefix_current, node.id, node
             );
-            for idx in &node.is_terminal {
-                s_next += &format!(" {}*", idx);
-            }
-            // TODO - messy
-            let mut filter_ids = node.filter_ids.clone().into_iter().collect::<Vec<_>>();
-            filter_ids.sort();
-            for idx in filter_ids {
-                if !node.is_terminal.contains(&idx) {
-                    s_next += &format!(" {}", idx);
-                }
-            }
-
-            s.push_str(format!("{}\n", s_next).as_str());
+            s.push_str(&s_next);
 
             let prefix_child = if last { "   " } else { "|  " };
             let prefix = prefix + prefix_child;
@@ -318,7 +298,34 @@ impl PTree {
 
 impl fmt::Display for PTree {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.pprint())?;
+        write!(f, "Tree {}\n,{}", &self.filter_type, self.pprint())?;
         Ok(())
     }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn core_ptree_build() {
+        let filter = "ipv4 and tls";
+        let mut actions = Actions::new();
+        actions.data.set(ActionFlags::ConnDataTrack);
+        actions.terminal_actions.set(ActionFlags::ConnDataTrack);
+        let mut ptree = PTree::new_from_str(filter,
+                                    FilterType::Action(FilterLayer::Connection), &actions, 0).unwrap();
+        actions.clear();
+        actions.data.set(ActionFlags::ConnParse);
+        ptree.add_filter_from_str("ipv4.src_addr = 1.2.3.0/24", &actions, 1);
+        // println!("{}", ptree);
+        
+        let mut ptree = PTree::new_from_str("ipv4 and tls",
+            FilterType::Deliver(FilterLayer::SessionDeliver), &Actions::new(), 0).unwrap();
+        ptree.add_filter_from_str("ipv4.src_addr = 1.2.3.0/24 and http", &Actions::new(), 1);
+        // println!("{}", ptree);
+    }
+
+    // \todo: asserts to check for correctness
 }

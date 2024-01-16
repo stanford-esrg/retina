@@ -15,17 +15,17 @@ use std::sync::Arc;
 use cpu_time::ProcessTime;
 use pcap::Capture;
 
-pub(crate) struct OfflineRuntime<'a, S>
+pub(crate) struct OfflineRuntime<S>
 where
     S: Subscribable,
 {
     pub(crate) mempool_name: String,
     pub(crate) proto_filter: Filter,
-    pub(crate) subscription: Arc<Subscription<'a, S>>,
+    pub(crate) subscription: Arc<Subscription<S>>,
     pub(crate) options: OfflineOptions,
 }
 
-impl<'a, S> OfflineRuntime<'a, S>
+impl<S> OfflineRuntime<S>
 where
     S: Subscribable,
 {
@@ -33,9 +33,9 @@ where
         options: OfflineOptions,
         mempools: &BTreeMap<SocketId, Mempool>,
         protocol_filter: String,
-        subscription: Arc<Subscription<'a, S>>,
+        subscription: Arc<Subscription<S>>,
     ) -> Self {
-        let proto_filter = Filter::from_str(&protocol_filter, true, 0)
+        let proto_filter = Filter::from_str(&protocol_filter)
                                                     .expect("Failed to parse stream protocol filter");
         let core_id = CoreId(unsafe { dpdk::rte_lcore_id() } as u32);
         let mempool_name = mempools
@@ -73,12 +73,21 @@ where
             if frame.header.len as usize > self.options.offline.mtu {
                 continue;
             }
-            let mbuf = Mbuf::from_bytes(frame.data, mempool_raw)
+            let mut mbuf = Mbuf::from_bytes(frame.data, mempool_raw)
                 .expect("Unable to allocate mbuf. Try increasing mempool size.");
             nb_pkts += 1;
             nb_bytes += mbuf.data_len() as u64;
 
-            S::process_packet(mbuf, &self.subscription, &mut stream_table);
+            /* Apply the packet filter to get actions */
+            let actions: u32 = 1; // tmp
+            mbuf.add_mark(actions);
+            // println!("{}", mbuf.mark());
+            if mbuf.mark() == 0 {
+                drop(mbuf);
+                continue;
+            } else {
+                S::process_packet(mbuf, &self.subscription, &mut stream_table);
+            }
         }
 
         // // Deliver remaining data in table
