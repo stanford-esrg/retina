@@ -34,7 +34,7 @@ impl SubscriptionLevel {
         let mut actions = ActionData::new();
         match self.subscription_level {
             Level::Packet => {
-                if (terminal) {
+                if terminal {
                     actions.set(ActionData::FrameDeliver);
                 } else {
                     actions.set(ActionData::FrameTrack);
@@ -51,7 +51,7 @@ impl SubscriptionLevel {
                 actions.set(ActionData::ConnParse);
             }
         }
-        if (!terminal) {
+        if !terminal {
             actions.set(Actions::ConnFilter);
         }
         return actions;
@@ -61,7 +61,7 @@ impl SubscriptionLevel {
         let mut actions = ActionData::new();
         match self.subscription_level {
             Level::Packet => {
-                if (terminal) {
+                if terminal {
                     actions.set(ActionData::FrameDrain);
                 } else {
                     actions.set(ActionData::FrameTrack);
@@ -78,7 +78,7 @@ impl SubscriptionLevel {
                 actions.set(ActionData::SessionParse);
             }
         }
-        if (!terminal) {
+        if !terminal {
             actions.set(Actions::ConnFilter);
         }
         return actions;
@@ -97,7 +97,7 @@ impl SubscriptionLevel {
                 actions.set(ActionData::SessionDeliver);
             }
         }
-        if (!terminal) {
+        if !terminal {
             actions.set(Actions::ConnFilter);
         }
         return actions;

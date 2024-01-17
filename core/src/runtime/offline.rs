@@ -79,14 +79,10 @@ where
             nb_bytes += mbuf.data_len() as u64;
 
             /* Apply the packet filter to get actions */
-            let actions: u32 = 1; // tmp
-            mbuf.add_mark(actions);
-            // println!("{}", mbuf.mark());
-            if mbuf.mark() == 0 {
-                drop(mbuf);
-                continue;
-            } else {
-                S::process_packet(mbuf, &self.subscription, &mut stream_table);
+            let actions = self.subscription.continue_packet(&mbuf);
+            if !actions.is_none() {
+                S::process_packet(mbuf, &self.subscription, 
+                                  &mut stream_table, actions);
             }
         }
 

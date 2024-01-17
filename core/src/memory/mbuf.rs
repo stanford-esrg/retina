@@ -138,9 +138,17 @@ impl Mbuf {
     pub(crate) fn mark(&self) -> u32 {
         unsafe { self.raw().__bindgen_anon_2.hash.fdir.hi }
     }
-
+    
+    #[allow(dead_code)]
     pub(crate) fn add_mark(&mut self, mark: u32) {
         self.raw_mut().__bindgen_anon_2.hash.fdir.hi = mark;
+    }
+
+    // TODO
+    #[allow(dead_code)]
+    pub fn has_mark(&mut self, mark: u32) -> bool {
+        // unsafe { self.raw().ol_flags & PKT_RX_FDIR != 0 }
+        true
     }
 }
 

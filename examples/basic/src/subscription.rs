@@ -5,7 +5,7 @@ use retina_core::memory::mbuf::Mbuf;
 use retina_core::protocols::stream::tls::{parser::TlsParser, Tls};
 use retina_core::protocols::stream::{ConnParser, Session, SessionData, ConnData};
 use retina_core::subscription::{Subscribable, Subscription, Trackable};
-use retina_core::filter::{ActionFlags, ActionData};
+use retina_core::filter::actions::*;
 
 pub enum SubscribedData {
     _Tls(TlsConnection)
@@ -29,20 +29,18 @@ impl Subscribable for SubscribedWrapper {
 
     /// TEMP - TODOTR move packet handling out of subscription
     fn process_packet(
-        mbuf: Mbuf,
+        mut mbuf: Mbuf,
         subscription: &Subscription<Self>,
         conn_tracker: &mut ConnTracker<Self::Tracked>,
+        actions: PacketActions
     ) {
-        // \TRDEBUG this is being called
-        let mut actions = subscription.filter_packet(&mbuf);
-        if actions.data.contains(ActionFlags::FrameDeliver) {
+        if actions.contains(Packet::Deliver) {
+            // Only include if actually needed
             subscription.deliver_packet(&mbuf);
-            actions.data.unset(ActionFlags::FrameDeliver);
         }
-        if !actions.drop() {
-            // \TRDEBUG This is also being called
+        if actions.contains(Packet::Track) {
             if let Ok(ctxt) = L4Context::new(&mbuf) {
-                conn_tracker.process(mbuf, ctxt, subscription, actions);
+                conn_tracker.process(mbuf, ctxt, subscription);
             }
         }
     }
@@ -95,6 +93,28 @@ impl Trackable for TrackedWrapper {
 }
 
 pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
+
+    #[inline]
+    fn packet_continue(mbuf: &retina_core::Mbuf) -> retina_core::filter::PacketActions {
+        if let Ok(ethernet)
+            = &retina_core::protocols::packet::Packet::parse_to::<
+                retina_core::protocols::packet::ethernet::Ethernet,
+            >(mbuf) {
+            if let Ok(ipv4)
+                = &retina_core::protocols::packet::Packet::parse_to::<
+                    retina_core::protocols::packet::ipv4::Ipv4,
+                >(ethernet) {
+                if let Ok(_tcp)
+                    = &retina_core::protocols::packet::Packet::parse_to::<
+                        retina_core::protocols::packet::tcp::Tcp,
+                    >(ipv4) {
+                    return Packet::Track.into();
+                }
+            }
+        }
+        return PacketActions::none();
+    }
+
     #[inline]
     fn packet_filter(mbuf: &retina_core::Mbuf) -> retina_core::filter::actions::Actions {
         let mut actions = retina_core::filter::actions::Actions::new();
@@ -170,6 +190,7 @@ pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
     retina_core::filter::FilterFactory::new(
         "tls and ipv4",
         "tls",
+        packet_continue,
         packet_filter,
         connection_filter,
         session_filter,

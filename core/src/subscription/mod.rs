@@ -18,6 +18,7 @@ pub trait Subscribable {
         mbuf: Mbuf,
         subscription: &Subscription<Self>,
         conn_tracker: &mut ConnTracker<Self::Tracked>,
+        actions: PacketActions
     ) where
         Self: Sized;
 }
@@ -58,6 +59,7 @@ pub struct Subscription<S>
 where 
     S: Subscribable,
 {
+    packet_continue: PacketContFn,
     packet_filter: PacketFilterFn,
     conn_filter: ConnFilterFn,
     session_filter: SessionFilterFn,
@@ -74,6 +76,7 @@ where
 {
     pub fn new(factory: FilterFactory<S::Tracked>) -> Self {
         Subscription {
+            packet_continue: factory.packet_continue,
             packet_filter: factory.packet_filter,
             conn_filter: factory.conn_filter,
             session_filter: factory.session_filter,
@@ -83,6 +86,30 @@ where
             #[cfg(feature = "timing")]
             timers: Timers::new(),
         }        
+    }
+
+    // TODOTR: 
+    // - This should be built based on what the hardware supports (and filter)
+    // 
+    // For subscriptions with one possible packet action (track or deliver):
+    // - If packet layer can be entirely realized in hardware: 
+    //   * This should be no-op that returns Track. 
+    //     (HW would have already dropped packets). 
+    // - Else: 
+    //   * Is it possible that the HW did some work for us but not all of it? 
+    //     Can we figure out what the HW would have already filtered out 
+    //     in order to reduce the work here? 
+    // 
+    // If there are two packet actions, this gets trickier. 
+    // - If HW can mark packets and filter can be realized in hardware,
+    //   then it's the same as the above --
+    //   a no-op that just translates the mark to PacketAction
+    // - If no marking or no/incomplete HW filter, then optimize 
+    //   as much as possible...
+
+    /// Applied when packet is first received in software.
+    pub fn continue_packet(&self, mbuf: &Mbuf) -> PacketActions {
+        (self.packet_continue)(mbuf)
     }
 
     /// Invokes the software packet filter.

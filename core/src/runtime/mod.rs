@@ -51,9 +51,7 @@ where
     ///
     /// # Example
     ///
-    /// ```
     /// let mut runtime = Runtime::new(config, filter, callback)?;
-    /// ```
     pub fn new(
         config: RuntimeConfig,
         factory: fn() -> FilterFactory<S::Tracked>,
@@ -144,9 +142,7 @@ where
     ///
     /// # Example
     ///
-    /// ```
     /// runtime.run();
-    /// ```
     pub fn run(&mut self) {
         if let Some(online) = &mut self.online {
             online.run();

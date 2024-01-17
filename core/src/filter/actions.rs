@@ -1,3 +1,19 @@
+bitmask! {
+    #[derive(Debug)]
+    pub mask PacketActions: u8 where flags Packet {
+        Track   = 0x1 << 0,
+        Deliver = 0x1 << 1,
+        Unsure  = 0x1 << 2,
+    }
+}
+
+impl From<u8> for PacketActions {
+    fn from(value: u8) -> Self {
+        Self {
+            mask: value
+        }
+    }
+}
 
 // All possible data actions to perform following a filter.
 bitmask! {
@@ -26,8 +42,16 @@ bitmask! {
         TrackAny            = 0x1 << 9,
         // Deliver buffered frames (frame subscription newly matched)
         FrameDrain          = 0x1 << 10,
-        // Track connection (any data)
+        // Track connection (any data)?
         ConnTracked         = 0x1 << 11
+    }
+}
+
+impl From<u32> for ActionData {
+    fn from(value: u32) -> Self {
+        Self {
+            mask: value
+        }
     }
 }
 

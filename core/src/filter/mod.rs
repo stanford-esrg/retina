@@ -1,5 +1,5 @@
 pub mod actions;
-pub use actions::{Actions, ActionFlags, ActionData};
+pub use actions::{Actions, ActionFlags, ActionData, PacketActions};
 
 #[macro_use]
 pub mod macros;
@@ -26,6 +26,7 @@ use anyhow::{bail, Result};
 use thiserror::Error;
 
 /// Filter types
+pub type PacketContFn = fn(&Mbuf) -> PacketActions;
 pub type PacketFilterFn = fn(&Mbuf) -> Actions;
 pub type ConnFilterFn = fn(&ConnData) -> Actions;
 pub type SessionFilterFn = fn(&Session, &ConnData) -> Actions;
@@ -42,6 +43,7 @@ where
 {
     pub filter_str: String,
     pub protocol_str: String,
+    pub packet_continue: PacketContFn,
     pub packet_filter: PacketFilterFn,
     pub conn_filter: ConnFilterFn,
     pub session_filter: SessionFilterFn,
@@ -57,6 +59,7 @@ where
     pub fn new(
         filter_str: &str,
         protocol_str: &str,
+        packet_continue: PacketContFn,
         packet_filter: PacketFilterFn,
         conn_filter: ConnFilterFn,
         session_filter: SessionFilterFn,
@@ -67,6 +70,7 @@ where
         FilterFactory {
             filter_str: filter_str.to_string(),
             protocol_str: protocol_str.to_string(),
+            packet_continue,
             packet_filter,
             conn_filter,
             session_filter,

@@ -19,7 +19,6 @@ use crate::protocols::packet::tcp::TCP_PROTOCOL;
 use crate::protocols::packet::udp::UDP_PROTOCOL;
 use crate::protocols::stream::ParserRegistry;
 use crate::subscription::{Subscription, Trackable};
-use crate::filter::Actions;
 
 use std::cmp;
 use std::time::Instant;
@@ -77,8 +76,7 @@ where
         &mut self,
         mbuf: Mbuf,
         ctxt: L4Context,
-        subscription: &Subscription<T::Subscribed>,
-        pkt: Actions
+        subscription: &Subscription<T::Subscribed>
     ) {
         let conn_id = ConnId::new(ctxt.src, ctxt.dst, ctxt.proto);
         match self.table.raw_entry_mut().from_key(&conn_id) {
@@ -107,16 +105,23 @@ where
             }
             RawEntryMut::Vacant(_) => {
                 if self.size() < self.config.max_connections {
+                    let pkt_actions = subscription.filter_packet(&mbuf);
+                    if pkt_actions.drop() {
+                        // \note this can be okay, as the rx filter will err
+                        // on the side of caution before dropping packets.
+                        log::debug!("packet continue did not drop {:?}", mbuf);
+                        return;
+                    }
                     let conn = match ctxt.proto {
                         TCP_PROTOCOL => Conn::new_tcp(
                             ctxt,
                             self.config.tcp_establish_timeout,
                             self.config.max_out_of_order,
-                            pkt
+                            pkt_actions
                         ),
                         UDP_PROTOCOL => Conn::new_udp(ctxt, 
                                               self.config.udp_inactivity_timeout, 
-                                                            pkt),
+                                              pkt_actions),
                         _ => Err(anyhow!("Invalid L4 Protocol")),
                     };
                     if let Ok(mut conn) = conn {

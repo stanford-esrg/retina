@@ -106,7 +106,12 @@ where
                     // );
                     nb_pkts += 1;
                     nb_bytes += mbuf.data_len() as u64;
-                    S::process_packet(mbuf, &self.subscription, &mut conn_table);
+
+                    let actions = self.subscription.continue_packet(&mbuf);
+                    if !actions.is_none() {
+                        S::process_packet(mbuf, &self.subscription,
+                                          &mut conn_table, actions);
+                    }
                 }
             }
             conn_table.check_inactive(&self.subscription);
