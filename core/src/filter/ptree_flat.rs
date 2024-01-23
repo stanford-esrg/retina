@@ -102,10 +102,25 @@ impl FlatPTree {
         ptree
     }
 
+    pub fn new_empty() -> Self {
+        let root = FlatPNode {
+            id: 0,
+            pred: Predicate::Unary {
+                protocol: protocol!("ethernet"),
+            },
+            is_terminal: false,
+            terminates: Terminate::None,
+            patterns: vec![],
+            children: vec![],
+        };
+        let ptree = FlatPTree { root, size: 1 };
+        ptree
+    }
+
     // Converts PTree to vector of FlatPatterns (all root->leaf paths).
     // Useful for using the PTree to prune redundant branches then
     // converting back to FlatPatterns
-    pub(crate) fn to_flat_patterns(&self) -> Vec<FlatPattern> {
+    pub fn to_flat_patterns(&self) -> Vec<FlatPattern> {
         fn build_pattern(
             patterns: &mut Vec<FlatPattern>,
             predicates: &mut Vec<Predicate>,
@@ -144,7 +159,7 @@ impl FlatPTree {
         layered
     }
 
-    pub(crate) fn build_tree(&mut self, patterns: &[FlatPattern]) {
+    pub fn build_tree(&mut self, patterns: &[FlatPattern]) {
         // add each pattern to tree
         for (i, pattern) in patterns.iter().enumerate() {
             self.add_pattern(pattern, i);

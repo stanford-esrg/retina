@@ -8,7 +8,7 @@ use std::collections::HashSet;
 
 /// Indicates whether the filter will deliver a subscription 
 /// or return an action.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum FilterType {
     /// Leaf nodes (per sub-filter) are 
     /// expected to contain action(s) to be applied
@@ -27,7 +27,7 @@ impl fmt::Display for FilterType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum FilterLayer {
     /// Action filters ///
     
@@ -158,6 +158,18 @@ pub struct PTree {
 }
 
 impl PTree {
+
+    pub fn new_empty(filter_type: FilterType) -> Self {
+        let pred = Predicate::Unary { protocol: protocol!("ethernet"), };
+        let root = PNode::new(pred, 0); 
+        let ptree = PTree { 
+            root, 
+            size: 1, 
+            actions: Actions::new(),
+            filter_type 
+        };
+        ptree
+    }
 
     pub fn new_from_str(filter_raw: &str, 
                         filter_type: FilterType, 

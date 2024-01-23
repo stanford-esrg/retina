@@ -47,6 +47,9 @@ tls-parser = { git = "https://github.com/thegwan/tls-parser.git" }
 toml = "0.5.11"
 x509-parser = "0.13.2"
 bitmask = "0.5.0"
+quote = "1.0.26"
+proc-macro2 = "1.0.56"
+syn = { version = "2.0.15" }
 
 [features]
 timing = []

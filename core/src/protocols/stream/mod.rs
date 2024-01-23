@@ -7,10 +7,12 @@
 pub mod dns;
 pub mod http;
 pub mod tls;
+pub mod conn;
 
 use self::dns::{parser::DnsParser, Dns};
 use self::http::{parser::HttpParser, Http};
 use self::tls::{parser::TlsParser, Tls};
+use self::conn::ConnField;
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
 use crate::filter::Filter;
@@ -165,6 +167,14 @@ impl ConnData {
     /// Returns the application-layer protocol parser associated with the connection.
     pub fn service(&self) -> &ConnParser {
         &self.conn_parser
+    }
+
+    /// Parses the `ConnData`'s FiveTuple into sub-protocol metadata
+    pub fn parse_to<T: ConnField>(&self) -> Result<T>
+    where
+        Self: Sized,
+    {
+        T::parse_from(self)
     }
 }
 

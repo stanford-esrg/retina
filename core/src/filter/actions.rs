@@ -1,5 +1,9 @@
+use proc_macro2::Span;
+use quote::{ToTokens, quote};
+use std::cmp::Eq;
+
 bitmask! {
-    #[derive(Debug)]
+    #[derive(Debug, Hash)]
     pub mask PacketActions: u8 where flags Packet {
         Track   = 0x1 << 0,
         Deliver = 0x1 << 1,
@@ -18,32 +22,41 @@ impl From<u8> for PacketActions {
 // All possible data actions to perform following a filter.
 bitmask! {
     // Possible actions following a filter
-    #[derive(Debug)]
+    #[derive(Debug, Hash)]
     pub mask ActionData: u32 where flags ActionFlags {
         // Deliver frame directly to callback(s)
-        FrameDeliver        = 0x1 << 0,
+        FrameDeliver        = 0x1 << 1,
         // Track connection metadata
-        ConnDataTrack       = 0x1 << 1,
+        ConnDataTrack       = 0x1 << 2,
         // Buffer frames for future (possible) delivery
-        FrameTrack          = 0x1 << 2, 
+        FrameTrack          = 0x1 << 3, 
         // Parse application-layer protocol
-        ConnParse           = 0x1 << 3,
+        ConnParse           = 0x1 << 4,
         // Apply connection-level filter
-        ConnFilter          = 0x1 << 4,
+        ConnFilter          = 0x1 << 5,
         // Parse all session data (following conn filter)
-        SessionParse        = 0x1 << 5,
+        SessionParse        = 0x1 << 6,
         // Apply session-level filter
-        SessionFilter       = 0x1 << 6, 
+        SessionFilter       = 0x1 << 7, 
         // Buffer session for future delivery
-        SessionTrack        = 0x1 << 7, 
+        SessionTrack        = 0x1 << 8, 
         // Deliver session to callback(s)
-        SessionDeliver      = 0x1 << 8,
-        // General request to track a connection (used by packet filter)?
-        TrackAny            = 0x1 << 9,
+        SessionDeliver      = 0x1 << 9,
         // Deliver buffered frames (frame subscription newly matched)
         FrameDrain          = 0x1 << 10,
         // Track connection (any data)?
-        ConnTracked         = 0x1 << 11
+        ConnTracked         = 0x1 << 11,
+        // General request to track a connection (used by packet filter)?
+        TrackAny            = 0x1 << 12,
+    }
+}
+
+impl ToTokens for ActionData {
+
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+
+        let mut mask = syn::LitInt::new(&self.mask.to_string(), Span::call_site());
+        tokens.extend( quote! { ActionData::from(#mask) } );
     }
 }
 
@@ -55,7 +68,7 @@ impl From<u32> for ActionData {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Actions {
     /// All actions (terminal and non-terminal) that should
     /// be performed following the application of a filter.
@@ -66,6 +79,21 @@ pub struct Actions {
     /// occurs at the packet layer, we should continue tracking
     /// the connection without re-applying that filter.
     pub terminal_actions: ActionData,
+}
+
+// tmp - better ways to do this? 
+impl ToTokens for Actions {
+
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let data = self.data.clone();
+        let terminal_actions = self.terminal_actions.clone();
+        tokens.extend(quote! { 
+            Actions {
+                data: #data,
+                terminal_actions: #terminal_actions
+            }
+        } ); // tmp
+    }
 }
 
 impl Actions {

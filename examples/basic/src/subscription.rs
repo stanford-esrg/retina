@@ -7,6 +7,8 @@ use retina_core::protocols::stream::{ConnParser, Session, SessionData, ConnData}
 use retina_core::subscription::{Subscribable, Subscription, Trackable};
 use retina_core::filter::actions::*;
 
+use retina_filtergen::subscription;
+
 pub enum SubscribedData {
     _Tls(TlsConnection)
 }
@@ -29,7 +31,7 @@ impl Subscribable for SubscribedWrapper {
 
     /// TEMP - TODOTR move packet handling out of subscription
     fn process_packet(
-        mut mbuf: Mbuf,
+        mbuf: Mbuf,
         subscription: &Subscription<Self>,
         conn_tracker: &mut ConnTracker<Self::Tracked>,
         actions: PacketActions
@@ -135,9 +137,6 @@ pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
                                      retina_core::filter::actions::ActionFlags::ConnParse     |
                                      retina_core::filter::actions::ActionFlags::ConnFilter);
                  
-                 // for tcp filter [separate test]
-                 //   actions.data.set(retina_core::filter::actions::ActionFlags::ConnDataTrack);
-                 //   actions.terminal_actions.set(retina_core::filter::actions::ActionFlags::ConnDataTrack);
                     
                 }
             }
@@ -150,7 +149,9 @@ pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
         conn: &retina_core::protocols::stream::ConnData,
     ) -> retina_core::filter::actions::Actions {
         let mut actions = retina_core::filter::actions::Actions::new();
-        if matches!(conn.five_tuple.orig, std::net::SocketAddr::V4(_)) {
+        if let Ok(ipv4)
+                = &retina_core::protocols::stream::ConnData::parse_to::<
+                    retina_core::protocols::stream::conn::Ipv4CData,>(conn) {
             if match conn.service() {
                 retina_core::protocols::stream::ConnParser::Tls { .. } => true,
                 _ => false,
@@ -159,7 +160,8 @@ pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
                 actions.data.set(retina_core::filter::actions::ActionFlags::SessionParse | 
                                  retina_core::filter::actions::ActionFlags::ConnDataTrack |
                                  retina_core::filter::actions::ActionFlags::SessionTrack);
-                actions.terminal_actions.set(retina_core::filter::actions::ActionFlags::SessionParse);
+                actions.terminal_actions.set(retina_core::filter::actions::ActionFlags::SessionParse |
+                                             retina_core::filter::actions::ActionFlags::ConnDataTrack);
             }
         }
         actions
@@ -198,4 +200,9 @@ pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
         conn_deliver,
         session_deliver,
     )
+}
+
+#[subscription]
+fn test_lib() {
+
 }
