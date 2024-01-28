@@ -202,7 +202,7 @@ pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
     )
 }
 
-#[subscription]
+#[subscription("/home/trossman/retina/examples/basic/filter.toml")]
 fn test_lib() {
 
 }

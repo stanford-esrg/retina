@@ -1,5 +1,5 @@
 pub mod actions;
-pub use actions::{Actions, ActionFlags, ActionData, PacketActions};
+pub use actions::{Actions, ActionFlags, ActionData, PacketActions, Packet};
 
 #[macro_use]
 pub mod macros;
