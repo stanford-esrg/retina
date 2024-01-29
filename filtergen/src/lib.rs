@@ -129,37 +129,62 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
             gen_connection_filter(&session_deliver_ptree, &mut statics, true)
         }
     };
+
+    // TMP - TODOTR 
+    // Could be HW filter?
+    let filter_str = "";
+    let app_protocols = "tls";
     
     let tst = quote! {
 
-        fn packet_continue_tst(mbuf: &retina_core::Mbuf) -> retina_core::filter::PacketActions {
-            // tmp
-            Packet::Track.into()
-        }
+        pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
 
-        fn packet_filter_tst(mbuf: &retina_core::Mbuf) -> retina_core::filter::Actions {
-            #packet_filter
-        }
+            fn packet_continue(mbuf: &retina_core::Mbuf) -> retina_core::filter::PacketActions {
+                // tmp
+                Packet::Track.into()
+            }
 
-        fn conn_filter_tst(conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::Actions {
-            #conn_filter
-        }
+            fn packet_filter(mbuf: &retina_core::Mbuf) -> retina_core::filter::Actions {
+                #packet_filter
+            }
 
-        fn session_filter_tst(session: &retina_core::protocols::stream::Session,
-                              conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::actions::Actions 
-        {
-            #session_filter
-        }
-        
-        fn conn_deliver_tst(conn: &ConnData, tracked: &TrackedWrapper)
-        {
-            #conn_deliver_filter
-        }
+            fn connection_filter(conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::Actions {
+                #conn_filter
+            }
 
-        fn session_deliver_tst(session: &Session, 
-                               conn: &ConnData, tracked: &TrackedWrapper)
-        {
-            #session_deliver_filter
+            fn session_filter(session: &retina_core::protocols::stream::Session,
+                                conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::actions::Actions 
+            {
+                #session_filter
+            }
+
+            fn packet_deliver(mbuf: &Mbuf) 
+            {
+                // tmp
+            }
+            
+            fn connection_deliver(conn: &ConnData, tracked: &TrackedWrapper)
+            {
+                #conn_deliver_filter
+            }
+
+            fn session_deliver(session: &Session, 
+                                conn: &ConnData, tracked: &TrackedWrapper)
+            {
+                #session_deliver_filter
+            }
+
+            retina_core::filter::FilterFactory::new(
+                #filter_str,
+                #app_protocols,
+                packet_continue,
+                packet_filter,
+                connection_filter,
+                session_filter,
+                packet_deliver, 
+                connection_deliver,
+                session_deliver,
+            )
         }
 
         #input

@@ -292,7 +292,7 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
             let id_lit = syn::LitInt::new(&id.to_string(), Span::call_site());
             body.push( 
                 // tmp
-                quote! { println!("Deliver to {}", #id_lit) }
+                quote! { println!("Deliver to {}", #id_lit); }
             );
         }
     }

@@ -230,7 +230,7 @@ impl OutOfOrderBuffer {
     }
 }
 
-pub(crate) fn wrapping_lt(lhs: u32, rhs: u32) -> bool {
+pub fn wrapping_lt(lhs: u32, rhs: u32) -> bool {
     // From RFC1323:
     //     TCP determines if a data segment is "old" or "new" by testing
     //     whether its sequence number is within 2**31 bytes of the left edge

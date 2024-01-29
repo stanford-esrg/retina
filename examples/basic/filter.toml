@@ -1,5 +1,14 @@
+subscriptions = [ "Connection" ]
+
 [packet_filter]
 "ConnDataTrack (T)" = [ "ipv4" ]
 
-[connection_deliver]
-0 = "ipv4"
+[[connection_deliver]]
+filter = "ipv4"
+datatype = "Connection"
+callback = "callback1"
+
+[[connection_deliver]]
+filter = "ipv4"
+datatype = "Connection"
+callback = "callback2"

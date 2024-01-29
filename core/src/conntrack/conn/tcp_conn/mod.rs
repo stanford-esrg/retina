@@ -1,4 +1,4 @@
-pub(crate) mod reassembly;
+pub mod reassembly;
 
 use self::reassembly::TcpFlow;
 use crate::conntrack::conn::conn_info::ConnInfo;

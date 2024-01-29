@@ -14,11 +14,11 @@ use std::net::{IpAddr, SocketAddr};
 #[derive(Debug, Clone)]
 pub struct L4Pdu {
     /// Internal packet buffer containing frame data.
-    pub(crate) mbuf: Mbuf,
+    pub mbuf: Mbuf,
     /// Transport layer context.
-    pub(crate) ctxt: L4Context,
+    pub ctxt: L4Context,
     /// `true` if segment is in the direction of orig -> resp.
-    pub(crate) dir: bool,
+    pub dir: bool,
 }
 
 impl L4Pdu {
@@ -27,32 +27,32 @@ impl L4Pdu {
     }
 
     #[inline]
-    pub(crate) fn mbuf_own(self) -> Mbuf {
+    pub fn mbuf_own(self) -> Mbuf {
         self.mbuf
     }
 
     #[inline]
-    pub(crate) fn mbuf_ref(&self) -> &Mbuf {
+    pub fn mbuf_ref(&self) -> &Mbuf {
         &self.mbuf
     }
 
     #[inline]
-    pub(crate) fn offset(&self) -> usize {
+    pub fn offset(&self) -> usize {
         self.ctxt.offset
     }
 
     #[inline]
-    pub(crate) fn length(&self) -> usize {
+    pub fn length(&self) -> usize {
         self.ctxt.length
     }
 
     #[inline]
-    pub(crate) fn seq_no(&self) -> u32 {
+    pub fn seq_no(&self) -> u32 {
         self.ctxt.seq_no
     }
 
     #[inline]
-    pub(crate) fn flags(&self) -> u8 {
+    pub fn flags(&self) -> u8 {
         self.ctxt.flags
     }
 }

@@ -66,6 +66,10 @@ impl Trackable for TrackedWrapper {
         }
     }
 
+    fn five_tuple(&self) -> FiveTuple {
+        self._five_tuple
+    }
+
     fn update(&mut self, 
               _pdu: L4Pdu,
               _session_id: Option<usize>,
@@ -94,115 +98,5 @@ impl Trackable for TrackedWrapper {
     }
 }
 
-pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
-
-    #[inline]
-    fn packet_continue(mbuf: &retina_core::Mbuf) -> retina_core::filter::PacketActions {
-        if let Ok(ethernet)
-            = &retina_core::protocols::packet::Packet::parse_to::<
-                retina_core::protocols::packet::ethernet::Ethernet,
-            >(mbuf) {
-            if let Ok(ipv4)
-                = &retina_core::protocols::packet::Packet::parse_to::<
-                    retina_core::protocols::packet::ipv4::Ipv4,
-                >(ethernet) {
-                if let Ok(_tcp)
-                    = &retina_core::protocols::packet::Packet::parse_to::<
-                        retina_core::protocols::packet::tcp::Tcp,
-                    >(ipv4) {
-                    return Packet::Track.into();
-                }
-            }
-        }
-        return PacketActions::none();
-    }
-
-    #[inline]
-    fn packet_filter(mbuf: &retina_core::Mbuf) -> retina_core::filter::actions::Actions {
-        let mut actions = retina_core::filter::actions::Actions::new();
-        if let Ok(ethernet)
-            = &retina_core::protocols::packet::Packet::parse_to::<
-                retina_core::protocols::packet::ethernet::Ethernet,
-            >(mbuf) {
-            if let Ok(ipv4)
-                = &retina_core::protocols::packet::Packet::parse_to::<
-                    retina_core::protocols::packet::ipv4::Ipv4,
-                >(ethernet) {
-                if let Ok(_tcp)
-                    = &retina_core::protocols::packet::Packet::parse_to::<
-                        retina_core::protocols::packet::tcp::Tcp,
-                    >(ipv4) {
-                    // IPV4 & TCP MATCH - non-terminal match [doing tracked conn here]
-                    actions.data.set(retina_core::filter::actions::ActionFlags::ConnDataTrack |
-                                     retina_core::filter::actions::ActionFlags::ConnParse     |
-                                     retina_core::filter::actions::ActionFlags::ConnFilter);
-                 
-                    
-                }
-            }
-        }
-        actions
-    }
-
-    #[inline]
-    fn connection_filter(
-        conn: &retina_core::protocols::stream::ConnData,
-    ) -> retina_core::filter::actions::Actions {
-        let mut actions = retina_core::filter::actions::Actions::new();
-        if let Ok(ipv4)
-                = &retina_core::protocols::stream::ConnData::parse_to::<
-                    retina_core::protocols::stream::conn::Ipv4CData,>(conn) {
-            if match conn.service() {
-                retina_core::protocols::stream::ConnParser::Tls { .. } => true,
-                _ => false,
-            } {
-                // Ipv4 and TLS match
-                actions.data.set(retina_core::filter::actions::ActionFlags::SessionParse | 
-                                 retina_core::filter::actions::ActionFlags::ConnDataTrack |
-                                 retina_core::filter::actions::ActionFlags::SessionTrack);
-                actions.terminal_actions.set(retina_core::filter::actions::ActionFlags::SessionParse |
-                                             retina_core::filter::actions::ActionFlags::ConnDataTrack);
-            }
-        }
-        actions
-    }
-
-    #[inline]
-    fn session_filter(
-        _session: &retina_core::protocols::stream::Session,
-        _conn_data: &retina_core::protocols::stream::ConnData,
-    ) -> retina_core::filter::actions::Actions {
-        // No new info here
-        retina_core::filter::actions::Actions::new()
-    }
-
-    fn packet_deliver(mbuf: &Mbuf) {
-        println!("Pkt!");
-    }
-
-    fn conn_deliver(_conn_data: &ConnData, tracked: &TrackedWrapper) {
-        println!("Conn! {:?}", tracked._five_tuple);
-    }
-
-    fn session_deliver(session: &Session, _conn_data: &ConnData, _tracked: &TrackedWrapper) {
-        println!("Session!");
-    }
-
-
-    retina_core::filter::FilterFactory::new(
-        "tls and ipv4",
-        "tls",
-        packet_continue,
-        packet_filter,
-        connection_filter,
-        session_filter,
-        packet_deliver, 
-        conn_deliver,
-        session_deliver,
-    )
-}
-
 #[subscription("/home/trossman/retina/examples/basic/filter.toml")]
-fn test_lib() {
-
-}
+fn test_lib() {}

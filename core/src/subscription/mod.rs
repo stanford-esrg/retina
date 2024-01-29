@@ -55,6 +55,9 @@ pub trait Trackable {
     fn deliver_conn(&mut self, 
                     subscription: &Subscription<Self::Subscribed>,
                     actions: &ActionData, conn_data: &ConnData);
+    
+    /// Deliver tracked five tuple (always tracked)
+    fn five_tuple(&self) -> FiveTuple;
 }
 
 pub struct Subscription<S>

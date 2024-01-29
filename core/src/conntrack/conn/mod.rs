@@ -4,8 +4,8 @@
 //! manages protocol parser state throughout the duration of the connection.
 
 pub mod conn_info;
-pub(crate) mod tcp_conn;
-pub(crate) mod udp_conn;
+pub mod tcp_conn;
+pub mod udp_conn;
 
 use self::conn_info::ConnInfo;
 use self::tcp_conn::TcpConn;
@@ -97,6 +97,8 @@ where
                 // TODOTR take out reassembly by default
                 // - Could have an action for "deliver without reassembly"; 
                 //   see original implementation here.
+                // TODOTR confirm that this will terminate & update flags?
+                // (diff logic in original for post_match)
                 tcp_conn.reassemble(pdu, &mut self.info, subscription, registry);
             }
             L4Conn::Udp(_udp_conn) => self.info.consume_pdu(pdu, subscription, registry),
