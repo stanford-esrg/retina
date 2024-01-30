@@ -79,6 +79,8 @@ bitmask! {
     // Possible actions following a filter
     #[derive(Debug, Hash)]
     pub mask ActionData: u32 where flags ActionFlags {
+        // Placeholder to add "no-op" nodes to filter tree
+        None                = 0x0 << 0,
         // Deliver frame directly to callback(s)
         FrameDeliver        = 0x1 << 1,
         // Track connection metadata
@@ -127,6 +129,7 @@ impl FromStr for ActionFlags {
             false => s_trim,
         };
         match s_trim {
+            "None"         => Ok(ActionFlags::None),
             "FrameDeliver" => Ok(ActionFlags::FrameDeliver),
             "ConnDataTrack" => Ok(ActionFlags::ConnDataTrack),
             "FrameTrack" => Ok(ActionFlags::FrameTrack),

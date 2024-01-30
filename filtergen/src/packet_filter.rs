@@ -141,9 +141,17 @@ fn add_binary_pred(
     update_body(&mut body, node);
 
     let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
-    code.push(quote! {
-        if #pred_tokenstream {
-            #( #body )*
-        }
-    });
+    if node.if_else {
+        code.push(quote! {
+            else if #pred_tokenstream {
+                #( #body )*
+            }
+        });
+    } else {
+        code.push(quote! {
+            if #pred_tokenstream {
+                #( #body )*
+            }
+        });
+    }
 }

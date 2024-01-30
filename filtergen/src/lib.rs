@@ -3,18 +3,37 @@ use quote::quote;
 use syn::parse_macro_input;
 use retina_core::filter::*;
 use retina_core::filter::{ptree::*, ptree_flat::*};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use retina_core::protocols::stream::ConnParser;
+
+#[macro_use]
+extern crate lazy_static;
 
 mod parse;
 mod utils;
 mod packet_filter;
 mod connection_filter;
 mod session_filter;
+mod data;
 
 use crate::packet_filter::*;
 use crate::connection_filter::*;
 use crate::session_filter::*;
 use crate::parse::*;
+use crate::data::*;
+
+fn get_hw_filter(packet_continue: &HashMap<Packet, Vec<String>>) -> String {
+    if packet_continue.is_empty() {
+        return "".into();
+    }
+    let mut ret = String::from("(");
+    for (_, v) in packet_continue {
+        ret += (v.join(") or (")).as_str();
+    }
+    ret += ")";
+    let _flat_ptree = Filter::from_str(&ret).expect(&format!("Invalid HW filter {}", &ret));
+    ret
+}
 
 fn filter_subtree(input: &HashMap<Actions, Vec<String>>,  
                   filter_type: FilterType) -> PTree
@@ -43,13 +62,16 @@ fn filter_subtree(input: &HashMap<Actions, Vec<String>>,
         );
     }
 
+    // No need to update parsers here, as deliver filters will encompass
+    ptree.mark_mutual_exclusion();
     println!("{}", ptree);
     ptree
 
 }
 
 fn deliver_subtree(input: &HashMap<usize, String>,  
-                   filter_type: FilterType) -> PTree
+                   filter_type: FilterType,
+                   parsers: &mut HashSet<&'static str>) -> PTree
 {
     let mut ptrees = vec![];
     for (k, v) in input {
@@ -72,6 +94,13 @@ fn deliver_subtree(input: &HashMap<usize, String>,
         );
     }
 
+    if !matches!(filter_type, FilterType::Deliver(FilterLayer::PacketDeliver)) {
+        for (_, s) in input {
+            parsers.extend(ConnParser::requires_parsing(s));
+        }
+    }
+
+    ptree.mark_mutual_exclusion();
     println!("{}", ptree);
     ptree
 
@@ -79,15 +108,13 @@ fn deliver_subtree(input: &HashMap<usize, String>,
 
 #[proc_macro_attribute]
 pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
-    //let _fp_in = parse_macro_input!(args as syn::LitStr).value(); // \todo
     let input = parse_macro_input!(input as syn::ItemFn);
     let inp_file = parse_macro_input!(args as syn::LitStr).value();
     let config = ConfigBuilder::from_file(&inp_file);
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
 
-    if !config.packet_continue.is_empty() {
-        panic!("Pkt_continue not implemented");
-    }
+    let mut parsers = HashSet::new();
+
     if !config.packet_deliver.is_empty() {
         panic!("Packet_deliver not implemented");
     }
@@ -117,7 +144,7 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
         true => { quote! {} },
         false => { 
             let conn_deliver_ptree = deliver_subtree(&config.connection_deliver, 
-                FilterType::Deliver(FilterLayer::ConnectionDeliver));
+                FilterType::Deliver(FilterLayer::ConnectionDeliver), &mut parsers);
             gen_connection_filter(&conn_deliver_ptree, &mut statics, true)
         }
     };
@@ -125,17 +152,31 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
         true => { quote! {} },
         false => {
             let session_deliver_ptree = deliver_subtree(&config.session_deliver, 
-                FilterType::Deliver(FilterLayer::ConnectionDeliver));
-            gen_connection_filter(&session_deliver_ptree, &mut statics, true)
+                FilterType::Deliver(FilterLayer::ConnectionDeliver), &mut parsers);
+            gen_session_filter(&session_deliver_ptree, &mut statics, true)
         }
     };
 
-    // TMP - TODOTR 
-    // Could be HW filter?
-    let filter_str = "";
-    let app_protocols = "tls";
+    let mut tracked_data = TrackedDataBuilder::new(config.datatypes);
+    tracked_data.build();
+
+    let subscribed_data = tracked_data.subscribed_enum();
+    let subscribable = tracked_data.subscribable_wrapper();
+    let tracked = tracked_data.tracked();
+
+
+    let filter_str = get_hw_filter(&config.packet_continue); // Packet-level keep/drop filter
+    let app_protocols = parsers.into_iter().collect::<Vec<_>>().join(" or ");
     
     let tst = quote! {
+
+        use retina_datatypes::*;
+
+        #subscribed_data
+
+        #subscribable
+
+        #tracked
 
         pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
 

@@ -1,14 +1,14 @@
 use retina_core::filter::*;
-use std::collections::HashMap;
+use std::collections::{HashSet, HashMap};
 use std::str::FromStr;
 
 use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct  SubscriptionSpec {
-    filter: String,
-    datatype: String, 
-    callback: String, 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SubscriptionSpec {
+    pub filter: String,
+    pub datatype: String, 
+    pub callback: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -108,7 +108,7 @@ pub(crate) struct ConfigBuilder {
     pub(crate) connection_deliver: HashMap<usize, String>, 
     pub(crate) session_deliver: HashMap<usize, String>, 
 
-    pub(crate) deliver: HashMap<usize, SubscriptionSpec>,
+    pub(crate) datatypes: HashSet<String>,
 
     count: usize,
     raw: ConfigRaw,
@@ -129,7 +129,7 @@ impl ConfigBuilder {
             connection_deliver: HashMap::new(),
             session_deliver: HashMap::new(),
 
-            deliver: HashMap::new(),
+            datatypes: HashSet::new(),
 
             count: 0,
             raw: config,
@@ -166,10 +166,12 @@ impl ConfigBuilder {
     fn get_deliver(&mut self, inp: Vec<SubscriptionSpec>) -> HashMap<usize, String> {
         let mut out = HashMap::new();
 
+        let mut deliver = crate::utils::DELIVER.lock().unwrap();
+
         for spec in inp {
             out.insert(self.count, spec.filter.clone());
-            println!("Out: {}, {}", self.count, spec.filter);
-            self.deliver.insert(self.count, spec);
+            self.datatypes.insert(spec.datatype.clone());
+            deliver.insert(self.count, spec);
             self.count += 1;
         }
         out

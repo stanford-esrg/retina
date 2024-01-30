@@ -1,6 +1,6 @@
 use retina_core::conntrack::pdu::L4Pdu;
 use retina_core::protocols::stream::{ConnParser, Session};
-use retina_core::subscription::Trackable;
+use retina_core::conntrack::conn_id::FiveTuple;
 
 pub mod connection;
 pub use connection::{Connection, TrackedConnection};
@@ -13,7 +13,7 @@ extern crate lazy_static;
 // \todo generate in a better way?
 // For the builder
 lazy_static! {
-    static ref CONN_PARSERS: HashMap<&'static str, Vec<ConnParser>> = 
+    pub static ref CONN_PARSERS: HashMap<&'static str, Vec<ConnParser>> = 
         {
             HashMap::from([
                 ( 
@@ -23,7 +23,8 @@ lazy_static! {
             ])
         };
     
-    static ref TRACKED_DATA_FIELDS: HashMap<&'static str, String> = 
+    pub static ref TRACKED_DATA_FIELDS: HashMap<&'static str, 
+                    (String, String)> = 
         {
             HashMap::from([
                 ( 
@@ -33,7 +34,7 @@ lazy_static! {
             ])
         };
     
-    static ref NEEDS_UPDATE: HashMap<&'static str, bool> = 
+    pub static ref NEEDS_UPDATE: HashMap<&'static str, bool> = 
     {
         HashMap::from([
             ( 
@@ -43,7 +44,7 @@ lazy_static! {
         ])
     };
 
-    static ref NEEDS_SESSION_MATCH: HashMap<&'static str, bool> = 
+    pub static ref NEEDS_SESSION_MATCH: HashMap<&'static str, bool> = 
     {
         HashMap::from([
             ( 
@@ -58,7 +59,7 @@ lazy_static! {
 //// Build types that can be directly invoked ////
 pub trait SubscribedData {
     type T: TrackedData;
-    fn from_tracked<S: Trackable>(tracked: &Self::T, tracked_super: &S) -> Self;
+    fn from_tracked(tracked: &Self::T, five_tuple: FiveTuple) -> Self;
     fn conn_parsers() -> Vec<ConnParser>;
     fn name() -> &'static str;
 }
@@ -68,7 +69,7 @@ pub trait TrackedData {
     fn new() -> Self;
     // Format: field_name: Type
     // e.g., tracked_conn: TrackedConnection
-    fn named_data() -> String;
+    fn named_data() -> (String, String);
 
     fn needs_update() -> bool;
     fn update(&mut self, pdu: &L4Pdu, session_id: Option<usize>);

@@ -19,6 +19,7 @@ use crate::filter::Filter;
 use crate::subscription::*;
 
 use std::str::FromStr;
+use std::collections::HashSet;
 
 use anyhow::{bail, Result};
 use strum_macros::EnumString;
@@ -296,6 +297,26 @@ impl ConnParser {
             ConnParser::Http(parser) => parser.session_parsed_state(),
             ConnParser::Unknown => SessionState::Remove,
         }
+    }
+
+    pub fn name(&self) -> Option<String> {
+        match self {
+            ConnParser::Tls(_parser) => Some("tls".into()),
+            ConnParser::Dns(_parser) => Some("dns".into()),
+            ConnParser::Http(_parser) => Some("http".into()),
+            ConnParser::Unknown => None,
+        }
+    }
+
+    pub fn requires_parsing(filter_str: &String) -> HashSet<&'static str> {
+        let mut out = hashset! {};
+
+        for s in ["tls", "dns", "http"] {
+            if filter_str.contains(s) { 
+                out.insert(s);
+            }
+        }
+        out
     }
 }
 

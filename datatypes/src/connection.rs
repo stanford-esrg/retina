@@ -2,7 +2,6 @@ use retina_core::conntrack::conn::tcp_conn::reassembly::wrapping_lt;
 use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::protocols::packet::tcp::{ACK, FIN, RST, SYN};
 use retina_core::protocols::stream::{ConnParser, Session};
-use retina_core::subscription::Trackable;
 use retina_core::conntrack::pdu::L4Pdu;
 
 use super::{SubscribedData, TrackedData};
@@ -79,7 +78,7 @@ pub struct Connection {
 
 impl SubscribedData for Connection {
     type T = TrackedConnection;
-    fn from_tracked<S: Trackable>(tracked: &Self::T, tracked_super: &S) -> Self {
+    fn from_tracked(tracked: &Self::T, five_tuple: FiveTuple) -> Self {
         let (duration, max_inactivity, time_to_second_packet) =
             if tracked.ctos.nb_pkts + tracked.stoc.nb_pkts == 1 {
                 (
@@ -96,7 +95,7 @@ impl SubscribedData for Connection {
             };
 
         Self {
-            five_tuple: tracked_super.five_tuple(),
+            five_tuple,
             ts: tracked.first_seen_ts,
             duration,
             max_inactivity,
@@ -254,8 +253,8 @@ impl TrackedData for TrackedConnection {
     }
     // Format: field_name: Type
     // e.g., tracked_conn: TrackedConnection
-    fn named_data() -> String {
-        "tracked_conn: TrackedConnection".into()
+    fn named_data() -> (String, String) {
+        ( "tracked_conn".into(), "TrackedConnection".into() )
     }
 
     fn needs_update() -> bool {

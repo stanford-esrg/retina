@@ -91,6 +91,8 @@ pub struct PNode {
     /// Child PNodes
     pub children: Vec<PNode>,
 
+    /// Mutually exclusive with the node preceding it in child list
+    pub if_else: bool,
 }
 
 impl PNode {
@@ -102,7 +104,39 @@ impl PNode {
             deliver: HashSet::new(),
             patterns: vec![],
             children: vec![],
+            if_else: false,
         }
+    }
+
+    /// Utility - returns node with matching `pred`
+    /// Should be checked to avoid adding redundant nodes in case
+    /// filters are added in non-descending order (TODOTR can be avoided) 
+    fn has_descendent(&self, pred: &Predicate) -> bool {
+        for n in &self.children {
+            if &n.pred == pred { 
+                return true;
+            }
+            if n.pred.is_child(pred) {
+                if n.has_descendent(pred) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn get_descendent(&mut self, pred: &Predicate) -> Option<&mut PNode> {
+        for n in &mut self.children {
+            if &n.pred == pred { 
+                return Some(n);
+            }
+            if n.pred.is_child(pred) {
+                if let Some(c) = n.get_descendent(pred) {
+                    return Some(c);
+                }
+            }
+        }
+        None
     }
 
     fn has_child(&self, pred: &Predicate) -> bool {
@@ -111,6 +145,76 @@ impl PNode {
 
     fn get_child(&mut self, pred: &Predicate) -> &mut PNode {
         self.children.iter_mut().find(|n| &n.pred == pred).unwrap()
+    }
+
+    /// True if `self` has children that should be (more specific)
+    /// children of `pred`
+    fn has_children_of(&self, pred: &Predicate) -> bool {
+        self.children.iter().any( |n| n.pred.is_child(pred))
+    }
+
+    fn get_children_of(&mut self, pred: &Predicate) -> Vec<PNode> {
+        // drain_filter is unstable in current rust
+        // better way to do this is swap indices then use `drain` at index
+        /* 
+        let mut children = self.children.clone();
+        self.children.retain(|x| !x.pred.is_child(pred));
+        children.retain(|x| x.pred.is_child(pred));
+        children
+         */
+        let mut new = vec![];
+        self.children = std::mem::take(&mut self.children).into_iter()
+                                     .filter_map(|x| {
+            if x.pred.is_child(pred) {
+                new.push(x);
+                None
+            } else {
+                Some(x)
+            }
+        }).collect();
+        
+        new
+    }
+
+    /// Returns a reference to a PNode that is a child of `self` 
+    /// that can act as "parent" of `pred`. 
+    fn get_parent_candidate(&mut self, pred: &Predicate) -> Option<&mut PNode> {
+        self.children.iter_mut().find(|n | pred.is_child(&n.pred))
+    }
+
+    /// True if there is a PNode that can act as parent of `pred`.
+    fn has_parent(&self, pred: &Predicate) -> bool {
+        let mut found = false;
+        for n in &self.children {
+            if pred.is_child(&n.pred) {
+                if n.has_parent(pred) {
+                    return true;
+                } 
+                found = true;
+            }
+        }
+        return found;
+    }
+
+    fn get_parent(&mut self, pred: &Predicate, tree_size: usize) -> Option<&mut PNode> {
+        if self.get_parent_candidate(pred).is_none() {
+            return None;
+        }
+        // This is hacky, but directly iterating through children or 
+        // recursing will raise flags with the borrow checker.
+        let mut node = self;
+        for _ in 0..tree_size {
+            // Checked for `Some` on last iteration
+            let next = node.get_parent_candidate(pred).unwrap();
+            if next.get_parent_candidate(pred).is_none() {
+                // `next` is the last possible parent at this stage
+                return Some(next);
+            } else {
+                // there are more parents
+                node = next;
+            }
+        }
+        return None
     }
 }
 
@@ -248,11 +352,25 @@ impl PTree {
         let mut node = &mut self.root;
         node.patterns.push(pattern_id);
         for predicate in pattern.predicates.iter() {
+            // TODOTR this is messy
+            if node.has_descendent(predicate) {
+                node = node.get_descendent(predicate).unwrap();
+                node.patterns.push(pattern_id);
+                continue;
+            }
+            if node.has_parent(predicate) {
+                node = node.get_parent(predicate, self.size).unwrap();
+            }
+            let children = match node.has_children_of(predicate) {
+                true => { node.get_children_of(predicate) }
+                false => { vec![] }
+            };
             if !node.has_child(predicate) {
                 node.children.push(PNode::new(predicate.clone(), self.size));
                 self.size += 1;
             }
             node = node.get_child(predicate);
+            node.children.extend(children);
             node.patterns.push(pattern_id);
         }
 
@@ -277,6 +395,29 @@ impl PTree {
             None
         }
         get_subtree(id, &self.root)
+    }
+
+    /// Best-effort to give the filter generator hints as to where an "else" 
+    /// statement can go between two predicates.
+    pub fn mark_mutual_exclusion(&mut self) {
+        fn mark_mutual_exclusion(node: &mut PNode) {
+            // TODO messy
+            if !node.children.is_empty() {
+                mark_mutual_exclusion(&mut node.children[0]);
+            }
+            if node.children.len() <= 1 { 
+                return;
+            }
+            // TODO reorder to optimize?
+            for idx in 1..node.children.len() {
+                mark_mutual_exclusion(&mut node.children[idx]);
+                if node.children[idx].pred.is_excl(&node.children[idx - 1].pred) {
+                    node.children[idx].if_else = true;
+                } else {
+                }
+            }
+        }
+        mark_mutual_exclusion(&mut self.root);
     }
 
     /// modified from https://vallentin.dev/2019/05/14/pretty-print-tree
@@ -340,4 +481,50 @@ mod tests {
     }
 
     // \todo: asserts to check for correctness
+
+    #[test]
+    fn core_ptree_with_children() {
+        let filter = "ipv4 and tls";
+        let filter_child1 = "ipv4.addr = 1.2.0.0/16";
+        let filter_child2 = "ipv4.addr = 1.2.2.0/24";
+        let filter_child3 = "ipv4.addr = 1.2.3.0/24";
+        let filter_child4 = "ipv4.src_addr = 1.2.3.1/31";
+        let filter_child5 = "ipv4.src_addr = 1.2.3.1/32";
+        let mut actions = Actions::new();
+        actions.data.set(ActionFlags::ConnDataTrack);
+        actions.terminal_actions.set(ActionFlags::ConnDataTrack);
+        
+        let mut ptree = PTree::new_from_str(filter,
+                                    FilterType::Action(FilterLayer::Connection), &actions, 0).unwrap();
+        actions.clear();
+        actions.data.set(ActionFlags::ConnParse);
+
+        ptree.add_filter_from_str(filter_child1, &actions, 0);
+        ptree.add_filter_from_str(filter_child2, &actions, 0);
+        ptree.add_filter_from_str(filter_child3, &actions, 0);
+        ptree.add_filter_from_str(filter_child4, &actions, 0);
+        ptree.add_filter_from_str(filter_child5, &actions, 0);
+        ptree.add_filter_from_str(filter_child4, &actions, 0); // no_op
+        ptree.add_filter_from_str(filter_child5, &actions, 0); // no_op
+        
+        assert!(ptree.size == 12);
+
+        // Should be `ipv4.src_addr = 1.2.3.0/24`
+        let node = ptree.get_subtree(9).unwrap();
+        assert!(node.children.len() == 1); // `ipv4.src_addr = 1.2.3.1/31`
+        assert!(node.children.get(0)
+                             .unwrap()
+                             .children
+                             .len() == 1); // `ipv4.src_addr = 1.2.3.1/32`
+
+        //println!("{}", ptree); // check output
+        let filter_parent = "ipv4.addr = 1.0.0.0/8";
+        let filter_child = "ipv4.addr = 1.5.0.0/16";
+        ptree.add_filter_from_str(filter_child, &actions, 0);
+        ptree.add_filter_from_str(filter_parent, &actions, 0);
+        println!("{}", ptree);
+        assert!(ptree.size == 16);
+        let node = ptree.get_subtree(15).unwrap(); // ipv4.src_addr = 1.0.0.0/8
+        assert!(node.children.len() == 2);
+    }
 }

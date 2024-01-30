@@ -9,7 +9,7 @@ use crate::utils::*;
 pub(crate) fn gen_connection_filter(
     ptree: &PTree,
     statics: &mut Vec<proc_macro2::TokenStream>,
-    deliver: bool
+    deliver: bool,
 ) -> proc_macro2::TokenStream {
 
     let mut body: Vec<proc_macro2::TokenStream> = vec![];

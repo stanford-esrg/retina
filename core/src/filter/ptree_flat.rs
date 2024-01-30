@@ -252,6 +252,7 @@ impl FlatPTree {
 
     /// Removes some patterns that are covered by others, but not all.
     /// (e.g. "ipv4 or ipv4.src_addr = 1.2.3.4" will remove "ipv4.src_addr = 1.2.3.4")
+    /// TODO can `aggregate` for vec of IP addresses
     pub fn prune_branches(&mut self) {
         fn prune(node: &mut FlatPNode) {
             if node.is_terminal {

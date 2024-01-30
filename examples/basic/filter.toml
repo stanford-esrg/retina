@@ -1,14 +1,28 @@
 subscriptions = [ "Connection" ]
 
+[packet_continue]
+"Packet::Track" = [ "ipv4" ]
+
 [packet_filter]
-"ConnDataTrack (T)" = [ "ipv4" ]
+"None" = [ "ipv4.src_addr = 1.2.0.0/16", "ipv4.src_addr = 1.3.0.0/16" ]
+"ConnDataTrack (T)" = [ "ipv4.src_addr = 1.2.1.0/24", "ipv4.src_addr = 1.2.1.1/31", "ipv4.src_addr = 1.2.1.23/31", "ipv4.src_addr = 1.3.1.1/31" ]
 
 [[connection_deliver]]
-filter = "ipv4"
+filter = "ipv4 and tls"
 datatype = "Connection"
 callback = "callback1"
 
 [[connection_deliver]]
-filter = "ipv4"
+filter = "ipv4.addr = 1.2.0.0/16"
+datatype = "Connection"
+callback = "callback2"
+
+[[connection_deliver]]
+filter = "ipv4.addr = 1.2.1.0/24"
+datatype = "Connection"
+callback = "callback2"
+
+[[connection_deliver]]
+filter = "ipv4.addr = 1.2.1.1/31"
 datatype = "Connection"
 callback = "callback2"

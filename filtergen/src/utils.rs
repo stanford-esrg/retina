@@ -5,6 +5,15 @@ use heck::CamelCase;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use regex::Regex;
+use retina_datatypes::TRACKED_DATA_FIELDS;
+use std::sync::Mutex;
+use std::collections::HashMap;
+
+use crate::parse::SubscriptionSpec;
+
+lazy_static! { 
+    pub static ref DELIVER: Mutex<HashMap<usize, SubscriptionSpec>> = Mutex::new(HashMap::new()); 
+}
 
 // TODO: give better compiler errors
 
@@ -289,10 +298,22 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
     }
     if !node.deliver.is_empty() {
         for id in &node.deliver {
-            let id_lit = syn::LitInt::new(&id.to_string(), Span::call_site());
+            let deliver = {
+                let lock = DELIVER.lock().unwrap();
+                let spec = lock.get(id).expect(&format!("Cannot find ID {}", id));
+                let datatype = Ident::new(&spec.datatype, Span::call_site());
+                let callback = Ident::new(&spec.callback, Span::call_site());
+                let tracked_str = &TRACKED_DATA_FIELDS.get(spec.datatype.as_str())
+                                                             .expect(&format!("Cannot find tracked type for {}", &spec.datatype))
+                                                             .0;
+                let tracked_field = Ident::new(tracked_str, Span::call_site());
+                quote! { 
+                    #callback( Subscribed::#datatype( #datatype::from_tracked(&tracked.#tracked_field, tracked.five_tuple()) ) );
+                }
+            };
             body.push( 
                 // tmp
-                quote! { println!("Deliver to {}", #id_lit); }
+                quote! { #deliver }
             );
         }
     }
@@ -361,10 +382,18 @@ impl ConnDataFilter {
         update_body(&mut body, node);
 
         let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
-        code.push(quote! {
-            if #pred_tokenstream {
-                #( #body )*
-            }
-        });
+        if node.if_else {
+            code.push(quote! {
+                else if #pred_tokenstream {
+                    #( #body )*
+                }
+            });
+        } else {
+            code.push(quote! {
+                if #pred_tokenstream {
+                    #( #body )*
+                }
+            });
+        }
     }
 }
