@@ -15,6 +15,7 @@ use crate::filter::hardware::{flush_rules, HardwareFilter};
 use crate::filter::parser::FilterParser;
 use crate::filter::pattern::{FlatPattern, LayeredPattern};
 use crate::filter::ptree_flat::FlatPTree;
+use crate::filter::ptree::{PTree, FilterType};
 use crate::memory::mbuf::Mbuf;
 use crate::port::Port;
 use crate::protocols::stream::{ConnData, Session};
@@ -108,6 +109,36 @@ impl Filter {
         // prune redundant branches
         let flat_patterns: Vec<_> = fq_patterns.iter().map(|p| p.to_flat_pattern()).collect();
         let mut ptree = FlatPTree::new(&flat_patterns);
+        ptree.prune_branches();
+
+        Ok(Filter {
+            patterns: ptree.to_layered_patterns(),
+        })
+    }
+
+    pub fn new(filter_raw: &str, filter_type: FilterType, 
+               actions: &Actions, filter_id: usize) -> Result<Filter> {
+        let parser = FilterParser { split_combined: true /* TODOTR */ };
+        let raw_patterns = parser.parse_filter(filter_raw)?;
+
+        let flat_patterns = raw_patterns
+            .into_iter()
+            .map(|p| FlatPattern { predicates: p })
+            .collect::<Vec<_>>();
+
+        let mut fq_patterns = vec![];
+        for pattern in flat_patterns.iter() {
+            fq_patterns.extend(pattern.to_fully_qualified()?);
+        }
+
+        // deduplicate fully qualified patterns
+        fq_patterns.sort();
+        fq_patterns.dedup();
+
+        // prune redundant branches
+        let flat_patterns: Vec<_> = fq_patterns.iter().map(|p| p.to_flat_pattern()).collect();
+        let mut ptree = PTree::new(&flat_patterns, filter_type, actions, filter_id);
+
         ptree.prune_branches();
 
         Ok(Filter {

@@ -1,5 +1,5 @@
 use super::ast::*;
-use super::pattern::FlatPattern;
+use super::pattern::{FlatPattern, LayeredPattern};
 use super::Filter;
 use super::actions::*;
 
@@ -324,8 +324,8 @@ impl PTree {
     }
 
     /// Add all given patterns (root-to-leaf paths) to a PTree
-    pub(crate) fn build_tree(&mut self, patterns: &[FlatPattern], 
-                             actions: &Actions, filter_id: usize) {
+    pub fn build_tree(&mut self, patterns: &[FlatPattern], 
+                      actions: &Actions, filter_id: usize) {
         // add each pattern to tree
         let mut added = false;
         for (i, pattern) in patterns.iter().enumerate() {
@@ -419,6 +419,79 @@ impl PTree {
         }
         mark_mutual_exclusion(&mut self.root);
     }
+
+    fn update_size(&mut self) {
+
+        fn count_nodes(node: &PNode) -> usize {
+            let mut count = 1;
+            for child in &node.children {
+                count += count_nodes(child);
+            }
+            count
+        }
+        self.size = count_nodes(&self.root);
+        
+    }
+
+    /// Removes some patterns that are covered by others
+    /// This does NOT check for matching actions and should ONLY 
+    /// be used on a PTree that represents a single action or single 
+    /// subscription (delivery)!!!!
+    pub fn prune_branches(&mut self) {
+        fn prune(node: &mut PNode, filter_type: &FilterType) {
+            // No actions and no delivery
+            if matches!(filter_type, FilterType::Action(_)) && !node.actions.drop() {
+                node.children.clear();
+            } else if matches!(filter_type, FilterType::Deliver(_)) && !node.deliver.is_empty() {
+                node.children.clear();
+            }
+            for child in node.children.iter_mut() {
+                prune(child, filter_type);
+            }
+        }
+        prune(&mut self.root, &self.filter_type);
+        self.update_size();
+    }
+
+    pub fn to_flat_patterns(&self) -> Vec<FlatPattern> {
+        fn build_pattern(
+            patterns: &mut Vec<FlatPattern>,
+            predicates: &mut Vec<Predicate>,
+            node: &PNode,
+        ) {
+            if *node.pred.get_protocol() != protocol!("ethernet") {
+                predicates.push(node.pred.to_owned());
+            }
+            if node.children.is_empty() {
+                if node.actions.drop() && node.deliver.is_empty() {
+                    panic!("Forgot to prune before getting patterns??");
+                }
+                patterns.push(FlatPattern {
+                    predicates: predicates.to_vec(),
+                });
+            } else {
+                for child in node.children.iter() {
+                    build_pattern(patterns, predicates, child);
+                }
+            }
+            predicates.pop();
+        }
+        let mut patterns = vec![];
+        let mut predicates = vec![];
+
+        build_pattern(&mut patterns, &mut predicates, &self.root);
+        patterns
+    }
+
+    pub(crate) fn to_layered_patterns(&self) -> Vec<LayeredPattern> {
+        let flat_patterns = self.to_flat_patterns();
+        let mut layered = vec![];
+        for pattern in flat_patterns.iter() {
+            layered.extend(pattern.to_fully_qualified().expect("fully qualified"));
+        }
+        layered
+    }
+
 
     /// modified from https://vallentin.dev/2019/05/14/pretty-print-tree
     fn pprint(&self) -> String {
@@ -526,5 +599,31 @@ mod tests {
         assert!(ptree.size == 16);
         let node = ptree.get_subtree(15).unwrap(); // ipv4.src_addr = 1.0.0.0/8
         assert!(node.children.len() == 2);
+    }
+
+    #[test]
+    fn core_ptree_prune() {
+        let filter = "ipv4";
+        let filter_child1 = "ipv4.addr = 1.2.0.0/16";
+        let filter_child2 = "ipv4.addr = 1.2.2.0/24";
+
+        let mut actions = Actions::new();
+        actions.data.set(ActionFlags::ConnDataTrack);
+        actions.terminal_actions.set(ActionFlags::ConnDataTrack);
+
+        let mut ptree = PTree::new_from_str(filter,
+            FilterType::Action(FilterLayer::Packet), &actions, 0).unwrap();
+        
+        ptree.add_filter_from_str(filter_child1, &actions, 0);
+        assert!(ptree.size == 4);
+        ptree.prune_branches();
+        assert!(ptree.size == 2);
+        
+        let mut ptree = PTree::new_from_str(filter_child1, 
+                    FilterType::Action(FilterLayer::Packet), &actions, 0).unwrap();
+        ptree.add_filter_from_str(filter_child2, &actions, 0);
+        assert!(ptree.size == 6);
+        ptree.prune_branches();
+        assert!(ptree.size == 4);
     }
 }

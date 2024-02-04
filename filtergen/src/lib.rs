@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse_macro_input;
 use retina_core::filter::*;
-use retina_core::filter::{ptree::*, ptree_flat::*};
+use retina_core::filter::ptree::*;
 use std::collections::{HashMap, HashSet};
 use retina_core::protocols::stream::ConnParser;
 
@@ -42,15 +42,16 @@ fn filter_subtree(input: &HashMap<Actions, Vec<String>>,
     for (k, v) in input {
 
         // Build "pruned" tree for this action
-        let mut flat_ptree = FlatPTree::new_empty();
+        let mut ptree = PTree::new_empty(filter_type);
         for sub_filter in v {
-            let filter = Filter::from_str(&sub_filter).expect(
+            let filter = Filter::new(&sub_filter, filter_type, 
+                                             k, 0).expect(
                 format!("Could not parse filter {}", sub_filter).as_str()
             );
-            flat_ptree.build_tree(&filter.get_patterns_flat());
+            ptree.build_tree(&filter.get_patterns_flat(), k, 0);
         }
-        flat_ptree.prune_branches();
-        action_ptrees.push((flat_ptree.to_flat_patterns(), k.clone()));
+        ptree.prune_branches();
+        action_ptrees.push((ptree.to_flat_patterns(), k.clone()));
     }
 
     let mut ptree = PTree::new_empty(filter_type);
@@ -76,9 +77,10 @@ fn deliver_subtree(input: &HashMap<usize, String>,
     let mut ptrees = vec![];
     for (k, v) in input {
         // Build "pruned" tree for this action
-        let filter = Filter::from_str(v).expect(
-            format!("Could not parse filter {}", v).as_str()
-        );
+        let filter = Filter::new(v, filter_type, 
+                                                        &Actions::new(), *k)
+                                                        .expect(&format!("Failed to parse filter {}", v));
+
         ptrees.push(
             (filter.get_patterns_flat(), *k)
         );
