@@ -244,7 +244,9 @@ impl Actions {
     #[inline]
     pub fn parse_any(&self) -> bool {
         self.data.intersects(ActionFlags::SessionParse | 
-                             ActionFlags::ConnParse)
+                             ActionFlags::ConnParse |
+                             ActionFlags::ConnFilter | 
+                             ActionFlags::SessionFilter)
     }
 
     #[inline]
@@ -277,12 +279,12 @@ impl Actions {
 
     #[inline]
     pub fn session_probe(&self) -> bool {
-        self.data.contains(ActionFlags::ConnParse)
+        self.data.intersects(ActionFlags::ConnParse | ActionFlags::ConnFilter)
     }
 
     #[inline]
     pub fn session_parse(&self) -> bool {
-        self.data.contains(ActionFlags::SessionParse)
+        self.data.intersects(ActionFlags::SessionParse | ActionFlags::SessionFilter)
     }
 
     #[inline]

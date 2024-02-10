@@ -352,25 +352,27 @@ impl PTree {
         let mut node = &mut self.root;
         node.patterns.push(pattern_id);
         for predicate in pattern.predicates.iter() {
-            // TODOTR this is messy
-            if node.has_descendent(predicate) {
-                node = node.get_descendent(predicate).unwrap();
-                node.patterns.push(pattern_id);
-                continue;
+            // TODOTR this is messy, also need to figure out delivery filter collapse
+            if matches!(self.filter_type, FilterType::Action(_)) {
+                if node.has_descendent(predicate) {
+                    node = node.get_descendent(predicate).unwrap();
+                    node.patterns.push(pattern_id);
+                    continue;
+                }
+                if node.has_parent(predicate) {
+                    node = node.get_parent(predicate, self.size).unwrap();
+                }
+                let children = match node.has_children_of(predicate) {
+                    true => { node.get_children_of(predicate) }
+                    false => { vec![] }
+                };
+                node.children.extend(children);
             }
-            if node.has_parent(predicate) {
-                node = node.get_parent(predicate, self.size).unwrap();
-            }
-            let children = match node.has_children_of(predicate) {
-                true => { node.get_children_of(predicate) }
-                false => { vec![] }
-            };
             if !node.has_child(predicate) {
                 node.children.push(PNode::new(predicate.clone(), self.size));
                 self.size += 1;
             }
             node = node.get_child(predicate);
-            node.children.extend(children);
             node.patterns.push(pattern_id);
         }
 
@@ -463,9 +465,6 @@ impl PTree {
                 predicates.push(node.pred.to_owned());
             }
             if node.children.is_empty() {
-                if node.actions.drop() && node.deliver.is_empty() {
-                    panic!("Forgot to prune before getting patterns??");
-                }
                 patterns.push(FlatPattern {
                     predicates: predicates.to_vec(),
                 });
