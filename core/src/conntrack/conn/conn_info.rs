@@ -172,9 +172,8 @@ where
                     self.actions.update(&actions);
                 }
                 if self.actions.session_deliver() {
-                    // Deliver session
                     self.sdata.deliver_session(session, subscription,&self.actions.data, &self.cdata);
-                    self.actions.session_delivered();
+                    self.actions.session_delivered(); // Clear session-specific match
                 }
             }
         }
@@ -185,6 +184,8 @@ where
         if self.actions.connection_matched() {
             self.sdata.deliver_conn(subscription, &self.actions.data, &self.cdata);
         }
+
+        self.actions.clear();
     }
 
 }
