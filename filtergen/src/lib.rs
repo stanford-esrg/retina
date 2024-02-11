@@ -154,7 +154,7 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
         true => { quote! {} },
         false => {
             let session_deliver_ptree = deliver_subtree(&config.session_deliver, 
-                FilterType::Deliver(FilterLayer::ConnectionDeliver), &mut parsers);
+                FilterType::Deliver(FilterLayer::SessionDeliver), &mut parsers);
             gen_session_filter(&session_deliver_ptree, &mut statics, true)
         }
     };

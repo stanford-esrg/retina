@@ -133,16 +133,21 @@ impl Predicate {
     /// Returns `true` if `self` and `pred` are entirely mutually exclusive
     /// (i.e., could be correctly represented by "if `a` {} else if `b` {}"...)
     pub(super) fn is_excl(&self, pred: &Predicate) -> bool {
-        // Different unary preds and different protocols
-        // will automatically be exclusive
+
+        // Unary predicates at the same layer are mutually exclusive
+        // E.g.: `ipv4 | ipv6`, `tcp | udp`
         if self.is_unary() && pred.is_unary() {
             return true;
         }
-        //// Weird conditions that shouldn't happen (TODO remove) ////
+        // A binary and unary predicate at the same layer will not be mutually excl.
+        // E.g.: `ipv4 -> ipv4.src_addr = x.x.x.x` | `ipv4 -> tcp`
+        if self.is_unary() != pred.is_unary() {
+            return false;
+        }
+
+        // Two binary predicates with diff. protocols (should be impossible?)
         if self.get_protocol() != pred.get_protocol() {
-            // TODO remove once stable
-            log::error!("Binary predicates with different protocols...?");
-            return true; 
+            return false; 
         }
         if self.is_unary() || pred.is_unary() {
             // TODO remove once stable

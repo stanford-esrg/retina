@@ -5,6 +5,7 @@ use super::actions::*;
 
 use std::fmt;
 use std::collections::HashSet;
+use std::cmp::{Ordering, PartialOrd};
 
 /// Indicates whether the filter will deliver a subscription 
 /// or return an action.
@@ -233,6 +234,9 @@ impl fmt::Display for PNode {
                 write!(f, "{} ", i)?;
             }
         }
+        if self.if_else {
+            write!(f, " x")?; // todo better formatting
+        }
         Ok(())
     }
 }
@@ -410,12 +414,13 @@ impl PTree {
             if node.children.len() <= 1 { 
                 return;
             }
-            // TODO reorder to optimize?
+            
+            try_reorder(&mut node.children);
+
             for idx in 1..node.children.len() {
                 mark_mutual_exclusion(&mut node.children[idx]);
                 if node.children[idx].pred.is_excl(&node.children[idx - 1].pred) {
                     node.children[idx].if_else = true;
-                } else {
                 }
             }
         }
@@ -526,6 +531,91 @@ impl fmt::Display for PTree {
         write!(f, "Tree {}\n,{}", &self.filter_type, self.pprint())?;
         Ok(())
     }
+}
+
+impl PartialEq for PNode {
+
+    fn eq(&self, other: &PNode) -> bool {
+        // Same "level"
+        if matches!(self.pred, Predicate::Unary { .. })  || 
+           matches!(other.pred, Predicate::Unary { .. }) {
+            return true;
+        }
+        // Considered "equal" if same protocol and same field
+        if let Predicate::Binary { protocol: proto, field: field_name,
+            op: _op, value: _val } = &self.pred {
+            if let Predicate::Binary { protocol: peer_proto, field: peer_field_name,
+                                    op: _peer_op, value: _peer_val } = &other.pred {
+                return proto == peer_proto && field_name == peer_field_name;
+            }
+        }
+
+        return false;
+    }
+
+}
+impl Eq for PNode { }
+
+impl PartialOrd for PNode {
+
+    fn partial_cmp(&self, other: &PNode) -> Option<Ordering> {
+        if self == other {
+            return Some(Ordering::Equal);
+        }
+        Some(self.cmp(other))
+    }
+
+}
+
+impl Ord for PNode {
+
+    fn cmp(&self, other: &PNode) -> Ordering {
+        if self == other {
+            return Ordering::Equal;
+        }
+
+        if let Predicate::Binary { protocol: proto, field: field_name,
+            op: _op, value: _val } = &self.pred {
+            if let Predicate::Binary { protocol: peer_proto, field: peer_field_name,
+                                    op: _peer_op, value: _peer_val } = &other.pred {
+                if proto == peer_proto {
+                    return field_name.name().cmp(peer_field_name.name());
+                }
+                return proto.name().cmp(peer_proto.name());
+            }
+        }
+
+        return Ordering::Less;
+    }
+}
+
+pub(super) fn try_reorder(input: &mut Vec<PNode>) {
+
+    if input.len() < 3 { return; }
+
+    input.sort();
+
+    /* 
+    if input.len() <= 3 { return; }
+    let ipv4 = input.iter().filter( |n| {
+        if let Predicate::Binary { protocol: proto, field: _field_name,
+            op: _op, value: val } = n.pred {
+                return proto == protocol!("ipv4");
+            }
+            return false;
+    } ).count();
+    let ipv6 = input.iter().filter( |n| {
+        if let Predicate::Binary { protocol: proto, field: _field_name,
+            op: _op, value: _val } = &n.pred {
+                return proto == &protocol!("ipv6");
+            }
+            return false;
+    } ).count();
+
+    if ipv4 < 3 && ipv6 < 3 { return; }
+
+     */
+
 }
 
 
