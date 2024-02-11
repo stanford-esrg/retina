@@ -199,10 +199,12 @@ impl TrackedConnection {
 
         if segment.dir {
             self.update_history(segment, 0x0);
-            self.ctos.insert_segment(segment.clone());
+            // TODO need a separate `update` for `update_owned`
+            // Cloning segment is a non-starter.
+            self.ctos.insert_segment(segment);
         } else {
             self.update_history(&segment, 0x20);
-            self.stoc.insert_segment(segment.clone());
+            self.stoc.insert_segment(segment);
         }
 
         if self.ctos.nb_pkts + self.stoc.nb_pkts == 2 {
@@ -324,7 +326,7 @@ impl Flow {
     }
 
     #[inline]
-    fn insert_segment(&mut self, segment: L4Pdu) {
+    fn insert_segment(&mut self, segment: &L4Pdu) {
         self.nb_pkts += 1;
 
         if segment.offset() > segment.mbuf.data_len()
