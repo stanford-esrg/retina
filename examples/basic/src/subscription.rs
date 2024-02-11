@@ -17,7 +17,7 @@ use retina_filtergen::subscription;
 lazy_static!(
     static ref CYCLES: RwLock<u64> = RwLock::new(0);
     static ref HTTP: RwLock<u64> = RwLock::new(0);
-    static ref TCP80: RwLock<u64> = RwLock::new(0);
+    static ref TCP: RwLock<u64> = RwLock::new(0);
     static ref IPDST: RwLock<u64> = RwLock::new(0);
     static ref IPSRC: RwLock<u64> = RwLock::new(0);
     static ref ETH: RwLock<u64> = RwLock::new(0);
@@ -25,11 +25,20 @@ lazy_static!(
 
 #[inline]
 fn http_cb(subscribed: Subscribed) {
+    if let Subscribed::HttpTransaction(http) = subscribed {
+        if http.data.is_none() {
+            panic!("Data is none");
+        }
+    }
     *HTTP.write().unwrap() += 1;
-    println!("{:?}", subscribed);
+}
+
+fn tcp_port_cb(_subscribed: Subscribed) {
+    *TCP.write().unwrap() += 1;
 }
 
 pub(crate) fn print() {
+    println!("TCP: {}", *TCP.read().unwrap());
     println!("HTTP: {}", *HTTP.read().unwrap());
 }
 
