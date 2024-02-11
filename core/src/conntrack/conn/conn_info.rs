@@ -72,7 +72,6 @@ where
             self.on_probe(pdu, subscription, registry);
         }
 
-        // State change may occur in `probe`; need to check `parse`
         // Parsing ongoing: application-layer protocol known
         if self.actions.session_parse() {
             self.on_parse(pdu, subscription, registry);
@@ -147,8 +146,7 @@ where
 
         match self.cdata.conn_parser.session_parsed_state() {
             // TODOTR confirm this logic
-            SessionState::Probing => {
-                // Additional sessions could be a different protocol
+            SessionState::Probing => { // ?
                 self.actions.data.set(ActionFlags::ConnParse);
                 self.actions.data.unset(ActionFlags::SessionParse);
             }

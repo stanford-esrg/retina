@@ -111,7 +111,7 @@ impl TcpFlow {
     fn buffer_ooo_seg<T: Trackable>(&mut self, segment: L4Pdu, info: &mut ConnInfo<T>) {
         if self.ooo_buf.insert_back(segment).is_err() {
             log::warn!("Out-of-order buffer overflow");
-            // Clear actions
+            // Drop the connection
             info.actions = Actions::new();
         }
     }

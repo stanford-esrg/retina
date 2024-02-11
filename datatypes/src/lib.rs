@@ -5,6 +5,9 @@ use retina_core::conntrack::conn_id::FiveTuple;
 pub mod connection;
 pub use connection::{Connection, TrackedConnection};
 
+pub mod http;
+pub use http::{HttpTransaction, TrackedHttp};
+
 use std::collections::HashMap;
 
 #[macro_use]
@@ -20,6 +23,10 @@ lazy_static! {
                     Connection::name(),
                     Connection::conn_parsers() 
                 ),
+                (
+                    HttpTransaction::name(),
+                    HttpTransaction::conn_parsers()
+                )
             ])
         };
     
@@ -31,6 +38,10 @@ lazy_static! {
                     Connection::name(),
                     <Connection as SubscribedData>::T::named_data() 
                 ),
+                (
+                    HttpTransaction::name(),
+                    <HttpTransaction as SubscribedData>::T::named_data()
+                )
             ])
         };
     
@@ -41,6 +52,10 @@ lazy_static! {
                 Connection::name(),
                 <Connection as SubscribedData>::T::needs_update() 
             ),
+            (
+                HttpTransaction::name(),
+                <HttpTransaction as SubscribedData>::T::needs_update()
+            )
         ])
     };
 
@@ -51,6 +66,10 @@ lazy_static! {
                 Connection::name(),
                 <Connection as SubscribedData>::T::needs_session_match() 
             ),
+            (
+                HttpTransaction::name(),
+                <HttpTransaction as SubscribedData>::T::needs_session_match()
+            )
         ])
     };
 

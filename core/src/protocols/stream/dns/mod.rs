@@ -10,7 +10,7 @@ use serde::Serialize;
 /// Parsed DNS transaction contents.
 ///
 /// A DNS transaction consists of a query and a response.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Dns {
     /// DNS transaction ID.
     pub transaction_id: u16,

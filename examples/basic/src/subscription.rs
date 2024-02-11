@@ -9,6 +9,8 @@ use retina_datatypes::*;
 use lazy_static::lazy_static;
 use std::sync::RwLock;
 
+use retina_core::protocols::stream::http::parser::HttpParser;
+
 
 use retina_filtergen::subscription;
 
@@ -22,8 +24,9 @@ lazy_static!(
 );
 
 #[inline]
-fn http(subscribed: Subscribed) {
+fn http_cb(subscribed: Subscribed) {
     *HTTP.write().unwrap() += 1;
+    println!("{:?}", subscribed);
 }
 
 pub(crate) fn print() {

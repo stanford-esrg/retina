@@ -192,10 +192,11 @@ impl TrackedDataBuilder {
                                 actions: &ActionData, conn_data: &ConnData)
                 { 
                     // TODO only if actually needed
-                    if actions.contains(ActionFlags::SessionTrack) {
+                    if actions.intersects(ActionFlags::SessionTrack | ActionFlags::SessionDeliver | 
+                                          ActionFlags::SessionDeliverConn | ActionFlags::SessionTrackConn) {
                         #( #session_track )*
                     }
-                    if actions.contains(ActionFlags::SessionDeliver) {
+                    if actions.intersects(ActionFlags::SessionDeliver | ActionFlags::SessionDeliverConn) {
                         subscription.deliver_session(&session, &conn_data, &self);
                     }
                 }

@@ -25,7 +25,7 @@ pub use self::transaction::{HttpRequest, HttpResponse};
 use serde::Serialize;
 
 /// Parsed HTTP transaction contents.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct Http {
     /// HTTP Request.
     pub request: HttpRequest,

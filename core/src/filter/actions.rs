@@ -105,6 +105,9 @@ bitmask! {
         ConnTracked         = 0x1 << 11,
         // General request to track a connection (used by packet filter)?
         TrackAny            = 0x1 << 12,
+        // TODO better way to do this [conn matched, session to be delivered]
+        SessionDeliverConn = 0x1 << 13,
+        SessionTrackConn   = 0x1 << 14,
     }
 }
 
@@ -139,6 +142,8 @@ impl FromStr for ActionFlags {
             "SessionFilter" => Ok(ActionFlags::SessionFilter),
             "SessionTrack" => Ok(ActionFlags::SessionTrack),
             "SessionDeliver" => Ok(ActionFlags::SessionDeliver),
+            "SessionDeliverConn" => Ok(ActionFlags::SessionDeliverConn),
+            "SessionTrackConn" => Ok(ActionFlags::SessionTrackConn),
             "FrameDrain" => Ok(ActionFlags::FrameDrain),
             "ConnTracked" => Ok(ActionFlags::ConnTracked),
             "TrackAny" => Ok(ActionFlags::TrackAny),
@@ -257,7 +262,9 @@ impl Actions {
     #[inline]
     pub fn session_deliver(&self) -> bool {
         self.data.intersects(ActionFlags::SessionDeliver | 
-                             ActionFlags::SessionTrack)
+                             ActionFlags::SessionTrack |
+                             ActionFlags::SessionDeliverConn |
+                             ActionFlags::SessionTrackConn)
     }
 
     #[inline]
