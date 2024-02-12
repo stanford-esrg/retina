@@ -1,5 +1,6 @@
 use retina_core::filter::ast::{BinOp, FieldName, ProtocolName, Value};
 use retina_core::filter::ptree::PNode;
+use retina_core::filter::SubscriptionSpec;
 
 use heck::CamelCase;
 use proc_macro2::{Ident, Span};
@@ -8,8 +9,6 @@ use regex::Regex;
 use retina_datatypes::TRACKED_DATA_FIELDS;
 use std::sync::Mutex;
 use std::collections::HashMap;
-
-use crate::parse::SubscriptionSpec;
 
 lazy_static! { 
     pub static ref DELIVER: Mutex<HashMap<usize, SubscriptionSpec>> = Mutex::new(HashMap::new()); 

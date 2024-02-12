@@ -12,11 +12,14 @@ pub struct ParseBitmaskError;
 bitmask! {
     #[derive(Debug, Hash)]
     pub mask PacketActions: u8 where flags Packet {
+        None    = 0x0 << 0,
         Track   = 0x1 << 0,
         Deliver = 0x1 << 1,
         Unsure  = 0x1 << 2,
     }
 }
+// TODO better approach?
+static PACKET_ACTIONS: [Packet; 3] = [ Packet::Track, Packet::Deliver, Packet::Unsure ];
 
 impl ToTokens for PacketActions {
 
@@ -34,15 +37,45 @@ impl From<u8> for PacketActions {
     }
 }
 
+impl ToString for Packet {
+    fn to_string(&self) -> String {
+        match self {
+            Packet::None => "P::None".into(),
+            Packet::Track => "P::Track".into(),
+            Packet::Deliver => "P::Deliver".into(),
+            Packet::Unsure => "P::Unsure".into(),
+        }
+    }
+}
+
+impl ToString for PacketActions {
+    fn to_string(&self) -> String {
+        let mut out = String::from("");
+        for flag in PACKET_ACTIONS {
+            if self.contains(flag) {
+                if out != "" { out += " | "}
+                out.push_str(&flag.to_string());
+            }
+        }
+        if out == "" { out = Packet::None.to_string(); }
+        out
+    }
+}
+
 impl FromStr for Packet {
     type Err = ParseBitmaskError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s_trim = match s.starts_with("Packet::") {
+        let mut s_trim = match s.starts_with("Packet::") {
             true => s.strip_prefix("Packet::").unwrap(),
             false => s
         };
+        s_trim = match s_trim.starts_with("P::") {
+            true => s_trim.strip_prefix("P::").unwrap(),
+            false => s_trim
+        };
         
         match s_trim { 
+            "None" => Ok(Packet::None),
             "Track" => Ok(Packet::Track),
             "Deliver" => Ok(Packet::Deliver),
             "Unsure" => Ok(Packet::Unsure),
@@ -110,6 +143,64 @@ bitmask! {
         SessionTrackConn   = 0x1 << 14,
     }
 }
+static FILTER_ACTIONS: [ActionFlags; 14] = [ 
+    ActionFlags::FrameDeliver,
+    ActionFlags::ConnDataTrack, 
+    ActionFlags::FrameTrack,
+    ActionFlags::ConnParse,
+    ActionFlags::ConnFilter,
+    ActionFlags::SessionParse,
+    ActionFlags::SessionFilter,
+    ActionFlags::SessionTrack,
+    ActionFlags::SessionDeliver,
+    ActionFlags::FrameDrain,
+    ActionFlags::ConnTracked,
+    ActionFlags::TrackAny,
+    ActionFlags::SessionDeliverConn,
+    ActionFlags::SessionTrackConn,
+];
+
+impl ToString for ActionFlags {
+    fn to_string(&self) -> String {
+        match self {
+            ActionFlags::None => "A::None".into(),
+            ActionFlags::FrameDeliver => "A::FrameDeliver".into(),
+            ActionFlags::ConnDataTrack => "A::ConnDataTrack".into(),
+            ActionFlags::FrameTrack => "A::FrameTrack".into(),
+            ActionFlags::ConnParse => "A::ConnParse".into(),
+            ActionFlags::ConnFilter => "A::ConnFilter".into(),
+            ActionFlags::SessionParse => "A::SessionParse".into(),
+            ActionFlags::SessionFilter => "A::SessionFilter".into(),
+            ActionFlags::SessionTrack => "A::SessionTrack".into(),
+            ActionFlags::SessionDeliver => "A::SessionDeliver".into(),
+            ActionFlags::FrameDrain => "A::FrameDrain".into(),
+            ActionFlags::ConnTracked => "A::ConnTracked".into(),
+            ActionFlags::TrackAny => "A::TrackAny".into(),
+            ActionFlags::SessionDeliverConn => "A::SessionDeliverConn".into(),
+            ActionFlags::SessionTrackConn => "A::SessionTrackConn".into(),
+        }
+    }
+}
+
+impl ToString for Actions {
+    fn to_string(&self) -> String {
+        let mut out = String::from("");
+        for flag in FILTER_ACTIONS {
+            if self.data.contains(flag) {
+                if out != "" { out += " | "}
+                out.push_str(&flag.to_string());
+                if self.terminal_actions.contains(flag) {
+                    out.push_str(&" (T)");
+                }
+            }
+        }
+        if out == "" {
+            out = ActionFlags::None.to_string();
+        }
+        out
+    }
+}
+
 
 impl Hash for ActionFlags {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -131,6 +222,11 @@ impl FromStr for ActionFlags {
             true => s_trim.strip_suffix("(T)").unwrap().trim(),
             false => s_trim,
         };
+        s_trim = match s_trim.starts_with("A::") {
+            true => s_trim.strip_prefix("A::").unwrap(),
+            false => s_trim
+        };
+        
         match s_trim {
             "None"         => Ok(ActionFlags::None),
             "FrameDeliver" => Ok(ActionFlags::FrameDeliver),
@@ -383,5 +479,16 @@ mod tests {
                         terminal_actions: ActionFlags::ConnDataTrack.into() 
                     }
                 );
+        let pkt = Packet::Track | Packet::Unsure;
+        assert!(pkt.to_string() == "P::Track | P::Unsure" ||
+                pkt.to_string() == "P::Unsure | P::Track");
+
+        let mut actions = Actions::new();
+        actions.data.set(ActionFlags::ConnParse);
+        actions.data.set(ActionFlags::ConnDataTrack);
+        actions.terminal_actions.set(ActionFlags::ConnDataTrack);
+        println!("{}", actions.to_string());
+        assert!(actions.to_string() == "A::ConnDataTrack (T) | A::ConnParse" || 
+                actions.to_string() == "A::ConnParse | A::ConnDataTrack (T)");
     }
 }

@@ -222,11 +222,8 @@ impl PNode {
 impl fmt::Display for PNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.pred)?;
-        if !self.actions.data.is_none() {
-            write!(f, " -- A: {:?}", self.actions.data)?;
-        }
-        if !self.actions.terminal_actions.is_none() {
-            write!(f, ", Term. A: {:?}", self.actions.terminal_actions)?;
+        if !self.actions.drop() {
+            write!(f, " -- A: {}", self.actions.to_string())?;
         }
         if !self.deliver.is_empty() {
             write!(f, " D: ")?;

@@ -1,6 +1,9 @@
 pub mod actions;
 pub use actions::{Actions, ActionFlags, ActionData, PacketActions, Packet};
 
+pub mod actions_parse;
+pub use actions_parse::{ConfigRaw, SubscriptionSpec};
+
 #[macro_use]
 pub mod macros;
 pub mod ast;
