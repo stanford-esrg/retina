@@ -23,7 +23,7 @@ lazy_static!(
     static ref ETH: RwLock<u64> = RwLock::new(0);
 );
 
-#[inline]
+#[allow(dead_code)]
 fn http_cb(subscribed: Subscribed) {
     if let Subscribed::HttpTransaction(http) = subscribed {
         if http.data.is_none() {
@@ -33,14 +33,18 @@ fn http_cb(subscribed: Subscribed) {
     *HTTP.write().unwrap() += 1;
 }
 
+#[allow(dead_code)]
 fn tcp_port_cb(_subscribed: Subscribed) {
     *TCP.write().unwrap() += 1;
 }
 
+#[inline]
+fn default_cb(_subscribed: Subscribed) { }
+
 pub(crate) fn print() {
-    println!("TCP: {}", *TCP.read().unwrap());
-    println!("HTTP: {}", *HTTP.read().unwrap());
+    // println!("TCP: {}", *TCP.read().unwrap());
+    // println!("HTTP: {}", *HTTP.read().unwrap());
 }
 
-#[subscription("/home/tcr6/retina/examples/basic/filter.toml")]
+#[subscription("/home/tcr6/retina/examples/basic/filter_out.toml")]
 fn test() {}

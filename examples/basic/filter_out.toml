@@ -1,0 +1,28 @@
+subscriptions = [
+    "HttpTransaction",
+    "Connection",
+]
+connection_deliver = [
+    { filter = "ipv4.addr = 68.64.0.0/16", datatype = "Connection", callback = "default_cb" },
+    { filter = "ipv4.addr = 172.16.0.0/16", datatype = "Connection", callback = "default_cb" },
+    { filter = "http", datatype = "Connection", callback = "default_cb" },
+]
+
+[packet_continue]
+"Packet::Track" = [
+    "ipv4",
+]
+
+[packet_filter]
+"ConnFilter | ConnParse" = [
+    "ipv4",
+]
+"ConnDataTrack (T)" = [
+    "ipv4.addr = 172.16.0.0/16",
+    "ipv4.addr = 68.64.0.0/16",
+]
+
+[connection_filter]
+"ConnDataTrack (T)" = [
+    "http",
+]
