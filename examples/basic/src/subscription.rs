@@ -25,11 +25,13 @@ lazy_static!(
 
 #[allow(dead_code)]
 fn http_cb(subscribed: Subscribed) {
+    /*
     if let Subscribed::HttpTransaction(http) = subscribed {
         if http.data.is_none() {
             panic!("Data is none");
         }
     }
+     */
     *HTTP.write().unwrap() += 1;
 }
 
