@@ -16,7 +16,10 @@ pub enum FilterType {
     Action(FilterLayer),
     /// Leaf nodes (per sub-filter) are 
     /// expected to contain subscription id(s) for delivery
-    Deliver(FilterLayer)
+    Deliver(FilterLayer),
+    /// When building and pruning a filter tree for 
+    /// a single subscription.
+    Builder,
 }
 
 impl fmt::Display for FilterType {
@@ -24,6 +27,7 @@ impl fmt::Display for FilterType {
         match self {
             FilterType::Action(layer) => write!(f, "Action: {}", layer),
             FilterType::Deliver(layer) => write!(f, "Deliver: {}", layer),
+            FilterType::Builder => write!(f, "Intermediate Tree"),
         }
     }
 }
@@ -94,6 +98,9 @@ pub struct PNode {
 
     /// Mutually exclusive with the node preceding it in child list
     pub if_else: bool,
+
+    /// Terminates a PTree
+    pub terminal: bool,
 }
 
 impl PNode {
@@ -106,6 +113,7 @@ impl PNode {
             patterns: vec![],
             children: vec![],
             if_else: false,
+            terminal: false,
         }
     }
 
@@ -247,7 +255,7 @@ impl fmt::Display for PNode {
 /// to connection-level data.
 /// Paths from root to leaf represent a pattern for data to match
 /// on an action or subscription delivery.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PTree {
     /// Root node
     pub root: PNode,
@@ -338,8 +346,10 @@ impl PTree {
         if !added {
             if matches!(self.filter_type, FilterType::Action(_)) {
                 self.root.actions.update(actions);
-            } else {
+            } else if matches!(self.filter_type, FilterType::Deliver(_)) {
                 self.root.deliver.insert(filter_id);
+            } else {
+                self.root.terminal = true;
             }
         }
     }
@@ -353,34 +363,38 @@ impl PTree {
         let mut node = &mut self.root;
         node.patterns.push(pattern_id);
         for predicate in pattern.predicates.iter() {
-            // TODOTR this is messy, also need to figure out delivery filter collapse
-            if matches!(self.filter_type, FilterType::Action(_)) {
-                if node.has_descendent(predicate) {
-                    node = node.get_descendent(predicate).unwrap();
-                    node.patterns.push(pattern_id);
-                    continue;
-                }
-                if node.has_parent(predicate) {
-                    node = node.get_parent(predicate, self.size).unwrap();
-                }
-                let children = match node.has_children_of(predicate) {
-                    true => { node.get_children_of(predicate) }
-                    false => { vec![] }
-                };
-                node.children.extend(children);
+            // Predicate is already present
+            if node.has_descendent(predicate) {
+                node = node.get_descendent(predicate).unwrap();
+                node.patterns.push(pattern_id);
+                continue;
             }
+            // Predicate should be added as child of existing node
+            if node.has_parent(predicate) {
+                node = node.get_parent(predicate, self.size).unwrap();
+            } 
+            // Children of curr node should be children of new node
+            let children = match node.has_children_of(predicate) {
+                true => { node.get_children_of(predicate) }
+                false => { vec![] }
+            };
+            // Create new node
             if !node.has_child(predicate) {
                 node.children.push(PNode::new(predicate.clone(), self.size));
                 self.size += 1;
             }
+            // Move on, pushing any new children if applicable
             node = node.get_child(predicate);
+            node.children.extend(children);
             node.patterns.push(pattern_id);
         }
 
         if matches!(self.filter_type, FilterType::Action(_)) {
             node.actions.update(actions);
-        } else {
+        } else if matches!(self.filter_type, FilterType::Deliver(_)) {
             node.deliver.insert(filter_id);
+        } else {
+            node.terminal = true;
         }
     }
 
@@ -447,6 +461,8 @@ impl PTree {
             if matches!(filter_type, FilterType::Action(_)) && !node.actions.drop() {
                 node.children.clear();
             } else if matches!(filter_type, FilterType::Deliver(_)) && !node.deliver.is_empty() {
+                node.children.clear();
+            } else if matches!(filter_type, FilterType::Builder) && node.terminal {
                 node.children.clear();
             }
             for child in node.children.iter_mut() {
@@ -520,6 +536,62 @@ impl PTree {
         let mut s = String::new();
         pprint(&mut s, &self.root, "".to_string(), true);
         s
+    }
+
+    // For writing intermediate output to file
+    pub fn to_filter_string(&self) -> String {
+        fn to_filter_string(p: &PNode, all: &mut Vec<String>, curr: String) {
+            let mut curr = curr;
+            if curr == "" { 
+                curr.push('(');
+            }
+            curr.push_str(&format!("({})", p.pred));
+            if p.children.is_empty() {
+                let mut path_str = curr.clone();
+                path_str.push(')');
+                all.push(path_str);
+            } else {
+                curr.push_str(" and ");
+                for child in &p.children {
+                    to_filter_string(child, all, curr.clone());
+                }
+            }
+        }
+
+        let mut all_filters = Vec::new();
+        let mut curr_filter = String::new();
+        if self.root.children.is_empty() {
+            return "".into();
+        }
+        to_filter_string(&self.root, &mut all_filters, curr_filter);
+        let as_str = all_filters.join(" or ");
+        as_str.into()
+    }
+
+    // For "packet"-layer filter
+    pub fn get_packet_subtree(&self) -> PTree {
+        fn get_packet_subtree(p: &mut PNode) {
+            p.children.retain( |x| x.pred.on_packet() );
+            for child in &mut p.children {
+                get_packet_subtree(child);
+            }
+        }
+        let mut output = (*self).clone();
+        get_packet_subtree(&mut output.root);
+        output
+    }
+
+    // For "connection"-layer filter
+    pub fn get_connection_subtree(&self) -> PTree {
+        fn get_connection_subtree(p: &mut PNode) {
+            p.children.retain( |x| x.pred.on_packet() || x.pred.on_connection() );
+            for child in &mut p.children {
+                get_connection_subtree(child);
+            }
+        }
+        let mut output = (*self).clone();
+        get_connection_subtree(&mut output.root);
+        output
     }
 }
 
@@ -684,6 +756,7 @@ mod tests {
         println!("{}", ptree);
         assert!(ptree.size == 16);
         let node = ptree.get_subtree(15).unwrap(); // ipv4.src_addr = 1.0.0.0/8
+        println!("{}", ptree);
         assert!(node.children.len() == 2);
     }
 
@@ -710,6 +783,16 @@ mod tests {
         ptree.add_filter_from_str(filter_child2, &actions, 0);
         assert!(ptree.size == 6);
         ptree.prune_branches();
-        assert!(ptree.size == 4);
+
+        assert!(ptree.to_filter_string().as_str() == 
+                "((ethernet) and (ipv4) and (ipv4.dst_addr = 1.2.0.0/16)) or ((ethernet) and (ipv4) and (ipv4.src_addr = 1.2.0.0/16))" 
+                || 
+                ptree.to_filter_string().as_str() == 
+                "((ethernet) and (ipv4) and (ipv4.src_addr = 1.2.0.0/16)) or ((ethernet) and (ipv4) and (ipv4.dst_addr = 1.2.0.0/16))"
+            );
+
+        ptree.add_filter_from_str("http", &actions, 0);
+        assert!(ptree.get_connection_subtree().to_filter_string().contains("http"));
+        assert!(!ptree.get_packet_subtree().to_filter_string().contains("http"));
     }
 }
