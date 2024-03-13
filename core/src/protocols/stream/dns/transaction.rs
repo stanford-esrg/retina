@@ -1,7 +1,7 @@
 //! DNS transaction components.
 
 use dns_parser::rdata::{Aaaa, RData, A};
-use dns_parser::{Packet, ResponseCode};
+use dns_parser::{Packet};
 
 use serde::Serialize;
 
@@ -31,7 +31,7 @@ impl DnsQuery {
 /// A DNS Response.
 #[derive(Debug, Serialize)]
 pub struct DnsResponse {
-    pub response_code: ResponseCode,
+    pub response_code: String,
     pub authoritative: bool, // if the DNS server is authoritative for the queried hostname, appear in answer
     pub recursion_available: bool, // appear in answer
     pub num_answers: u16,
@@ -73,7 +73,7 @@ impl DnsResponse {
             });
         }
         DnsResponse {
-            response_code: pkt.header.response_code,
+            response_code: pkt.header.response_code.to_string(),
             authoritative: pkt.header.authoritative,
             recursion_available: pkt.header.recursion_available,
             num_answers: pkt.header.answers,
@@ -106,7 +106,7 @@ pub enum Data {
     Soa(Soa),
     Srv(Srv),
     Txt(String),
-    Unknown,
+    Unknown(String),
 }
 
 impl Data {
@@ -137,7 +137,7 @@ impl Data {
                 target: a.target.to_string(),
             }),
             RData::TXT(a) => Data::Txt(String::from_utf8_lossy(a.bytes).to_string()),
-            RData::Unknown(..) => Data::Unknown,
+            RData::Unknown(..) => Data::Unknown("Unknown".to_string()),
         }
     }
 }
