@@ -7,9 +7,10 @@ DEFAULT_PKT_DELIVER = {}
 DEFAULT_SUBSCRIPTIONS = ['HttpTransaction', 'Connection']
 
 NUM_SUBSCRIPTIONS = 10000
-NON_OVERLAPPING = True   # TODO: non-overlapping filters
+NON_OVERLAPPING = False   # TODO: non-overlapping filters
 INCLUDE_SESSIONS = False # TODO: False for comparison to baseline Retina
 SESSION_DELIVER = False  # TODO remove
+HTTP_ONLY = False
 
 FP = '/home/tcr6/retina/examples/basic/filter_out.toml'
 
@@ -30,9 +31,9 @@ class CompleteFilter:
 
         # Vec<self.subscriptionspec>:
         # - filter, datatype, callback
-        self.packet_deliver = {}
-        self.connection_deliver = {}
-        self.session_deliver = {}
+        self.packet_deliver = []
+        self.connection_deliver = []
+        self.session_deliver = []
 
         # String for "equivalent" filter
         self.as_str = ""
@@ -86,6 +87,19 @@ class FilterValues:
 
     def subscriptionspec(_self, fil, datatype, cb):
         return {"filter": fil, "datatype": datatype, "callback": cb }
+
+    def gen_http_only(self):
+        subscriptions = CompleteFilter()
+        subscriptions.subscriptions = ['HttpTransaction']
+        subscriptions.packet_continue = { 'Packet::Track': ['tcp'] }
+        subscriptions.packet_filter['ConnFilter | ConnParse'] = ['tcp']
+        subscriptions.connection_filter['SessionParse (T) | SessionDeliver (T)'] = ['http']
+        for i in range(NUM_SUBSCRIPTIONS):
+            subscriptions.session_deliver.append(
+                self.subscriptionspec(self.APPLICATION_PROTO, self.APP_DATA, self.DEF_CALLBACK)
+            )
+        return subscriptions
+            
 
     def gen_overlapping(self):
         subscriptions = CompleteFilter()
@@ -349,6 +363,8 @@ if len(sys.argv) > 2:
         NON_OVERLAPPING = False
     elif sys.argv[2] == "no_sessions": 
         INCLUDE_SESSIONS = False
+    elif sys.argv[2] == "http_only":
+        HTTP_ONLY = True
 
 if len(sys.argv) > 3: 
     if sys.argv[3] == "sessions": 
@@ -363,7 +379,9 @@ if len(sys.argv) > 3:
 generator = FilterValues()
 if NON_OVERLAPPING: 
     subscriptions = generator.gen_nonoverlapping()
-else: 
+elif HTTP_ONLY: 
+    subscriptions = generator.gen_http_only()
+else:
     subscriptions = generator.gen_overlapping()
 # print(subscriptions.as_str)
 subscriptions.to_toml(FP)

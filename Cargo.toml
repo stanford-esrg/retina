@@ -2,7 +2,8 @@
 members = [
     "core",
     "datatypes",
-    "examples/basic"
+    "examples/basic",
+    "examples/video"
 ]
 
 [profile.release]
