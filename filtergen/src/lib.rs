@@ -171,6 +171,17 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
     let filter_str = get_hw_filter(&config.packet_continue); // Packet-level keep/drop filter
     let app_protocols = parsers.into_iter().collect::<Vec<_>>().join(" or ");
     
+    let lazy_statics = if statics.is_empty() {
+        quote! {}
+    } else {
+        quote! {
+            lazy_static::lazy_static! {
+                #( #statics )*
+                }
+            }
+    };
+
+    
     let tst = quote! {
 
         use retina_datatypes::*;
@@ -180,6 +191,8 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
         #subscribable
 
         #tracked
+
+        #lazy_statics
 
         pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
 
