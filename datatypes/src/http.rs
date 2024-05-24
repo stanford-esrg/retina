@@ -58,13 +58,14 @@ impl TrackedData for TrackedHttp {
         false
     }
 
-    fn update(&mut self, pdu: &L4Pdu, session_id: Option<usize>) {}
+    fn update(&mut self, _pdu: &L4Pdu, _session_id: Option<usize>) {}
 
     fn needs_session_match() -> bool {
         true
     }
 
-    fn session_matched(&mut self, session: &Session) {
+    // TODO use refcell to avoid cloning, or ref keyword?
+    fn session_matched(&mut self, session: Rc<Session>) {
         let session_data = session.data.clone();
         if let SessionData::Http(http) = session_data {
             self.http.push(Rc::new(*http)); // todo better data sharing

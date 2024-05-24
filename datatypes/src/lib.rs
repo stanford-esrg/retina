@@ -8,7 +8,11 @@ pub use connection::{Connection, TrackedConnection};
 pub mod http;
 pub use http::{HttpTransaction, TrackedHttp};
 
+pub mod session;
+pub use session::{SubscribedSession, TrackedSession};
+
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[macro_use]
 extern crate lazy_static;
@@ -26,6 +30,10 @@ lazy_static! {
                 (
                     HttpTransaction::name(),
                     HttpTransaction::conn_parsers()
+                ),
+                (
+                    SubscribedSession::name(),
+                    SubscribedSession::conn_parsers()
                 )
             ])
         };
@@ -41,6 +49,10 @@ lazy_static! {
                 (
                     HttpTransaction::name(),
                     <HttpTransaction as SubscribedData>::T::named_data()
+                ),
+                (
+                    SubscribedSession::name(),
+                    <SubscribedSession as SubscribedData>::T::named_data()
                 )
             ])
         };
@@ -55,6 +67,10 @@ lazy_static! {
             (
                 HttpTransaction::name(),
                 <HttpTransaction as SubscribedData>::T::needs_update()
+            ),
+            (
+                SubscribedSession::name(),
+                <SubscribedSession as SubscribedData>::T::needs_update()
             )
         ])
     };
@@ -69,6 +85,11 @@ lazy_static! {
             (
                 HttpTransaction::name(),
                 <HttpTransaction as SubscribedData>::T::needs_session_match()
+            ),
+            (
+
+                SubscribedSession::name(),
+                <SubscribedSession as SubscribedData>::T::needs_session_match()
             )
         ])
     };
@@ -94,9 +115,8 @@ pub trait TrackedData {
     fn update(&mut self, pdu: &L4Pdu, session_id: Option<usize>);
     
     fn needs_session_match() -> bool;
-    fn session_matched(&mut self, session: &Session);
+    fn session_matched(&mut self, session: Rc<Session>);
 }
-
 
 //// Build data for shared fields ////
 

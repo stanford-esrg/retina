@@ -1,6 +1,6 @@
 //! DNS transaction parsing.
 
-pub(crate) mod parser;
+pub mod parser;
 mod transaction;
 
 pub use self::transaction::*;

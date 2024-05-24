@@ -82,7 +82,7 @@ impl TrackedDataBuilder {
             }
             if *needs_session {
                 self.session_track.push(
-                    quote! { self.#field_name.session_matched(&session); }
+                    quote! { self.#field_name.session_matched(session); }
                 )
             }
             for c in conn_parsers {
@@ -187,17 +187,19 @@ impl TrackedDataBuilder {
                     #( #update )*
                 }
             
-                fn deliver_session(&mut self, session: Session, 
+                fn deliver_session(&mut self, session_raw: Session, 
                                 subscription: &Subscription<Self::Subscribed>,
                                 actions: &ActionData, conn_data: &ConnData)
                 { 
+                    let _session = std::rc::Rc::new(session_raw);
                     // TODO only if actually needed
                     if actions.intersects(ActionFlags::SessionTrack | ActionFlags::SessionDeliver | 
                                           ActionFlags::SessionDeliverConn | ActionFlags::SessionTrackConn) {
+                        let session = _session.clone();
                         #( #session_track )*
                     }
                     if actions.intersects(ActionFlags::SessionDeliver | ActionFlags::SessionDeliverConn) {
-                        subscription.deliver_session(&session, &conn_data, &self);
+                        subscription.deliver_session(_session, &conn_data, &self);
                     }
                 }
 

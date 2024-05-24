@@ -191,6 +191,26 @@ impl PNode {
         self.children.iter_mut().find(|n | pred.is_child(&n.pred))
     }
 
+    /// Returns true if (1) both are leaf nodes and (2) actions/CB are the same
+    fn result_eq(&self, peer: &PNode, filter_type: &FilterType) -> bool {
+        if peer.children.len() > 0 || self.children.len() > 0 {
+            return false; // TODO could recurse here 
+        }
+        
+        if matches!(filter_type, FilterType::Action(_)) {
+            if self.actions == peer.actions {
+                return true;
+            }
+        }
+        if matches!(filter_type, FilterType::Deliver(_)) {
+            if self.deliver == peer.deliver {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// True if there is a PNode that can act as parent of `pred`.
     fn has_parent(&self, pred: &Predicate) -> bool {
         let mut found = false;
@@ -417,10 +437,10 @@ impl PTree {
     /// Best-effort to give the filter generator hints as to where an "else" 
     /// statement can go between two predicates.
     pub fn mark_mutual_exclusion(&mut self) {
-        fn mark_mutual_exclusion(node: &mut PNode) {
+        fn mark_mutual_exclusion(node: &mut PNode, filter_type: &FilterType) {
             // TODO messy
             if !node.children.is_empty() {
-                mark_mutual_exclusion(&mut node.children[0]);
+                mark_mutual_exclusion(&mut node.children[0], filter_type);
             }
             if node.children.len() <= 1 { 
                 return;
@@ -429,13 +449,20 @@ impl PTree {
             try_reorder(&mut node.children);
 
             for idx in 1..node.children.len() {
-                mark_mutual_exclusion(&mut node.children[idx]);
+                mark_mutual_exclusion(&mut node.children[idx], filter_type);
+                // Look for mutually exclusive predicates
                 if node.children[idx].pred.is_excl(&node.children[idx - 1].pred) {
                     node.children[idx].if_else = true;
                 }
+                // If the result is equivalent (e.g., same CB in delivery filter) for child nodes, 
+                // then we can safely use first match
+                if node.children[idx].result_eq(&node.children[idx - 1], filter_type) {
+                    node.children[idx].if_else = true;
+                }
+                // TODO more optimizations with branches here...
             }
         }
-        mark_mutual_exclusion(&mut self.root);
+        mark_mutual_exclusion(&mut self.root, &self.filter_type);
     }
 
     fn update_size(&mut self) {

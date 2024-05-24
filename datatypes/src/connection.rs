@@ -271,7 +271,7 @@ impl TrackedData for TrackedConnection {
         false
     }
 
-    fn session_matched(&mut self, _session: &Session) { }
+    fn session_matched(&mut self, _session: std::rc::Rc<Session>) { }
 }
 
 /// A uni-directional flow.

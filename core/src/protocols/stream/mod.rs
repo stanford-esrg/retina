@@ -204,6 +204,7 @@ pub enum SessionData {
 /// a separate crate, so items that ought to be crate-private have their documentation hidden to
 /// avoid confusing users.
 #[doc(hidden)]
+#[derive(Debug)]
 pub struct Session {
     /// Application-layer session data.
     pub data: SessionData,

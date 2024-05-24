@@ -121,7 +121,9 @@ impl FlatPattern {
         }
         for fq_pattern in fq_patterns.iter() {
             if fq_pattern.has_duplicate_fields() {
-                bail!(FilterError::InvalidPatternDupFields(self.to_owned()));
+                // \tmp if we include this error, we aren't able to create a 
+                //      filter with multiple != conditions
+                // bail!(FilterError::InvalidPatternDupFields(self.to_owned()));
             }
         }
         Ok(fq_patterns)

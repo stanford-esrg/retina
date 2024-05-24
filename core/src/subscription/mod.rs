@@ -142,7 +142,7 @@ where
         (self.conn_deliver)(conn_data, tracked)
     }
 
-    pub fn deliver_session(&self, session: &Session, conn_data: &ConnData, tracked: &S::Tracked) {
+    pub fn deliver_session(&self, session: std::rc::Rc<Session>, conn_data: &ConnData, tracked: &S::Tracked) {
         (self.session_deliver)(session, conn_data, tracked)
     }
 }
