@@ -43,9 +43,7 @@ fn tcp_port_cb(_subscribed: Subscribed) {
 }
 
 #[inline]
-fn default_cb(_subscribed: Subscribed) { 
-    println!("Hit: {:?}", _subscribed);
-}
+fn default_cb(_subscribed: Subscribed) { }
 
 pub(crate) fn print() {
     // println!("TCP: {}", *TCP.read().unwrap());
