@@ -110,14 +110,14 @@ impl TrackedDataBuilder {
         
         // TODO only include if actually needed
         let packet_deliver = quote! {
-            if actions.contains(Packet::Deliver) {
+            if actions.data.contains(ActionFlags::FrameDeliver) {
                 subscription.deliver_packet(&mbuf);
             }
         }; 
 
         // TODO only include if actually needed
         let packet_track = quote! {
-            if actions.intersects(Packet::Track | Packet::Unsure) {
+            if actions.data.intersects(ActionFlags::FrameContinue) {
                 if let Ok(ctxt) = L4Context::new(&mbuf) {
                     conn_tracker.process(mbuf, ctxt, subscription);
                 }
@@ -138,7 +138,7 @@ impl TrackedDataBuilder {
                     mbuf: Mbuf,
                     subscription: &Subscription<Self>,
                     conn_tracker: &mut ConnTracker<Self::Tracked>,
-                    actions: PacketActions
+                    actions: Actions
                 ) {
                     #packet_deliver
                     #packet_track

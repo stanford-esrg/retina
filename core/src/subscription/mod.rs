@@ -20,7 +20,7 @@ pub trait Subscribable {
         mbuf: Mbuf,
         subscription: &Subscription<Self>,
         conn_tracker: &mut ConnTracker<Self::Tracked>,
-        actions: PacketActions
+        actions: Actions
     ) where
         Self: Sized;
 }
@@ -113,7 +113,7 @@ where
     //   as much as possible...
 
     /// Applied when packet is first received in software.
-    pub fn continue_packet(&self, mbuf: &Mbuf) -> PacketActions {
+    pub fn continue_packet(&self, mbuf: &Mbuf) -> Actions {
         (self.packet_continue)(mbuf)
     }
 

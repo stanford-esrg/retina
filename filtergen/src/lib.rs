@@ -22,7 +22,7 @@ use crate::session_filter::*;
 use crate::parse::*;
 use crate::data::*;
 
-fn get_hw_filter(packet_continue: &HashMap<Packet, Vec<String>>) -> String {
+fn get_hw_filter(packet_continue: &HashMap<Actions, Vec<String>>) -> String {
     if packet_continue.is_empty() {
         return "".into();
     }
@@ -121,6 +121,10 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
         panic!("Packet_deliver not implemented");
     }
 
+    let packet_cont_ptree = filter_subtree(&config.packet_continue, 
+                                        FilterType::Action(FilterLayer::Packet));
+    let packet_continue = gen_packet_filter(&packet_cont_ptree, &mut statics, false);
+
     let packet_ptree = filter_subtree(&config.packet_filter, 
         FilterType::Action(FilterLayer::Packet));
     let packet_filter = gen_packet_filter(&packet_ptree, &mut statics, false);
@@ -196,9 +200,9 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
 
         pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
 
-            fn packet_continue(mbuf: &retina_core::Mbuf) -> retina_core::filter::PacketActions {
+            fn packet_continue(mbuf: &retina_core::Mbuf) -> retina_core::filter::Actions {
                 // tmp
-                Packet::Track.into()
+                #packet_continue
             }
 
             fn packet_filter(mbuf: &retina_core::Mbuf) -> retina_core::filter::Actions {

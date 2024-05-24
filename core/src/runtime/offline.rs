@@ -80,7 +80,7 @@ where
 
             /* Apply the packet filter to get actions */
             let actions = self.subscription.continue_packet(&mbuf);
-            if !actions.is_none() {
+            if !actions.drop() {
                 S::process_packet(mbuf, &self.subscription, 
                                   &mut stream_table, actions);
             }

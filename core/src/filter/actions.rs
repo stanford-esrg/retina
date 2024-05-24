@@ -15,8 +15,8 @@ bitmask! {
         None    = 0x0 << 0,
         Track   = 0x1 << 0,
         Deliver = 0x1 << 1,
-        Unsure  = 0x1 << 2,
-    }
+        Unsure  = 0x1 << 2, // HW not sure what to do, reapply SW pkt filter
+    } // TODO idea is that this is done in HW via pkt marking
 }
 // TODO better approach?
 static PACKET_ACTIONS: [Packet; 3] = [ Packet::Track, Packet::Deliver, Packet::Unsure ];
@@ -141,6 +141,9 @@ bitmask! {
         // TODO better way to do this [conn matched, session to be delivered]
         SessionDeliverConn = 0x1 << 13,
         SessionTrackConn   = 0x1 << 14,
+
+        // Pkt action (if HW unsure?)
+        FrameContinue      = 0x1 << 15,
     }
 }
 static FILTER_ACTIONS: [ActionFlags; 14] = [ 
@@ -178,6 +181,7 @@ impl ToString for ActionFlags {
             ActionFlags::TrackAny => "A::TrackAny".into(),
             ActionFlags::SessionDeliverConn => "A::SessionDeliverConn".into(),
             ActionFlags::SessionTrackConn => "A::SessionTrackConn".into(),
+            ActionFlags::FrameContinue => "A::FrameContinue".into(),
         }
     }
 }
@@ -243,6 +247,7 @@ impl FromStr for ActionFlags {
             "FrameDrain" => Ok(ActionFlags::FrameDrain),
             "ConnTracked" => Ok(ActionFlags::ConnTracked),
             "TrackAny" => Ok(ActionFlags::TrackAny),
+            "FrameContinue" => Ok(ActionFlags::FrameContinue),
             _ => Result::Err(ParseBitmaskError)
         }  
     }

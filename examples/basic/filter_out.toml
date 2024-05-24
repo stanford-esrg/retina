@@ -4,26 +4,15 @@ subscriptions = [
     "SubscribedSession"
 ]
 connection_deliver = [
-    { filter = "ipv4.addr = 68.64.0.0/16", datatype = "SubscribedSession", callback = "default_cb" },
-    { filter = "ipv4.addr = 172.16.0.0/16", datatype = "Connection", callback = "default_cb" },
-    { filter = "http", datatype = "Connection", callback = "default_cb" },
+    { filter = "", datatype = "SubscribedSession", callback = "default_cb" },
 ]
 
 [packet_continue]
-"Packet::Track" = [
+"FrameContinue" = [
     "ipv4",
 ]
 
 [packet_filter]
-"ConnFilter | ConnParse" = [
+"ConnDataTrack (T)" = [
     "ipv4",
-]
-"ConnDataTrack (T)" = [
-    "ipv4.addr = 172.16.0.0/16",
-    "ipv4.addr = 68.64.0.0/16",
-]
-
-[session_filter]
-"ConnDataTrack (T)" = [
-    "(dns.query_domain ~ '.*HHV1:.*' or dns.query_domain ~ '.*HHV2:.*' or dns.query_domain ~ '.*HHV3: 61456.*' or dns.query_domain ~ '.*HHV4:.*') and tcp and dns and ((ipv4.src_addr = 172.16.0.0/12 or ipv4.src_addr = 192.168.0.0/16 or ipv4.src_addr = 10.0.0.0/8) and (ipv4.dst_addr != 172.16.0.0/12 and ipv4.dst_addr != 192.168.0.0/16 and ipv4.dst_addr != 10.0.0.0/8))",
 ]

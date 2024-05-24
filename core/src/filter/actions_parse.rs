@@ -34,13 +34,13 @@ pub struct ConfigRaw {
 }
 
 impl ConfigRaw {
-    pub fn packet_continue(&mut self) -> HashMap<Packet, Vec<String>> {
+    pub fn packet_continue(&mut self) -> HashMap<Actions, Vec<String>> {
         let pkt_continue = std::mem::take(&mut self.packet_continue);
         pkt_continue
             .into_iter()
             .map( |(actions, filters)| {
                 (
-                    Packet::from_str(&actions)
+                    Actions::from_str(&actions)
                                     .expect(&format!("Cannot parse {} to Packet (action)", &actions)),
                     filters
                 )

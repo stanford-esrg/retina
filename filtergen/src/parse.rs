@@ -3,7 +3,7 @@ use std::collections::{HashSet, HashMap};
 
 pub(crate) struct ConfigBuilder {
 
-    pub(crate) packet_continue: HashMap<Packet, Vec<String>>,
+    pub(crate) packet_continue: HashMap<Actions, Vec<String>>,
 
     pub(crate) packet_filter: HashMap<Actions, Vec<String>>,
     pub(crate) connection_filter: HashMap<Actions, Vec<String>>,

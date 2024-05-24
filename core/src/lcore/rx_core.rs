@@ -108,7 +108,7 @@ where
                     nb_bytes += mbuf.data_len() as u64;
 
                     let actions = self.subscription.continue_packet(&mbuf);
-                    if !actions.is_none() {
+                    if !actions.drop() {
                         S::process_packet(mbuf, &self.subscription,
                                           &mut conn_table, actions);
                     }

@@ -1,5 +1,5 @@
 pub mod actions;
-pub use actions::{Actions, ActionFlags, ActionData, PacketActions, Packet};
+pub use actions::{Actions, ActionFlags, ActionData, Packet};
 
 pub mod actions_parse;
 pub use actions_parse::{ConfigRaw, SubscriptionSpec};
@@ -30,7 +30,7 @@ use anyhow::{bail, Result};
 use thiserror::Error;
 
 /// Filter types
-pub type PacketContFn = fn(&Mbuf) -> PacketActions;
+pub type PacketContFn = fn(&Mbuf) -> Actions;
 pub type PacketFilterFn = fn(&Mbuf) -> Actions;
 pub type ConnFilterFn = fn(&ConnData) -> Actions;
 pub type SessionFilterFn = fn(&Session, &ConnData) -> Actions;

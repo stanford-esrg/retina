@@ -1,7 +1,7 @@
 subscriptions = [ "HttpTransaction", "Connection" ]
 
 [packet_continue]
-"Packet::Track" = [ "ipv4" ]
+"FrameContinue" = [ "ipv4" ]
 
 [packet_filter]
 "ConnFilter | ConnParse" = [ "ipv4.addr = 16.0.0.0/24 and tcp", "tcp.port > 60000 and ipv4" ]
