@@ -146,7 +146,7 @@ bitmask! {
         FrameContinue      = 0x1 << 15,
     }
 }
-static FILTER_ACTIONS: [ActionFlags; 14] = [ 
+static FILTER_ACTIONS: [ActionFlags; 15] = [ 
     ActionFlags::FrameDeliver,
     ActionFlags::ConnDataTrack, 
     ActionFlags::FrameTrack,
@@ -161,6 +161,7 @@ static FILTER_ACTIONS: [ActionFlags; 14] = [
     ActionFlags::TrackAny,
     ActionFlags::SessionDeliverConn,
     ActionFlags::SessionTrackConn,
+    ActionFlags::FrameContinue,
 ];
 
 impl ToString for ActionFlags {
@@ -189,6 +190,7 @@ impl ToString for ActionFlags {
 impl ToString for Actions {
     fn to_string(&self) -> String {
         let mut out = String::from("");
+        // TODO better way to iter. thru bitmask values
         for flag in FILTER_ACTIONS {
             if self.data.contains(flag) {
                 if out != "" { out += " | "}

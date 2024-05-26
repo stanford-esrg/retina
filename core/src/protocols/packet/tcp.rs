@@ -103,62 +103,62 @@ impl<'a> Tcp<'a> {
 
     /// Returns `true` if the (historical) nonce sum flag is set.
     #[inline]
-    pub fn ns(&self) -> bool {
-        (self.header.data_offset_to_ns & 0x01) != 0
+    pub fn ns(&self) -> u8 {
+        ((self.header.data_offset_to_ns & 0x01) != 0).into()
     }
 
     /// Returns `true` if the congestion window reduced flag is set.
     #[inline]
-    pub fn cwr(&self) -> bool {
-        (self.flags() & CWR) != 0
+    pub fn cwr(&self) -> u8 {
+        ((self.flags() & CWR) != 0).into()
     }
 
     /// Returns `true` if the ECN-Echo flag is set.
     #[inline]
-    pub fn ece(&self) -> bool {
-        (self.flags() & ECE) != 0
+    pub fn ece(&self) -> u8 {
+        ((self.flags() & ECE) != 0).into()
     }
 
     /// Returns `true` if the urgent pointer flag is set.
     #[inline]
-    pub fn urg(&self) -> bool {
-        (self.flags() & URG) != 0
+    pub fn urg(&self) -> u8 {
+        ((self.flags() & URG) != 0).into()
     }
 
     /// Returns `true` if the acknowledgment flag is set.
     #[inline]
-    pub fn ack(&self) -> bool {
-        (self.flags() & ACK) != 0
+    pub fn ack(&self) -> u8 {
+        ((self.flags() & ACK) != 0).into()
     }
 
     /// Returns `true` if the push flag is set.
     #[inline]
-    pub fn psh(&self) -> bool {
-        (self.flags() & PSH) != 0
+    pub fn psh(&self) -> u8 {
+        ((self.flags() & PSH) != 0).into()
     }
 
     /// Returns `true` if the reset flag is set.
     #[inline]
-    pub fn rst(&self) -> bool {
-        (self.flags() & RST) != 0
+    pub fn rst(&self) -> u8 {
+        ((self.flags() & RST) != 0).into()
     }
 
     /// Returns `true` if the synchronize flag is set.
     #[inline]
-    pub fn syn(&self) -> bool {
-        (self.flags() & SYN) != 0
+    pub fn syn(&self) -> u8 {
+        ((self.flags() & SYN) != 0).into()
     }
 
     /// Returns `true` if the FIN flag is set.
     #[inline]
-    pub fn fin(&self) -> bool {
-        (self.flags() & FIN) != 0
+    pub fn fin(&self) -> u8 {
+        ((self.flags() & FIN) != 0).into()
     }
 
     /// Returns `true` if both `SYN` and `ACK` flags are set.
     #[inline]
-    pub fn synack(&self) -> bool {
-        (self.flags() & (ACK | SYN)) != 0
+    pub fn synack(&self) -> u8 {
+        ((self.flags() & (ACK | SYN)) != 0).into()
     }
 }
 
