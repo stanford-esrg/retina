@@ -17,7 +17,7 @@ fn main() {
     let out_dir = Path::new(&out_dir_s);
     let dpdk_path_s = env::var("DPDK_PATH").unwrap();
     let dpdk_path = Path::new(&dpdk_path_s);
-    let pkg_config_path = dpdk_path.join("lib/x86_64-linux-gnu/pkgconfig");
+    let pkg_config_path = dpdk_path.join("lib/aarch64-gnu/pkgconfig");
     let cflags_bytes = Command::new("pkg-config")
         .env("PKG_CONFIG_PATH", &pkg_config_path)
         .args(["--cflags", "libdpdk"])
