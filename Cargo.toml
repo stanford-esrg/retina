@@ -12,7 +12,7 @@ members = [
     "examples/pcap_dump",
     "examples/spin",
     "examples/video",
-    "filtergen",
+    "filtergen", "examples/log_quic",
 ]
 
 [profile.release]
