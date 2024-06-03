@@ -36,7 +36,7 @@ impl ConnParsable for QuicParser {
     }
 
     fn probe(&self, pdu: &L4Pdu) -> ProbeResult {
-        if pdu.length() < 5 {
+        if pdu.length() < 2 {
             return ProbeResult::Unsure;
         }
 
@@ -191,23 +191,24 @@ impl Quic {
             let packet_type = (data[0] & 0x30) >> 4;
             let type_specific = data[0] & 0x0F;
 
-            let dcid_len = data[5];
-            if (data.len() as u8) < 7 + dcid_len {
+            let dcid_len = data[5] as usize;
+            let dcid_start = 6;
+            // There's a +2 in this size check because we need enough space to check the SCID length
+            if data.len() < (dcid_start + dcid_len + 2) as usize {
                 return Err(QuicError::PacketTooShort);
             }
-            let dcid_bytes = data[6..6 + dcid_len as usize].to_vec();
+            let dcid_bytes = data[dcid_start..dcid_start + dcid_len].to_vec();
             let dcid = Quic::vec_u8_to_hex_string(&dcid_bytes);
-
-            let scid_len = data[6 + dcid_len as usize];
-            if (data.len() as u8) < 7 + dcid_len + scid_len {
+            let scid_len = data[dcid_start + dcid_len + 1] as usize;
+            let scid_start = dcid_start + dcid_len + 2;
+            if data.len() < (scid_start + scid_len + 1) as usize {
                 return Err(QuicError::PacketTooShort);
             }
-            let scid_bytes =
-                data[7 + dcid_len as usize..7 + dcid_len as usize + scid_len as usize].to_vec();
+            let scid_bytes = data[scid_start..scid_start + scid_len].to_vec();
             let scid = Quic::vec_u8_to_hex_string(&scid_bytes);
 
             // Counts all bytes remaining
-            let payload_bytes_count = data.len() - 7 - dcid_len as usize - scid_len as usize - 2;
+            let payload_bytes_count = data.len() - scid_start - scid_len;
             Ok(Quic {
                 payload_bytes_count: payload_bytes_count as u16,
                 short_header: None,
