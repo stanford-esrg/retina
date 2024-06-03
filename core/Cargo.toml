@@ -49,5 +49,5 @@ x509-parser = "0.13.2"
 
 [features]
 timing = []
-# mlx5 = []
-# default = ["mlx5"]
+mlx5 = []
+default = ["mlx5"]
