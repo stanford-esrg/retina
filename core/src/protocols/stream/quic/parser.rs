@@ -248,10 +248,11 @@ impl Quic {
 
 impl QuicParser {
     fn check_connection_id(&self, dcid_bytes: &[u8]) -> Option<String> {
+        let dcid_hex = Quic::vec_u8_to_hex_string(dcid_bytes);
         for dcid_len in (1..dcid_bytes.len() + 1).rev() {
-            let dcid = Quic::vec_u8_to_hex_string(&dcid_bytes[..dcid_len]);
+            let dcid = dcid_hex[..dcid_len * 2];
             if self.connection_ids.contains(&dcid) {
-                return Some(dcid);
+                return Some(dcid.to_string());
             }
         }
         None
