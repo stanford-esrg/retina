@@ -36,7 +36,7 @@ impl ConnParsable for QuicParser {
     }
 
     fn probe(&self, pdu: &L4Pdu) -> ProbeResult {
-        if pdu.length() < 2 {
+        if pdu.length() < 5 {
             return ProbeResult::Unsure;
         }
 
