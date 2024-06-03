@@ -197,7 +197,7 @@ impl Quic {
             if data.len() < (dcid_start + dcid_len as usize + 2) as usize {
                 return Err(QuicError::PacketTooShort);
             }
-            let dcid_bytes = data[dcid_start..dcid_start + dcid_len].to_vec();
+            let dcid_bytes = data[dcid_start..dcid_start + dcid_len as usize].to_vec();
             let dcid = Quic::vec_u8_to_hex_string(&dcid_bytes);
             let scid_len = data[dcid_start + dcid_len as usize + 1];
             let scid_start = dcid_start + dcid_len as usize + 2;
@@ -208,7 +208,7 @@ impl Quic {
             let scid = Quic::vec_u8_to_hex_string(&scid_bytes);
 
             // Counts all bytes remaining
-            let payload_bytes_count = data.len() - scid_start - scid_len;
+            let payload_bytes_count = data.len() - scid_start - scid_len as usize;
             Ok(Quic {
                 payload_bytes_count: payload_bytes_count as u16,
                 short_header: None,
