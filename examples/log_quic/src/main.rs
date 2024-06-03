@@ -44,7 +44,6 @@ fn main() -> Result<()> {
             wtr.write_all(b"\n").unwrap();
             cnt.fetch_add(1, Ordering::Relaxed);
         }
-        // println!("{:?}", quic);
     };
     let mut runtime = Runtime::new(config, filter, callback)?;
     runtime.run();
