@@ -251,7 +251,7 @@ impl QuicParser {
         let dcid_hex = Quic::vec_u8_to_hex_string(dcid_bytes);
         for dcid_len in (1..dcid_bytes.len() + 1).rev() {
             let dcid = &dcid_hex[..dcid_len * 2];
-            if self.connection_ids.contains(&dcid) {
+            if self.connection_ids.contains(dcid) {
                 return Some(String::from(dcid));
             }
         }
