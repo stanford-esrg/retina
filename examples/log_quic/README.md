@@ -1,4 +1,4 @@
-# HTTP Logger
+# Quic Logger
 
 Demonstrates logging Quic transactions to a file.
 

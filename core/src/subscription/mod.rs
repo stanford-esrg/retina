@@ -10,7 +10,7 @@ pub mod connection_frame;
 pub mod dns_transaction;
 pub mod frame;
 pub mod http_transaction;
-pub mod quic_connection;
+pub mod quic_transaction;
 pub mod tls_handshake;
 pub mod zc_frame;
 
@@ -20,7 +20,7 @@ pub use self::connection_frame::ConnectionFrame;
 pub use self::dns_transaction::DnsTransaction;
 pub use self::frame::Frame;
 pub use self::http_transaction::HttpTransaction;
-pub use self::quic_connection::QuicTransaction;
+pub use self::quic_transaction::QuicTransaction;
 pub use self::tls_handshake::TlsHandshake;
 pub use self::zc_frame::ZcFrame;
 

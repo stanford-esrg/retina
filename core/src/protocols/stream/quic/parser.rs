@@ -66,8 +66,10 @@ impl ConnParsable for QuicParser {
                 }
             } else {
                 // Potential Short Header
-
+                ProbeResult::Unsure
                 // Check if the connection ID is known
+                /*
+                Removed for performance reasons
                 let mut max_dcid_len = 20;
                 if data.len() < 1 + max_dcid_len {
                     max_dcid_len = data.len() - 1;
@@ -77,6 +79,7 @@ impl ConnParsable for QuicParser {
                     Some(_) => ProbeResult::Certain,
                     None => ProbeResult::NotForUs,
                 }
+                */
             }
         } else {
             log::warn!("Malformed packet");

@@ -68,39 +68,36 @@ impl Quic {
     }
 
     /// Returns the destination connection ID of the Quic packet or an empty string if it does not exist
-    pub fn dcid(&self) -> String {
+    pub fn dcid(&self) -> &str {
         match &self.long_header {
             Some(long_header) => {
                 if long_header.dcid_len > 0 {
-                    long_header.dcid.clone()
+                    &long_header.dcid
                 } else {
-                    String::new()
+                    ""
                 }
             }
             None => {
                 if let Some(short_header) = &self.short_header {
-                    match &short_header.dcid {
-                        Some(dcid) => dcid.clone(),
-                        None => String::new(),
-                    }
+                    short_header.dcid.as_deref().unwrap_or("")
                 } else {
-                    String::new()
+                    ""
                 }
             }
         }
     }
 
     /// Returns the source connection ID of the Quic packet or an empty string if it does not exist
-    pub fn scid(&self) -> String {
+    pub fn scid(&self) -> &str {
         match &self.long_header {
             Some(long_header) => {
                 if long_header.scid_len > 0 {
-                    long_header.scid.clone()
+                    &long_header.scid
                 } else {
-                    String::new()
+                    ""
                 }
             }
-            None => String::new(),
+            None => "",
         }
     }
 
