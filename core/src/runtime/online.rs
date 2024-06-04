@@ -77,7 +77,7 @@ where
             for (rxqueue, core_id) in port.queue_map.iter() {
                 core_map
                     .entry(*core_id)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(*rxqueue);
             }
         }

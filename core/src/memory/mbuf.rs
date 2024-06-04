@@ -85,7 +85,7 @@ impl Mbuf {
 
     /// Returns the contents of the Mbuf as a byte slice.
     pub fn data(&self) -> &[u8] {
-        let ptr = self.get_data_address(0) as *const u8;
+        let ptr = self.get_data_address(0);
         unsafe { slice::from_raw_parts(ptr, self.data_len()) as &[u8] }
     }
 
@@ -96,7 +96,7 @@ impl Mbuf {
     pub fn get_data_slice(&self, offset: usize, count: usize) -> Result<&[u8]> {
         if offset < self.data_len() {
             if offset + count <= self.data_len() {
-                let ptr = self.get_data_address(offset) as *const u8;
+                let ptr = self.get_data_address(offset);
                 unsafe { Ok(slice::from_raw_parts(ptr, count) as &[u8]) }
             } else {
                 bail!(MbufError::ReadPastBuffer)
