@@ -284,7 +284,7 @@ impl QuicParser {
             self.sessions.insert(session_id, quic);
             self.cnt += 1;
 
-            ParseResult::Done(session_id)
+            ParseResult::Continue(session_id)
         } else {
             ParseResult::Skipped
         }
