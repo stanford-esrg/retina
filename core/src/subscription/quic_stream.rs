@@ -101,10 +101,9 @@ impl TrackedQuic {
         for dcid in self.connection_id.iter() {
             if dcid_hex.starts_with(dcid) {
                 Some(dcid)
-            } else {
-                None
             }
         }
+        None
     }
 }
 
@@ -123,7 +122,7 @@ impl Trackable for TrackedQuic {
     fn on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) {
         if let SessionData::Quic(quic) = session.data {
             if self.connection_id.is_empty() {
-                if let Some(long_header) = *quic.long_header {
+                if let Some(long_header) = (*quic).long_header {
                     if long_header.dcid_len > 0 {
                         self.connection_id
                             .push(Quic::vec_u8_to_hex(&long_header.dcid));
@@ -134,8 +133,8 @@ impl Trackable for TrackedQuic {
                     }
                 }
             } else {
-                if let Some(short_header) = *quic.short_header {
-                    *quic.short_header = self.get_connection_id(&short_header.dcid_bytes)
+                if let Some(short_header) = (*quic).short_header {
+                    short_header = self.get_connection_id(&short_header.dcid_bytes)
                 }
             }
             subscription.invoke(QuicStream {
