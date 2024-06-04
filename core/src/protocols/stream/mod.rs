@@ -11,7 +11,7 @@ pub mod tls;
 
 use self::dns::{parser::DnsParser, Dns};
 use self::http::{parser::HttpParser, Http};
-use self::quic::{parser::QuicParser, Quic};
+use self::quic::{parser::QuicParser, QuicPacket};
 use self::tls::{parser::TlsParser, Tls};
 use crate::conntrack::conn::conn_info::ConnState;
 use crate::conntrack::conn_id::FiveTuple;
@@ -195,7 +195,7 @@ pub enum SessionData {
     Tls(Box<Tls>),
     Dns(Box<Dns>),
     Http(Box<Http>),
-    Quic(Box<Quic>),
+    Quic(Box<QuicPacket>),
     Null,
 }
 

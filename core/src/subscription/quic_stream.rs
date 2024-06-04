@@ -21,7 +21,7 @@ use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
 use crate::filter::FilterResult;
 use crate::memory::mbuf::Mbuf;
-use crate::protocols::stream::quic::{parser::QuicParser, Quic};
+use crate::protocols::stream::quic::{parser::QuicParser, QuicPacket};
 use crate::protocols::stream::{ConnParser, Session, SessionData};
 use crate::subscription::{Level, Subscribable, Subscription, Trackable};
 use std::collections::HashSet;
@@ -34,7 +34,7 @@ use std::net::SocketAddr;
 #[derive(Debug, Serialize)]
 pub struct QuicStream {
     pub five_tuple: FiveTuple,
-    pub data: Quic,
+    pub data: QuicPacket,
 }
 
 impl QuicStream {
@@ -97,7 +97,7 @@ pub struct TrackedQuic {
 
 impl TrackedQuic {
     fn get_connection_id(&self, dcid_bytes: &[u8]) -> Option<String> {
-        let dcid_hex = Quic::vec_u8_to_hex_string(dcid_bytes);
+        let dcid_hex = QuicPacket::vec_u8_to_hex_string(dcid_bytes);
         for dcid in &self.connection_id {
             if dcid_hex.starts_with(dcid) {
                 return Some(dcid.clone());

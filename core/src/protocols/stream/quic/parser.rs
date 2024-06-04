@@ -3,7 +3,7 @@
 //! [Wireshark Quic Disector](https://gitlab.com/wireshark/wireshark/-/blob/master/epan/dissectors/packet-quic.c)
 //!
 use crate::protocols::stream::quic::header::{QuicLongHeader, QuicShortHeader};
-use crate::protocols::stream::quic::Quic;
+use crate::protocols::stream::quic::QuicPacket;
 use crate::protocols::stream::{
     ConnParsable, ConnState, L4Pdu, ParseResult, ProbeResult, Session, SessionData,
 };
@@ -12,7 +12,7 @@ use std::collections::HashMap;
 #[derive(Default, Debug)]
 pub struct QuicParser {
     /// Maps session ID to Quic transaction
-    sessions: HashMap<usize, Quic>,
+    sessions: HashMap<usize, QuicPacket>,
     /// Total sessions ever seen (Running session ID)
     cnt: usize,
 }
@@ -125,7 +125,7 @@ pub enum QuicError {
     ShortHeader,
 }
 
-impl Quic {
+impl QuicPacket {
     /// Processes the connection ID bytes array to a hex string
     pub fn vec_u8_to_hex_string(vec: &[u8]) -> String {
         vec.iter()
@@ -135,7 +135,7 @@ impl Quic {
     }
 
     /// Parses Quic packet from bytes
-    pub fn parse_from(data: &[u8]) -> Result<Quic, QuicError> {
+    pub fn parse_from(data: &[u8]) -> Result<QuicPacket, QuicError> {
         if data.len() <= 2 {
             return Err(QuicError::PacketTooShort);
         }
@@ -165,18 +165,18 @@ impl Quic {
                 return Err(QuicError::PacketTooShort);
             }
             let dcid_bytes = &data[dcid_start..dcid_start + dcid_len as usize];
-            let dcid = Quic::vec_u8_to_hex_string(dcid_bytes);
+            let dcid = QuicPacket::vec_u8_to_hex_string(dcid_bytes);
             let scid_len = data[dcid_start + dcid_len as usize];
             let scid_start = dcid_start + dcid_len as usize + 1;
             if data.len() < (scid_start + scid_len as usize + 1) {
                 return Err(QuicError::PacketTooShort);
             }
             let scid_bytes = &data[scid_start..scid_start + scid_len as usize];
-            let scid = Quic::vec_u8_to_hex_string(scid_bytes);
+            let scid = QuicPacket::vec_u8_to_hex_string(scid_bytes);
 
             // Counts all bytes remaining
             let payload_bytes_count = data.len() - scid_start - scid_len as usize;
-            Ok(Quic {
+            Ok(QuicPacket {
                 payload_bytes_count: payload_bytes_count as u16,
                 short_header: None,
                 long_header: Some(QuicLongHeader {
@@ -198,7 +198,7 @@ impl Quic {
             let dcid_bytes = data[1..1 + max_dcid_len].to_vec();
             // Counts all bytes remaining
             let payload_bytes_count = data.len() - 1 - max_dcid_len;
-            Ok(Quic {
+            Ok(QuicPacket {
                 short_header: Some(QuicShortHeader {
                     dcid: None,
                     dcid_bytes,
@@ -212,7 +212,7 @@ impl Quic {
 
 impl QuicParser {
     fn process(&mut self, data: &[u8]) -> ParseResult {
-        if let Ok(quic) = Quic::parse_from(data) {
+        if let Ok(quic) = QuicPacket::parse_from(data) {
             let session_id = self.cnt;
             self.sessions.insert(session_id, quic);
             self.cnt += 1;

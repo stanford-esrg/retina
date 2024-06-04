@@ -28,7 +28,7 @@ pub(crate) mod header;
 
 /// Parsed Quic Packet contents
 #[derive(Debug, Serialize, Clone)]
-pub struct Quic {
+pub struct QuicPacket {
     /// Quic Short header
     pub short_header: Option<QuicShortHeader>,
 
@@ -39,7 +39,7 @@ pub struct Quic {
     pub payload_bytes_count: u16,
 }
 
-impl Quic {
+impl QuicPacket {
     /// Returns the header type of the Quic packet (ie. "long" or "short")
     pub fn header_type(&self) -> &str {
         match &self.long_header {
