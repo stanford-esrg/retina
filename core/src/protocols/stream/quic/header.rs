@@ -3,7 +3,7 @@
 use serde::Serialize;
 
 /// Quic Long Header
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct QuicLongHeader {
     pub packet_type: u8,
     pub type_specific: u8,
@@ -15,7 +15,7 @@ pub struct QuicLongHeader {
 }
 
 /// Quic Short Header
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct QuicShortHeader {
     pub dcid: Option<String>, // optional. If not pre-existing cid then none.
 

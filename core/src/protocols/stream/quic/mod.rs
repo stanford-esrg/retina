@@ -27,7 +27,7 @@ use serde::Serialize;
 pub(crate) mod header;
 
 /// Parsed Quic Packet contents
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct Quic {
     /// Quic Short header
     pub short_header: Option<QuicShortHeader>,
