@@ -143,6 +143,7 @@ impl Trackable for TrackedQuic {
                     println!("DCID: {:?}", short_header_value.dcid);
                     println!();
                 }
+                println!("DCID from clone: {:?}", quic_clone.dcid);
                 return subscription.invoke(QuicStream {
                     five_tuple: self.five_tuple,
                     data: quic_clone,
