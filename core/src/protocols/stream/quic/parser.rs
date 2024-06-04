@@ -163,7 +163,7 @@ pub enum QuicError {
 
 impl Quic {
     /// Processes the connection ID bytes array to a hex string
-    fn vec_u8_to_hex_string(vec: &[u8]) -> String {
+    pub fn vec_u8_to_hex_string(vec: &[u8]) -> String {
         vec.iter()
             .map(|&byte| format!("{:02x}", byte))
             .collect::<Vec<String>>()
