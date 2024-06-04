@@ -119,18 +119,18 @@ impl Trackable for TrackedQuic {
     fn pre_match(&mut self, _pdu: L4Pdu, _session_id: Option<usize>) {}
 
     fn on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) {
-        if let SessionData::Quic(quic) = session.data {
+        if let SessionData::Quic(quic) = session.data.as_mut() {
             if self.connection_id.is_empty() {
                 if let Some(long_header) = (*quic).long_header {
                     if long_header.dcid_len > 0 {
-                        self.connection_id.push(&long_header.dcid);
+                        self.connection_id.push(long_header.dcid);
                     }
                     if long_header.scid_len > 0 {
-                        self.connection_id.push(&long_header.scid);
+                        self.connection_id.push(long_header.scid);
                     }
                 }
             } else {
-                if let Some(short_header) = (*quic).short_header {
+                if let Some(short_header) = (*quic).short_header.as_mut() {
                     short_header.dcid = self.get_connection_id(&short_header.dcid_bytes)
                 }
             }
