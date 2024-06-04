@@ -121,8 +121,9 @@ impl Trackable for TrackedQuic {
 
     fn on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) {
         if let SessionData::Quic(quic) = session.data {
+            let mut quic_clone = (*quic).clone();
             if self.connection_id.is_empty() {
-                if let Some(long_header) = (*quic).long_header {
+                if let Some(long_header) = quic_clone.long_header {
                     if long_header.dcid_len > 0 {
                         self.connection_id.push(long_header.dcid);
                     }
@@ -131,8 +132,6 @@ impl Trackable for TrackedQuic {
                     }
                 }
             } else {
-                let mut quic_clone = (*quic).clone();
-
                 if let Some(ref mut short_header_value) = quic_clone.short_header {
                     short_header_value.dcid =
                         self.get_connection_id(&short_header_value.dcid_bytes);
@@ -144,7 +143,7 @@ impl Trackable for TrackedQuic {
             }
             subscription.invoke(QuicStream {
                 five_tuple: self.five_tuple,
-                data: *quic,
+                data: quic_clone,
             });
         }
     }
