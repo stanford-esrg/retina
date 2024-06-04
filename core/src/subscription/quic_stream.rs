@@ -21,6 +21,7 @@ use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
 use crate::filter::FilterResult;
 use crate::memory::mbuf::Mbuf;
+use crate::protocols::stream::quic::QuicShortHeader;
 use crate::protocols::stream::quic::{parser::QuicParser, Quic};
 use crate::protocols::stream::{ConnParser, Session, SessionData};
 use crate::subscription::{Level, Subscribable, Subscription, Trackable};
@@ -130,13 +131,16 @@ impl Trackable for TrackedQuic {
                     }
                 }
             } else {
-                let mut short_header = (*quic).short_header.take();
+                let mut quic_clone: Quic = (*quic).clone();
 
-                if let Some(ref mut short_header_value) = short_header {
+                if let Some(ref mut short_header_value) = quic_clone {
                     short_header_value.dcid =
                         self.get_connection_id(&short_header_value.dcid_bytes);
                 }
-                (*quic).short_header = short_header;
+                return subscription.invoke(QuicStream {
+                    five_tuple: self.five_tuple,
+                    data: quic_clone,
+                });
             }
             subscription.invoke(QuicStream {
                 five_tuple: self.five_tuple,
