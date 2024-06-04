@@ -21,8 +21,6 @@ use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
 use crate::filter::FilterResult;
 use crate::memory::mbuf::Mbuf;
-use crate::protocols::stream::quic::header::*;
-use crate::protocols::stream::quic::parser::Quic;
 use crate::protocols::stream::quic::{parser::QuicParser, Quic};
 use crate::protocols::stream::{ConnParser, Session, SessionData};
 use crate::subscription::{Level, Subscribable, Subscription, Trackable};
