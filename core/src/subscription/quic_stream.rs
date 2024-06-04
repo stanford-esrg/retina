@@ -21,6 +21,7 @@ use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
 use crate::filter::FilterResult;
 use crate::memory::mbuf::Mbuf;
+use crate::protocols::stream::quic::header::*;
 use crate::protocols::stream::quic::{parser::QuicParser, Quic};
 use crate::protocols::stream::{ConnParser, Session, SessionData};
 use crate::subscription::{Level, Subscribable, Subscription, Trackable};
@@ -91,19 +92,52 @@ impl Subscribable for QuicStream {
 #[doc(hidden)]
 pub struct TrackedQuic {
     five_tuple: FiveTuple,
+    connection_id: Vec<String>,
+}
+
+impl TrackedQuic {
+    fn get_connection_id(&self, dcid_bytes: &[u8]) -> Option<String> {
+        let dcid_hex = Quic::vec_u8_to_hex(dcid_bytes);
+        for dcid in self.connection_id.iter() {
+            if dcid_hex.starts_with(dcid) {
+                Some(dcid)
+            } else {
+                None
+            }
+        }
+    }
 }
 
 impl Trackable for TrackedQuic {
     type Subscribed = QuicStream;
 
     fn new(five_tuple: FiveTuple) -> Self {
-        TrackedQuic { five_tuple }
+        TrackedQuic {
+            five_tuple,
+            connection_id: Vec::new(),
+        }
     }
 
     fn pre_match(&mut self, _pdu: L4Pdu, _session_id: Option<usize>) {}
 
     fn on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) {
         if let SessionData::Quic(quic) = session.data {
+            if self.connection_id.is_empty() {
+                if let Some(long_header) = *quic.long_header {
+                    if long_header.dcid_len > 0 {
+                        self.connection_id
+                            .push(Quic::vec_u8_to_hex(&long_header.dcid));
+                    }
+                    if long_header.scid_len > 0 {
+                        self.connection_id
+                            .push(Quic::vec_u8_to_hex(&long_header.scid));
+                    }
+                }
+            } else {
+                if let Some(short_header) = *quic.short_header {
+                    *quic.short_header = self.get_connection_id(&short_header.dcid_bytes)
+                }
+            }
             subscription.invoke(QuicStream {
                 five_tuple: self.five_tuple,
                 data: *quic,
