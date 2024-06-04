@@ -116,10 +116,10 @@ impl ConnParsable for QuicParser {
                 //         self.connection_ids.remove(&long_header.scid);
                 //     }
                 // }
-                // Session {
-                //     data: SessionData::Quic(Box::new(quic)),
-                //     id: session_id,
-                // }
+                Session {
+                    data: SessionData::Quic(Box::new(quic)),
+                    id: session_id,
+                }
             })
             .collect()
     }

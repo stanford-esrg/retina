@@ -22,6 +22,7 @@ use crate::conntrack::ConnTracker;
 use crate::filter::FilterResult;
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::quic::header::*;
+use crate::protocols::stream::quic::parser::Quic;
 use crate::protocols::stream::quic::{parser::QuicParser, Quic};
 use crate::protocols::stream::{ConnParser, Session, SessionData};
 use crate::subscription::{Level, Subscribable, Subscription, Trackable};
@@ -134,7 +135,7 @@ impl Trackable for TrackedQuic {
                 }
             } else {
                 if let Some(short_header) = (*quic).short_header {
-                    short_header = self.get_connection_id(&short_header.dcid_bytes)
+                    short_header.dcid = self.get_connection_id(&short_header.dcid_bytes)
                 }
             }
             subscription.invoke(QuicStream {
