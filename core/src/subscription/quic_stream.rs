@@ -133,6 +133,11 @@ impl Trackable for TrackedQuic {
                 }
             } else {
                 if let Some(ref mut short_header_value) = quic_clone.short_header {
+                    println!("Currrent connection ids: {:?}", self.connection_id);
+                    println!(
+                        "DCID bytes: {:?}",
+                        Quic::vec_u8_to_hex_string(&short_header_value.dcid_bytes)
+                    );
                     short_header_value.dcid =
                         self.get_connection_id(&short_header_value.dcid_bytes);
                 }
