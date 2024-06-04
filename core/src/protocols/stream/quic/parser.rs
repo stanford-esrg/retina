@@ -7,7 +7,7 @@ use crate::protocols::stream::quic::Quic;
 use crate::protocols::stream::{
     ConnParsable, ConnState, L4Pdu, ParseResult, ProbeResult, Session, SessionData,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Default, Debug)]
 pub struct QuicParser {
