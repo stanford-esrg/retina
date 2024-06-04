@@ -25,6 +25,7 @@ use crate::protocols::stream::quic::QuicShortHeader;
 use crate::protocols::stream::quic::{parser::QuicParser, Quic};
 use crate::protocols::stream::{ConnParser, Session, SessionData};
 use crate::subscription::{Level, Subscribable, Subscription, Trackable};
+use std::collections::HashSet;
 
 use serde::Serialize;
 
@@ -92,13 +93,13 @@ impl Subscribable for QuicStream {
 #[doc(hidden)]
 pub struct TrackedQuic {
     five_tuple: FiveTuple,
-    connection_id: Vec<String>,
+    connection_id: HashSet<String>,
 }
 
 impl TrackedQuic {
     fn get_connection_id(&self, dcid_bytes: &[u8]) -> Option<String> {
         let dcid_hex = Quic::vec_u8_to_hex_string(dcid_bytes);
-        for dcid in self.connection_id.iter() {
+        for dcid in &self.connection_id {
             if dcid_hex.starts_with(dcid) {
                 return Some(dcid.clone());
             }
@@ -113,7 +114,7 @@ impl Trackable for TrackedQuic {
     fn new(five_tuple: FiveTuple) -> Self {
         TrackedQuic {
             five_tuple,
-            connection_id: Vec::new(),
+            connection_id: HashSet::new(),
         }
     }
 
@@ -125,10 +126,10 @@ impl Trackable for TrackedQuic {
 
             if let Some(long_header) = &quic_clone.long_header {
                 if long_header.dcid_len > 0 {
-                    self.connection_id.push(long_header.dcid.clone());
+                    self.connection_id.insert(long_header.dcid.clone());
                 }
                 if long_header.scid_len > 0 {
-                    self.connection_id.push(long_header.scid.clone());
+                    self.connection_id.insert(long_header.scid.clone());
                 }
             } else {
                 if let Some(ref mut short_header_value) = quic_clone.short_header {
