@@ -96,10 +96,10 @@ pub struct TrackedQuic {
 
 impl TrackedQuic {
     fn get_connection_id(&self, dcid_bytes: &[u8]) -> Option<String> {
-        let dcid_hex = Quic::vec_u8_to_hex(dcid_bytes);
+        let dcid_hex = Quic::vec_u8_to_hex_string(dcid_bytes);
         for dcid in self.connection_id.iter() {
             if dcid_hex.starts_with(dcid) {
-                Some(dcid)
+                return Some(dcid);
             }
         }
         None
@@ -124,11 +124,11 @@ impl Trackable for TrackedQuic {
                 if let Some(long_header) = (*quic).long_header {
                     if long_header.dcid_len > 0 {
                         self.connection_id
-                            .push(Quic::vec_u8_to_hex(&long_header.dcid));
+                            .push(Quic::vec_u8_to_hex_string(&long_header.dcid));
                     }
                     if long_header.scid_len > 0 {
                         self.connection_id
-                            .push(Quic::vec_u8_to_hex(&long_header.scid));
+                            .push(Quic::vec_u8_to_hex_string(&long_header.scid));
                     }
                 }
             } else {
