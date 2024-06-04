@@ -119,7 +119,7 @@ impl Trackable for TrackedQuic {
     fn pre_match(&mut self, _pdu: L4Pdu, _session_id: Option<usize>) {}
 
     fn on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) {
-        if let SessionData::Quic(quic) = session.data.as_mut() {
+        if let SessionData::Quic(quic) = session.data {
             if self.connection_id.is_empty() {
                 if let Some(long_header) = (*quic).long_header {
                     if long_header.dcid_len > 0 {
@@ -130,9 +130,13 @@ impl Trackable for TrackedQuic {
                     }
                 }
             } else {
-                if let Some(short_header) = (*quic).short_header.as_mut() {
-                    short_header.dcid = self.get_connection_id(&short_header.dcid_bytes)
+                let mut short_header = (*quic).short_header.take();
+
+                if let Some(ref mut short_header_value) = short_header {
+                    short_header_value.dcid =
+                        self.get_connection_id(&short_header_value.dcid_bytes);
                 }
+                (*quic).short_header = short_header;
             }
             subscription.invoke(QuicStream {
                 five_tuple: self.five_tuple,
