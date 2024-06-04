@@ -99,7 +99,7 @@ impl TrackedQuic {
         let dcid_hex = Quic::vec_u8_to_hex_string(dcid_bytes);
         for dcid in self.connection_id.iter() {
             if dcid_hex.starts_with(dcid) {
-                return Some(dcid);
+                return Some(dcid.clone());
             }
         }
         None
@@ -123,12 +123,10 @@ impl Trackable for TrackedQuic {
             if self.connection_id.is_empty() {
                 if let Some(long_header) = (*quic).long_header {
                     if long_header.dcid_len > 0 {
-                        self.connection_id
-                            .push(Quic::vec_u8_to_hex_string(&long_header.dcid));
+                        self.connection_id.push(&long_header.dcid);
                     }
                     if long_header.scid_len > 0 {
-                        self.connection_id
-                            .push(Quic::vec_u8_to_hex_string(&long_header.scid));
+                        self.connection_id.push(&long_header.scid);
                     }
                 }
             } else {
