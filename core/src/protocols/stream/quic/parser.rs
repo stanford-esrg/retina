@@ -13,8 +13,6 @@ use std::collections::{HashMap, HashSet};
 pub struct QuicParser {
     /// Maps session ID to Quic transaction
     sessions: HashMap<usize, Quic>,
-    /// Tracks Set of Connection IDs
-    // connection_ids: HashSet<String>,
     /// Total sessions ever seen (Running session ID)
     cnt: usize,
 }
@@ -65,21 +63,7 @@ impl ConnParsable for QuicParser {
                     _ => ProbeResult::Certain,
                 }
             } else {
-                // Potential Short Header
                 ProbeResult::Unsure
-                // Check if the connection ID is known
-                /*
-                Removed for performance reasons
-                let mut max_dcid_len = 20;
-                if data.len() < 1 + max_dcid_len {
-                    max_dcid_len = data.len() - 1;
-                }
-                let dcid_bytes = data[1..1 + max_dcid_len].to_vec();
-                match self.check_connection_id(&dcid_bytes) {
-                    Some(_) => ProbeResult::Certain,
-                    None => ProbeResult::NotForUs,
-                }
-                */
             }
         } else {
             log::warn!("Malformed packet");
@@ -88,38 +72,18 @@ impl ConnParsable for QuicParser {
     }
 
     fn remove_session(&mut self, session_id: usize) -> Option<Session> {
-        self.sessions.remove(&session_id).map(|quic| {
-            // if let Some(long_header) = &quic.long_header {
-            //     if !long_header.dcid.is_empty() {
-            //         self.connection_ids.remove(&long_header.dcid);
-            //     }
-            //     if !long_header.scid.is_empty() {
-            //         self.connection_ids.remove(&long_header.scid);
-            //     }
-            // }
-            Session {
-                data: SessionData::Quic(Box::new(quic)),
-                id: session_id,
-            }
+        self.sessions.remove(&session_id).map(|quic| Session {
+            data: SessionData::Quic(Box::new(quic)),
+            id: session_id,
         })
     }
 
     fn drain_sessions(&mut self) -> Vec<Session> {
         self.sessions
             .drain()
-            .map(|(session_id, quic)| {
-                // if let Some(long_header) = &quic.long_header {
-                //     if !long_header.dcid.is_empty() {
-                //         self.connection_ids.remove(&long_header.dcid);
-                //     }
-                //     if !long_header.scid.is_empty() {
-                //         self.connection_ids.remove(&long_header.scid);
-                //     }
-                // }
-                Session {
-                    data: SessionData::Quic(Box::new(quic)),
-                    id: session_id,
-                }
+            .map(|(session_id, quic)| Session {
+                data: SessionData::Quic(Box::new(quic)),
+                id: session_id,
             })
             .collect()
     }
@@ -247,43 +211,11 @@ impl Quic {
 }
 
 impl QuicParser {
-    // fn check_connection_id(&self, dcid_bytes: &[u8]) -> Option<String> {
-    //     let dcid_hex = Quic::vec_u8_to_hex_string(dcid_bytes);
-    //     for dcid_len in (1..dcid_bytes.len() + 1).rev() {
-    //         let dcid = &dcid_hex[..dcid_len * 2];
-    //         if self.connection_ids.contains(dcid) {
-    //             return Some(String::from(dcid));
-    //         }
-    //     }
-    //     None
-    // }
-
     fn process(&mut self, data: &[u8]) -> ParseResult {
-        if let Ok(mut quic) = Quic::parse_from(data) {
+        if let Ok(quic) = Quic::parse_from(data) {
             let session_id = self.cnt;
-
-            // match &quic.long_header {
-            //     Some(long_header) => {
-            //         if !long_header.dcid.is_empty() {
-            //             self.connection_ids.insert(long_header.dcid.clone());
-            //         }
-            //         if !long_header.scid.is_empty() {
-            //             self.connection_ids.insert(long_header.scid.clone());
-            //         }
-            //     }
-            //     None => {
-            //         if let Some(ref mut short_header) = quic.short_header {
-            //             short_header.dcid = self.check_connection_id(&short_header.dcid_bytes);
-            //         } else {
-            //             log::warn!("Malformed packet");
-            //             return ParseResult::Skipped;
-            //         }
-            //     }
-            // }
-
             self.sessions.insert(session_id, quic);
             self.cnt += 1;
-
             ParseResult::Done(session_id)
         } else {
             ParseResult::Skipped
