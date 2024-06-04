@@ -133,17 +133,17 @@ impl Trackable for TrackedQuic {
                 }
             } else {
                 if let Some(ref mut short_header_value) = quic_clone.short_header {
-                    println!("Currrent connection ids: {:?}", self.connection_id);
-                    println!(
-                        "DCID bytes: {:?}",
-                        Quic::vec_u8_to_hex_string(&short_header_value.dcid_bytes)
-                    );
+                    // println!("Currrent connection ids: {:?}", self.connection_id);
+                    // println!(
+                    //     "DCID bytes: {:?}",
+                    //     Quic::vec_u8_to_hex_string(&short_header_value.dcid_bytes)
+                    // );
                     short_header_value.dcid =
                         self.get_connection_id(&short_header_value.dcid_bytes);
-                    println!("DCID: {:?}", short_header_value.dcid);
+                    // println!("DCID: {:?}", short_header_value.dcid);
                 }
-                println!("Clone: {:?}", quic_clone);
-                println!();
+                // println!("Clone: {:?}", quic_clone);
+                // println!();
                 return subscription.invoke(QuicStream {
                     five_tuple: self.five_tuple,
                     data: quic_clone,
