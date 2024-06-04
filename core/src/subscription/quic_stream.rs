@@ -125,10 +125,10 @@ impl Trackable for TrackedQuic {
             if self.connection_id.is_empty() {
                 if let Some(long_header) = quic_clone.long_header {
                     if long_header.dcid_len > 0 {
-                        self.connection_id.push(long_header.dcid);
+                        self.connection_id.push(long_header.dcid.clone());
                     }
                     if long_header.scid_len > 0 {
-                        self.connection_id.push(long_header.scid);
+                        self.connection_id.push(long_header.scid.clone());
                     }
                 }
             } else {
