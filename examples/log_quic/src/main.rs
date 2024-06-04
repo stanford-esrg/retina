@@ -1,5 +1,5 @@
 use retina_core::config::load_config;
-use retina_core::subscription::QuicTransaction;
+use retina_core::subscription::QuicStream;
 use retina_core::Runtime;
 use retina_filtergen::filter;
 
@@ -37,7 +37,7 @@ fn main() -> Result<()> {
     let file = Mutex::new(BufWriter::new(File::create(&args.outfile)?));
     let cnt = AtomicUsize::new(0);
 
-    let callback = |quic: QuicTransaction| {
+    let callback = |quic: QuicStream| {
         if let Ok(serialized) = serde_json::to_string(&quic) {
             let mut wtr = file.lock().unwrap();
             wtr.write_all(serialized.as_bytes()).unwrap();
@@ -50,9 +50,6 @@ fn main() -> Result<()> {
 
     let mut wtr = file.lock().unwrap();
     wtr.flush()?;
-    println!(
-        "Done. Logged {:?} Quic transactions to {:?}",
-        cnt, &args.outfile
-    );
+    println!("Done. Logged {:?} Quic stream to {:?}", cnt, &args.outfile);
     Ok(())
 }

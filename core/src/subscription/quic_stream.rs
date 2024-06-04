@@ -1,6 +1,6 @@
-//! QUIC transactions.
+//! QUIC streams.
 //!
-//! This is a session-level subscription that delivers parsed QUIC transaction records and associated
+//! This is a session-level subscription that delivers parsed QUIC stream records and associated
 //! connection metadata.
 //!
 //! ## Example
@@ -9,8 +9,8 @@
 //! #[filter("quic.header_type = 'long'")]
 //! fn main() {
 //!     let config = default_config();
-//!     let cb = |quic: QuicTransaction| {
-//!         println!("{}", quic.data.connection_info());
+//!     let cb = |quic: QuicStream| {
+//!         println!("{}", quic.data);
 //!     };
 //!     let mut runtime = Runtime::new(config, filter, cb).unwrap();
 //!     runtime.run();
@@ -29,14 +29,14 @@ use serde::Serialize;
 
 use std::net::SocketAddr;
 
-/// A parsed QUIC transaction and connection metadata.
+/// A parsed QUIC stream and connection metadata.
 #[derive(Debug, Serialize)]
-pub struct QuicTransaction {
+pub struct QuicStream {
     pub five_tuple: FiveTuple,
     pub data: Quic,
 }
 
-impl QuicTransaction {
+impl QuicStream {
     /// Returns the QUIC client's socket address.
     #[inline]
     pub fn client(&self) -> SocketAddr {
@@ -50,7 +50,7 @@ impl QuicTransaction {
     }
 }
 
-impl Subscribable for QuicTransaction {
+impl Subscribable for QuicStream {
     type Tracked = TrackedQuic;
 
     fn level() -> Level {
@@ -93,10 +93,8 @@ pub struct TrackedQuic {
     five_tuple: FiveTuple,
 }
 
-impl TrackedQuic {}
-
 impl Trackable for TrackedQuic {
-    type Subscribed = QuicTransaction;
+    type Subscribed = QuicStream;
 
     fn new(five_tuple: FiveTuple) -> Self {
         TrackedQuic { five_tuple }
@@ -106,7 +104,7 @@ impl Trackable for TrackedQuic {
 
     fn on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) {
         if let SessionData::Quic(quic) = session.data {
-            subscription.invoke(QuicTransaction {
+            subscription.invoke(QuicStream {
                 five_tuple: self.five_tuple,
                 data: *quic,
             });
