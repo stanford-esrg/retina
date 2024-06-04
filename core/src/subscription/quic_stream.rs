@@ -131,9 +131,9 @@ impl Trackable for TrackedQuic {
                     }
                 }
             } else {
-                let mut quic_clone: Quic = (*quic).clone();
+                let mut quic_clone = (*quic).clone();
 
-                if let Some(ref mut short_header_value) = quic_clone {
+                if let Some(ref mut short_header_value) = quic_clone.short_header {
                     short_header_value.dcid =
                         self.get_connection_id(&short_header_value.dcid_bytes);
                 }
