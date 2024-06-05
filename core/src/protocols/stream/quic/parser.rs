@@ -161,7 +161,7 @@ impl QuicPacket {
             let dcid_len = data[5];
             let dcid_start = 6;
             // There's a +2 in this size check because we need enough space to check the SCID length
-            if data.len() < (dcid_start + dcid_len as usize + 2) as usize {
+            if data.len() < (dcid_start + dcid_len as usize + 2) {
                 return Err(QuicError::PacketTooShort);
             }
             let dcid_bytes = &data[dcid_start..dcid_start + dcid_len as usize];
