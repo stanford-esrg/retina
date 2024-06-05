@@ -75,10 +75,7 @@ where
         let mut core_map: BTreeMap<CoreId, Vec<RxQueue>> = BTreeMap::new();
         for (_port_id, port) in ports.iter() {
             for (rxqueue, core_id) in port.queue_map.iter() {
-                core_map
-                    .entry(*core_id)
-                    .or_insert_with(Vec::new)
-                    .push(*rxqueue);
+                core_map.entry(*core_id).or_default().push(*rxqueue);
             }
         }
         for (core_id, rxqueues) in core_map.into_iter() {

@@ -19,7 +19,7 @@ jobs:
     - name: Install Rust stable
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: 1.69.0
+        toolchain: 1.75.0
         override: true
         components: rustfmt, clippy
     - name: Set up Python ${{ matrix.python-version }}
@@ -59,6 +59,8 @@ jobs:
             echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
             echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $GITHUB_ENV
             echo "DPDK_PATH=$DPDK_PATH" >> $GITHUB_ENV
+    - name: Remove LLVM and Clang 13/14
+      run: sudo apt remove --auto-remove clang-14 llvm-14 && sudo apt remove --auto-remove clang-13 llvm-13;
 
     - name: Clippy retina-core (no mlx5)
       run: cargo clippy --manifest-path core/Cargo.toml --no-default-features -- --deny warnings

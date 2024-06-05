@@ -119,7 +119,7 @@ impl Trackable for TrackedFrame {
         if let Some(session_id) = session_id {
             self.session_buf
                 .entry(session_id)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(pdu.mbuf_own());
         } else {
             drop(pdu);

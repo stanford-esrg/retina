@@ -220,7 +220,7 @@ fn validate_rule(
     // Need to update flow_action_rss here
     // reta_raw needs to stay in scope until after rte_flow_validate() succeeds
     let reta_raw = port.reta.iter().map(|q| q.raw()).collect::<Vec<_>>();
-    for mut a in action.rules.iter_mut() {
+    for a in action.rules.iter_mut() {
         if let dpdk::rte_flow_action_type_RTE_FLOW_ACTION_TYPE_RSS = a.type_ {
             action.rss[0].queue_num = port.queue_map.len() as u32;
             action.rss[0].queue = reta_raw.as_ptr();
@@ -282,7 +282,7 @@ fn create_rule(
     // Need to update flow_action_rss here
     // reta_raw needs to stay in scope until after rte_flow_create() succeeds
     let reta_raw = port.reta.iter().map(|q| q.raw()).collect::<Vec<_>>();
-    for mut a in action.rules.iter_mut() {
+    for a in action.rules.iter_mut() {
         if let dpdk::rte_flow_action_type_RTE_FLOW_ACTION_TYPE_RSS = a.type_ {
             action.rss[0].queue_num = port.queue_map.len() as u32;
             action.rss[0].queue = reta_raw.as_ptr();
@@ -339,7 +339,7 @@ fn add_redirect(port: &Port, from_group: u32, to_group: u32, priority: u32) -> R
     let mut action = FlowAction::new(port.id);
     action.append_jump(to_group);
     action.finish();
-    for mut a in action.rules.iter_mut() {
+    for a in action.rules.iter_mut() {
         if let dpdk::rte_flow_action_type_RTE_FLOW_ACTION_TYPE_JUMP = a.type_ {
             a.conf = &action.jump[0] as *const _ as *const c_void;
         }
