@@ -59,6 +59,8 @@ jobs:
             echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
             echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $GITHUB_ENV
             echo "DPDK_PATH=$DPDK_PATH" >> $GITHUB_ENV
+    - name: Remove LLVM 14 and Clang 14
+      run: sudo apt remove --auto-remove clang-14 llvm-14
 
     - name: Clippy retina-core (no mlx5)
       run: cargo clippy --manifest-path core/Cargo.toml --no-default-features -- --deny warnings
