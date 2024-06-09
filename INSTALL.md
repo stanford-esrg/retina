@@ -157,8 +157,3 @@ meson setup configure -Dplatform=generic
 export LD_LIBRARY_PATH=$DPDK_PATH/lib/aarch64-linux-gnu
 ```
 
-- Similarly, in `core/build.rs`, replace `pkg_config_path = ` with the correct path: 
-
-```sh
-let pkg_config_path = dpdk_path.join("lib/aarch64-linux-gnu/pkgconfig");
-```
