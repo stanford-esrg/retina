@@ -126,6 +126,16 @@ Run:
 sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=error ./target/release/my_app
 ```
 
+#### Troubleshooting: Bindgen
+
+Retina uses [bindgen](https://docs.rs/bindgen/latest/bindgen/) to generate bindings to DPDK functions implemented in C. As of 06/2024, we have encountered issues when using bindgen with clang/llvm >13, apparently due to introduced APIs for SIMD intrinsics.
+
+If you are using clang and building Retina fails with an error such as the below, downgrade clang/llvm to <=13.
+
+```sh
+error: invalid conversion between vector type '__m128i' (vector of 2 'long long' values) and integer type 'int' of different size
+```
+
 ## Testing Retina (Offline) on a VM
 
 We have deployed Retina in offline mode (streaming pcaps) on both ARM- and x86-based Ubuntu VMs. This can be useful for getting started, development, and functional testing. 
@@ -147,8 +157,3 @@ meson setup configure -Dplatform=generic
 export LD_LIBRARY_PATH=$DPDK_PATH/lib/aarch64-linux-gnu
 ```
 
-- Similarly, in `core/build.rs`, replace `pkg_config_path = ` with the correct path: 
-
-```sh
-let pkg_config_path = dpdk_path.join("lib/aarch64-linux-gnu/pkgconfig");
-```
