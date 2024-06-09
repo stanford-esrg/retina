@@ -34,11 +34,10 @@ impl PortId {
     pub fn new_from_device(device: String) -> PortId {
         let mut port_id: u16 = 0;
         let _device = device.clone();
-        let ret = 
-            unsafe {
-                let dev_name = CString::new(device).unwrap();
-                dpdk::rte_eth_dev_get_port_by_name(dev_name.as_ptr(), &mut port_id)
-            };
+        let ret = unsafe {
+            let dev_name = CString::new(device).unwrap();
+            dpdk::rte_eth_dev_get_port_by_name(dev_name.as_ptr(), &mut port_id)
+        };
         if ret != 0 {
             panic!("Failed to find device by name {}", _device);
         }
