@@ -2,15 +2,15 @@ import tomli
 import tomli_w
 import sys
 
-DEFAULT_PKT_CONT = { 'Packet::Track': ['ipv4'] }
+DEFAULT_PKT_CONT = { 'FrameContinue': ['ipv4'] }
 DEFAULT_PKT_DELIVER = {}
 DEFAULT_SUBSCRIPTIONS = ['HttpTransaction', 'Connection']
 
 NUM_SUBSCRIPTIONS = 10000
 NON_OVERLAPPING = False   # TODO: non-overlapping filters
-INCLUDE_SESSIONS = False # TODO: False for comparison to baseline Retina
-SESSION_DELIVER = False  # TODO remove
-HTTP_ONLY = False
+INCLUDE_SESSIONS = True # TODO: False for comparison to baseline Retina
+SESSION_DELIVER = True  # TODO remove
+HTTP_ONLY = True
 
 FP = '/home/tcr6/retina/examples/basic/filter_out.toml'
 
