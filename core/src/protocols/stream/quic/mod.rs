@@ -23,6 +23,8 @@ TODO: support HTTP/3
 pub(crate) mod parser;
 
 pub use self::header::{QuicLongHeader, QuicShortHeader};
+use header::LongHeaderPacketType;
+use parser::QuicError;
 use serde::Serialize;
 pub(crate) mod header;
 
@@ -36,7 +38,7 @@ pub struct QuicPacket {
     pub long_header: Option<QuicLongHeader>,
 
     /// The number of bytes contained in the estimated payload
-    pub payload_bytes_count: u16,
+    pub payload_bytes_count: Option<u64>,
 }
 
 impl QuicPacket {
@@ -52,10 +54,10 @@ impl QuicPacket {
     }
 
     /// Returns the packet type of the Quic packet
-    pub fn packet_type(&self) -> u8 {
+    pub fn packet_type(&self) -> Result<LongHeaderPacketType, QuicError> {
         match &self.long_header {
-            Some(long_header) => long_header.packet_type,
-            None => 0,
+            Some(long_header) => Ok(long_header.packet_type),
+            None => Err(QuicError::NoLongHeader),
         }
     }
 
@@ -102,7 +104,11 @@ impl QuicPacket {
     }
 
     /// Returns the number of bytes in the payload of the Quic packet
-    pub fn payload_bytes_count(&self) -> u16 {
-        self.payload_bytes_count
+    pub fn payload_bytes_count(&self) -> u64 {
+        if let Some(count) = self.payload_bytes_count {
+            count
+        } else {
+            0
+        }
     }
 }

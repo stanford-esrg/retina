@@ -2,7 +2,9 @@
 //! Custom Quic Parser with many design choices borrowed from
 //! [Wireshark Quic Disector](https://gitlab.com/wireshark/wireshark/-/blob/master/epan/dissectors/packet-quic.c)
 //!
-use crate::protocols::stream::quic::header::{QuicLongHeader, QuicShortHeader};
+use crate::protocols::stream::quic::header::{
+    LongHeaderPacketType, QuicLongHeader, QuicShortHeader,
+};
 use crate::protocols::stream::quic::QuicPacket;
 use crate::protocols::stream::{
     ConnParsable, ConnState, L4Pdu, ParseResult, ProbeResult, Session, SessionData,
@@ -123,6 +125,9 @@ pub enum QuicError {
     PacketTooShort,
     UnknownVersion,
     ShortHeader,
+    UnknowLongHeaderPacketType,
+    NoLongHeader,
+    UnsupportedVarLen,
 }
 
 impl QuicPacket {
@@ -134,50 +139,119 @@ impl QuicPacket {
             .join("")
     }
 
+    // Calculate the length of a variable length encoding
+    // See RFC 9000 Section 16 for details
+    pub fn get_var_len(a: u8) -> Result<usize, QuicError> {
+        let two_msb = a >> 6;
+        match two_msb {
+            0b00 => Ok(1),
+            0b01 => Ok(2),
+            0b10 => Ok(4),
+            0b11 => Ok(8),
+            _ => Err(QuicError::UnsupportedVarLen),
+        }
+    }
+
+    // Masks variable length encoding and returns u64 value for remainder of field
+    fn slice_to_u64(data: &[u8]) -> Result<u64, QuicError> {
+        if data.len() > 8 {
+            return Err(QuicError::UnsupportedVarLen);
+        }
+
+        let mut result: u64 = 0;
+        for &byte in data {
+            result = (result << 8) | u64::from(byte);
+        }
+        result &= !(0b11 << ((data.len() * 8) - 2)); // Var length encoding mask
+        Ok(result)
+    }
+
     /// Parses Quic packet from bytes
     pub fn parse_from(data: &[u8]) -> Result<QuicPacket, QuicError> {
+        let mut offset = 0;
         if data.len() <= 2 {
             return Err(QuicError::PacketTooShort);
         }
-        if (data[0] & 0x40) == 0 {
+        if (data[offset] & 0x40) == 0 {
             return Err(QuicError::FixedBitNotSet);
         }
-        if (data[0] & 0x80) != 0 {
+        if (data[offset] & 0x80) != 0 {
+            let packet_type = LongHeaderPacketType::from_u8((data[offset] & 0x30) >> 4)?;
+            let type_specific = data[offset] & 0x0F;
+            offset += 1;
             // Long Header
             if data.len() < 7 {
                 return Err(QuicError::PacketTooShort);
             }
-            let version = ((data[1] as u32) << 24)
-                | ((data[2] as u32) << 16)
-                | ((data[3] as u32) << 8)
-                | (data[4] as u32);
+            let version = ((data[offset] as u32) << 24)
+                | ((data[offset + 1] as u32) << 16)
+                | ((data[offset + 2] as u32) << 8)
+                | (data[offset + 3] as u32);
             if QuicVersion::from_u32(version) == QuicVersion::Unknown {
                 return Err(QuicError::UnknownVersion);
             }
-
-            let packet_type = (data[0] & 0x30) >> 4;
-            let type_specific = data[0] & 0x0F;
-
-            let dcid_len = data[5];
-            let dcid_start = 6;
+            offset += 4;
+            let dcid_len = data[offset];
+            offset += 1;
             // There's a +2 in this size check because we need enough space to check the SCID length
-            if data.len() < (dcid_start + dcid_len as usize + 2) {
+            if data.len() < (offset + dcid_len as usize + 2) {
                 return Err(QuicError::PacketTooShort);
             }
-            let dcid_bytes = &data[dcid_start..dcid_start + dcid_len as usize];
+            let dcid_bytes = &data[offset..offset + dcid_len as usize];
             let dcid = QuicPacket::vec_u8_to_hex_string(dcid_bytes);
-            let scid_len = data[dcid_start + dcid_len as usize];
-            let scid_start = dcid_start + dcid_len as usize + 1;
-            if data.len() < (scid_start + scid_len as usize + 1) {
+            offset += dcid_len as usize;
+            let scid_len = data[offset];
+            offset += 1;
+            if data.len() < (offset + scid_len as usize + 1) {
                 return Err(QuicError::PacketTooShort);
             }
-            let scid_bytes = &data[scid_start..scid_start + scid_len as usize];
+            let scid_bytes = &data[offset..offset + scid_len as usize];
             let scid = QuicPacket::vec_u8_to_hex_string(scid_bytes);
+            offset += scid_len as usize;
 
-            // Counts all bytes remaining
-            let payload_bytes_count = data.len() - scid_start - scid_len as usize;
+            let token_len;
+            let token;
+            let packet_len;
+            let retry_tag;
+
+            match packet_type {
+                LongHeaderPacketType::Initial => {
+                    retry_tag = None;
+                    let token_len_len = QuicPacket::get_var_len(data[offset])?;
+                    token_len = Some(QuicPacket::slice_to_u64(
+                        &data[offset..offset + token_len_len],
+                    )?);
+                    offset += token_len_len;
+                    let token_bytes = &data[offset..offset + token_len.unwrap() as usize];
+                    token = Some(QuicPacket::vec_u8_to_hex_string(token_bytes));
+                    offset += token_len.unwrap() as usize;
+                    let packet_len_len = QuicPacket::get_var_len(data[offset])?;
+                    packet_len = Some(QuicPacket::slice_to_u64(
+                        &data[offset..offset + packet_len_len],
+                    )?);
+                }
+                LongHeaderPacketType::ZeroRTT | LongHeaderPacketType::Handshake => {
+                    token_len = None;
+                    token = None;
+                    retry_tag = None;
+                    let packet_len_len = QuicPacket::get_var_len(data[offset])?;
+                    packet_len = Some(QuicPacket::slice_to_u64(
+                        &data[offset..offset + packet_len_len],
+                    )?);
+                }
+                LongHeaderPacketType::Retry => {
+                    packet_len = None;
+                    token_len = Some((data.len() - offset - 16) as u64);
+                    let token_bytes = &data[offset..offset + token_len.unwrap() as usize];
+                    token = Some(QuicPacket::vec_u8_to_hex_string(token_bytes));
+                    offset += token_len.unwrap() as usize;
+                    let retry_tag_bytes = &data[offset..offset + 16];
+                    retry_tag = Some(QuicPacket::vec_u8_to_hex_string(retry_tag_bytes));
+                }
+            }
+
             Ok(QuicPacket {
-                payload_bytes_count: payload_bytes_count as u16,
+                payload_bytes_count: packet_len,
                 short_header: None,
                 long_header: Some(QuicLongHeader {
                     packet_type,
@@ -187,6 +261,9 @@ impl QuicPacket {
                     dcid,
                     scid_len,
                     scid,
+                    token_len,
+                    token,
+                    retry_tag,
                 }),
             })
         } else {
@@ -197,14 +274,14 @@ impl QuicPacket {
             }
             let dcid_bytes = data[1..1 + max_dcid_len].to_vec();
             // Counts all bytes remaining
-            let payload_bytes_count = data.len() - 1 - max_dcid_len;
+            let payload_bytes_count = Some((data.len() - 1 - max_dcid_len) as u64);
             Ok(QuicPacket {
                 short_header: Some(QuicShortHeader {
                     dcid: None,
                     dcid_bytes,
                 }),
                 long_header: None,
-                payload_bytes_count: payload_bytes_count as u16,
+                payload_bytes_count,
             })
         }
     }
