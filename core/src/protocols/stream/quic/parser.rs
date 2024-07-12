@@ -128,6 +128,7 @@ pub enum QuicError {
     UnknowLongHeaderPacketType,
     NoLongHeader,
     UnsupportedVarLen,
+    InvalidDataIndices,
 }
 
 impl QuicPacket {
@@ -166,52 +167,51 @@ impl QuicPacket {
         Ok(result)
     }
 
-    fn validate_length(data: &[u8], acc_len: usize) -> Result<(), QuicError> {
-        if data.len() < acc_len {
-            return Err(QuicError::PacketTooShort)
+    fn access_data(data: &[u8], start: usize, end: usize) -> Result<&[u8], QuicError> {
+        if end < start {
+            return Err(QuicError::InvalidDataIndices);
         }
-        Ok(())
+        if data.len() < end {
+            return Err(QuicError::PacketTooShort);
+        }
+        Ok(&data[start..end])
     }
 
     /// Parses Quic packet from bytes
     pub fn parse_from(data: &[u8]) -> Result<QuicPacket, QuicError> {
         let mut offset = 0;
-        QuicPacket::validate_length(data, offset + 1)?;
+        let packet_header_byte = QuicPacket::access_data(data, offset, offset + 1)?[0];
+        offset += 1;
         // Check the fixed bit
-        if (data[offset] & 0x40) == 0 {
+        if (packet_header_byte & 0x40) == 0 {
             return Err(QuicError::FixedBitNotSet);
         }
         // Check the Header form
-        if (data[offset] & 0x80) != 0 {
+        if (packet_header_byte & 0x80) != 0 {
             // Long Header
             // Parse packet type
-            let packet_type = LongHeaderPacketType::from_u8((data[offset] & 0x30) >> 4)?;
-            let type_specific = data[offset] & 0x0F; // Remainder of information from header byte, Reserved and protected packet number length
-            offset += 1;
-            // Parse version
-            QuicPacket::validate_length(data, offset + 4)?;
-            let version = ((data[offset] as u32) << 24)
-                | ((data[offset + 1] as u32) << 16)
-                | ((data[offset + 2] as u32) << 8)
-                | (data[offset + 3] as u32);
+            let packet_type = LongHeaderPacketType::from_u8((packet_header_byte & 0x30) >> 4)?;
+            let type_specific = packet_header_byte & 0x0F; // Remainder of information from header byte, Reserved and protected packet number length
+                                                           // Parse version
+            let version_bytes = QuicPacket::access_data(data, offset, offset + 4)?;
+            let version = ((version_bytes[0] as u32) << 24)
+                | ((version_bytes[1] as u32) << 16)
+                | ((version_bytes[2] as u32) << 8)
+                | (version_bytes[3] as u32);
             if QuicVersion::from_u32(version) == QuicVersion::Unknown {
                 return Err(QuicError::UnknownVersion);
             }
             offset += 4;
             // Parse DCID
-            QuicPacket::validate_length(data, offset + 1)?;
-            let dcid_len = data[offset];
+            let dcid_len = QuicPacket::access_data(data, offset, offset + 1)?[0];
             offset += 1;
-            QuicPacket::validate_length(data, offset + dcid_len as usize)?;
-            let dcid_bytes = &data[offset..offset + dcid_len as usize];
+            let dcid_bytes = QuicPacket::access_data(data, offset, offset + dcid_len as usize)?;
             let dcid = QuicPacket::vec_u8_to_hex_string(dcid_bytes);
             offset += dcid_len as usize;
             // Parse SCID
-            QuicPacket::validate_length(data, offset + 1)?;
-            let scid_len = data[offset];
+            let scid_len = QuicPacket::access_data(data, offset, offset + 1)?[0];
             offset += 1;
-            QuicPacket::validate_length(data, offset + scid_len as usize)?;
-            let scid_bytes = &data[offset..offset + scid_len as usize];
+            let scid_bytes = QuicPacket::access_data(data, offset, offset + scid_len as usize)?;
             let scid = QuicPacket::vec_u8_to_hex_string(scid_bytes);
             offset += scid_len as usize;
 
@@ -219,53 +219,64 @@ impl QuicPacket {
             let token;
             let packet_len;
             let retry_tag;
-
+            // Parse packet type specific fields
             match packet_type {
                 LongHeaderPacketType::Initial => {
                     retry_tag = None;
                     // Parse token
-                    QuicPacket::validate_length(data, offset + 1)?;
-                    let token_len_len = QuicPacket::get_var_len(data[offset])?;
-                    QuicPacket::validate_length(data, offset + token_len_len)?;
-                    token_len = Some(QuicPacket::slice_to_u64(
-                        &data[offset..offset + token_len_len],
-                    )?);
+                    let token_len_len = QuicPacket::get_var_len(
+                        QuicPacket::access_data(data, offset, offset + 1)?[0],
+                    )?;
+                    token_len = Some(QuicPacket::slice_to_u64(QuicPacket::access_data(
+                        data,
+                        offset,
+                        offset + token_len_len,
+                    )?)?);
                     offset += token_len_len;
-                    QuicPacket::validate_length(data, offset + token_len.unwrap() as usize)?;
-                    let token_bytes = &data[offset..offset + token_len.unwrap() as usize];
+                    let token_bytes = QuicPacket::access_data(
+                        data,
+                        offset,
+                        offset + token_len.unwrap() as usize,
+                    )?;
                     token = Some(QuicPacket::vec_u8_to_hex_string(token_bytes));
                     offset += token_len.unwrap() as usize;
-                    QuicPacket::validate_length(data, offset + 1)?;
                     // Parse payload length
-                    let packet_len_len = QuicPacket::get_var_len(data[offset])?;
-                    QuicPacket::validate_length(data, offset + packet_len_len)?;
-                    packet_len = Some(QuicPacket::slice_to_u64(
-                        &data[offset..offset + packet_len_len],
-                    )?);
+                    let packet_len_len = QuicPacket::get_var_len(
+                        QuicPacket::access_data(data, offset, offset + 1)?[0],
+                    )?;
+                    packet_len = Some(QuicPacket::slice_to_u64(QuicPacket::access_data(
+                        data,
+                        offset,
+                        offset + packet_len_len,
+                    )?)?);
                 }
                 LongHeaderPacketType::ZeroRTT | LongHeaderPacketType::Handshake => {
                     token_len = None;
                     token = None;
                     retry_tag = None;
                     // Parse payload length
-                    QuicPacket::validate_length(data, offset + 1)?;
-                    let packet_len_len = QuicPacket::get_var_len(data[offset])?;
-                    QuicPacket::validate_length(data, offset + packet_len_len)?;
-                    packet_len = Some(QuicPacket::slice_to_u64(
-                        &data[offset..offset + packet_len_len],
-                    )?);
+                    let packet_len_len = QuicPacket::get_var_len(
+                        QuicPacket::access_data(data, offset, offset + 1)?[0],
+                    )?;
+                    packet_len = Some(QuicPacket::slice_to_u64(QuicPacket::access_data(
+                        data,
+                        offset,
+                        offset + packet_len_len,
+                    )?)?);
                 }
                 LongHeaderPacketType::Retry => {
                     packet_len = None;
                     token_len = Some((data.len() - offset - 16) as u64);
                     // Parse retry token
-                    QuicPacket::validate_length(data, offset + token_len.unwrap() as usize)?;
-                    let token_bytes = &data[offset..offset + token_len.unwrap() as usize];
+                    let token_bytes = QuicPacket::access_data(
+                        data,
+                        offset,
+                        offset + token_len.unwrap() as usize,
+                    )?;
                     token = Some(QuicPacket::vec_u8_to_hex_string(token_bytes));
                     offset += token_len.unwrap() as usize;
                     // Parse retry tag
-                    QuicPacket::validate_length(data, offset + 16)?;
-                    let retry_tag_bytes = &data[offset..offset + 16];
+                    let retry_tag_bytes = QuicPacket::access_data(data, offset, offset + 16)?;
                     retry_tag = Some(QuicPacket::vec_u8_to_hex_string(retry_tag_bytes));
                 }
             }
@@ -288,13 +299,12 @@ impl QuicPacket {
             })
         } else {
             // Short Header
-            offset += 1;
             let mut max_dcid_len = 20;
             if data.len() < 1 + max_dcid_len {
                 max_dcid_len = data.len() - 1;
             }
             // Parse DCID
-            let dcid_bytes = data[offset..offset + max_dcid_len].to_vec();
+            let dcid_bytes = QuicPacket::access_data(data, offset, offset + max_dcid_len)?.to_vec();
             offset += max_dcid_len;
             // Counts all bytes remaining
             let payload_bytes_count = Some((data.len() - offset) as u64);
