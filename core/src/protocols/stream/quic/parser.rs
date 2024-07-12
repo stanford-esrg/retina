@@ -266,7 +266,11 @@ impl QuicPacket {
                 }
                 LongHeaderPacketType::Retry => {
                     packet_len = None;
-                    token_len = Some((data.len() - offset - 16) as u64);
+                    if data.len() > (offset + 16) {
+                        token_len = Some((data.len() - offset - 16) as u64);
+                    } else {
+                        return Err(QuicError::PacketTooShort);
+                    }
                     // Parse retry token
                     let token_bytes = QuicPacket::access_data(
                         data,
