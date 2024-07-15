@@ -26,6 +26,7 @@ pub use self::header::{QuicLongHeader, QuicShortHeader};
 use header::LongHeaderPacketType;
 use parser::QuicError;
 use serde::Serialize;
+pub(crate) mod crypto;
 pub(crate) mod header;
 
 /// Parsed Quic Packet contents
@@ -39,6 +40,9 @@ pub struct QuicPacket {
 
     /// The number of bytes contained in the estimated payload
     pub payload_bytes_count: Option<u64>,
+
+    // The decrypted QUIC packet payload
+    pub decrypted_payload: Option<Vec<u8>>,
 }
 
 impl QuicPacket {

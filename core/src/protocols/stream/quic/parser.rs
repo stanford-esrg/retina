@@ -2,6 +2,7 @@
 //! Custom Quic Parser with many design choices borrowed from
 //! [Wireshark Quic Disector](https://gitlab.com/wireshark/wireshark/-/blob/master/epan/dissectors/packet-quic.c)
 //!
+use crate::protocols::stream::quic::crypto::calc_init_keys;
 use crate::protocols::stream::quic::header::{
     LongHeaderPacketType, QuicLongHeader, QuicShortHeader,
 };
@@ -9,6 +10,7 @@ use crate::protocols::stream::quic::QuicPacket;
 use crate::protocols::stream::{
     ConnParsable, ConnState, L4Pdu, ParseResult, ProbeResult, Session, SessionData,
 };
+use byteorder::{BigEndian, ByteOrder};
 use std::collections::HashMap;
 
 #[derive(Default, Debug)]
@@ -129,6 +131,8 @@ pub enum QuicError {
     NoLongHeader,
     UnsupportedVarLen,
     InvalidDataIndices,
+    CryptoFail,
+    FailedHeaderProtection,
 }
 
 impl QuicPacket {
@@ -178,7 +182,7 @@ impl QuicPacket {
     }
 
     /// Parses Quic packet from bytes
-    pub fn parse_from(data: &[u8]) -> Result<QuicPacket, QuicError> {
+    pub fn parse_from(data: &[u8], cnt: usize) -> Result<QuicPacket, QuicError> {
         let mut offset = 0;
         let packet_header_byte = QuicPacket::access_data(data, offset, offset + 1)?[0];
         offset += 1;
@@ -219,6 +223,7 @@ impl QuicPacket {
             let token;
             let packet_len;
             let retry_tag;
+            let decrypted_payload;
             // Parse packet type specific fields
             match packet_type {
                 LongHeaderPacketType::Initial => {
@@ -227,11 +232,9 @@ impl QuicPacket {
                     let token_len_len = QuicPacket::get_var_len(
                         QuicPacket::access_data(data, offset, offset + 1)?[0],
                     )?;
-                    token_len = Some(QuicPacket::slice_to_u64(QuicPacket::access_data(
-                        data,
-                        offset,
-                        offset + token_len_len,
-                    )?)?);
+                    let token_len_bytes =
+                        QuicPacket::access_data(data, offset, offset + token_len_len)?;
+                    token_len = Some(QuicPacket::slice_to_u64(token_len_bytes)?);
                     offset += token_len_len;
                     let token_bytes = QuicPacket::access_data(
                         data,
@@ -244,16 +247,75 @@ impl QuicPacket {
                     let packet_len_len = QuicPacket::get_var_len(
                         QuicPacket::access_data(data, offset, offset + 1)?[0],
                     )?;
-                    packet_len = Some(QuicPacket::slice_to_u64(QuicPacket::access_data(
-                        data,
-                        offset,
-                        offset + packet_len_len,
-                    )?)?);
+                    let packet_len_bytes =
+                        QuicPacket::access_data(data, offset, offset + packet_len_len)?;
+                    packet_len = Some(QuicPacket::slice_to_u64(packet_len_bytes)?);
+                    offset += packet_len_len;
+                    if cnt == 0 {
+                        // Derive initial keys
+                        let [client_opener, server_opener] = calc_init_keys(dcid_bytes, version)?;
+                        // Calculate HP
+                        let sample_len = client_opener.sample_len();
+                        let hp_sample =
+                            QuicPacket::access_data(data, offset + 4, offset + 4 + sample_len)?;
+                        let mask = client_opener.new_mask(hp_sample)?;
+                        // Remove HP from packet header byte
+                        let unprotected_header = packet_header_byte ^ (mask[0] & 0b00001111);
+                        if (unprotected_header >> 2) & 0b00000011 != 0 {
+                            return Err(QuicError::FailedHeaderProtection);
+                        }
+                        // Parse packet number
+                        let packet_num_len = ((unprotected_header & 0b00000011) + 1) as usize;
+                        let packet_number_bytes =
+                            QuicPacket::access_data(data, offset, offset + packet_num_len)?;
+                        let mut packet_number = [0; 4];
+                        for i in 0..packet_num_len {
+                            packet_number[4 - (i + 1)] = packet_number_bytes[i] ^ mask[i + 1];
+                        }
+                        let initial_packet_number_bytes = &packet_number[4 - packet_num_len..];
+                        let packet_number_int = BigEndian::read_i32(&packet_number);
+                        offset += packet_num_len;
+                        // Parse the encrypted payload
+                        let tag_len = client_opener.alg().tag_len();
+                        if (packet_len.unwrap() as usize) < (tag_len + packet_num_len) {
+                            return Err(QuicError::PacketTooShort);
+                        }
+                        let cipher_text_len =
+                            packet_len.unwrap() as usize - tag_len - packet_num_len;
+                        let mut encrypted_payload =
+                            QuicPacket::access_data(data, offset, offset + cipher_text_len)?
+                                .to_vec();
+                        offset += cipher_text_len;
+                        // Parse auth tag
+                        let tag = QuicPacket::access_data(data, offset, offset + tag_len)?;
+                        offset += tag_len;
+                        // Reconstruct authenticated data
+                        let mut ad = Vec::new();
+                        ad.append(&mut [unprotected_header].to_vec());
+                        ad.append(&mut version_bytes.to_vec());
+                        ad.append(&mut [dcid_len].to_vec());
+                        ad.append(&mut dcid_bytes.to_vec());
+                        ad.append(&mut [scid_len].to_vec());
+                        ad.append(&mut scid_bytes.to_vec());
+                        ad.append(&mut token_len_bytes.to_vec());
+                        ad.append(&mut token_bytes.to_vec());
+                        ad.append(&mut packet_len_bytes.to_vec());
+                        ad.append(&mut initial_packet_number_bytes.to_vec());
+                        decrypted_payload = Some(client_opener.open_with_u64_counter(
+                            packet_number_int as u64,
+                            &ad,
+                            &mut encrypted_payload,
+                            tag,
+                        )?);
+                    } else {
+                        decrypted_payload = None;
+                    }
                 }
                 LongHeaderPacketType::ZeroRTT | LongHeaderPacketType::Handshake => {
                     token_len = None;
                     token = None;
                     retry_tag = None;
+                    decrypted_payload = None;
                     // Parse payload length
                     let packet_len_len = QuicPacket::get_var_len(
                         QuicPacket::access_data(data, offset, offset + 1)?[0],
@@ -266,6 +328,7 @@ impl QuicPacket {
                 }
                 LongHeaderPacketType::Retry => {
                     packet_len = None;
+                    decrypted_payload = None;
                     if data.len() > (offset + 16) {
                         token_len = Some((data.len() - offset - 16) as u64);
                     } else {
@@ -300,6 +363,7 @@ impl QuicPacket {
                     token,
                     retry_tag,
                 }),
+                decrypted_payload,
             })
         } else {
             // Short Header
@@ -319,6 +383,7 @@ impl QuicPacket {
                 }),
                 long_header: None,
                 payload_bytes_count,
+                decrypted_payload: None,
             })
         }
     }
@@ -326,7 +391,7 @@ impl QuicPacket {
 
 impl QuicParser {
     fn process(&mut self, data: &[u8]) -> ParseResult {
-        if let Ok(quic) = QuicPacket::parse_from(data) {
+        if let Ok(quic) = QuicPacket::parse_from(data, self.cnt) {
             let session_id = self.cnt;
             self.sessions.insert(session_id, quic);
             self.cnt += 1;
