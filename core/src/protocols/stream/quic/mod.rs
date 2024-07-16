@@ -27,8 +27,8 @@ use frame::QuicFrame;
 use header::LongHeaderPacketType;
 use serde::Serialize;
 pub(crate) mod crypto;
-pub(crate) mod header;
 pub(crate) mod frame;
+pub(crate) mod header;
 
 /// Errors Thrown throughout QUIC parsing. These are handled by retina and used to skip packets.
 #[derive(Debug)]

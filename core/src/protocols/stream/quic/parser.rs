@@ -3,14 +3,14 @@
 //! [Wireshark Quic Disector](https://gitlab.com/wireshark/wireshark/-/blob/master/epan/dissectors/packet-quic.c)
 //!
 use crate::protocols::stream::quic::crypto::calc_init_keys;
+use crate::protocols::stream::quic::frame::QuicFrame;
 use crate::protocols::stream::quic::header::{
     LongHeaderPacketType, QuicLongHeader, QuicShortHeader,
 };
-use crate::protocols::stream::quic::{QuicPacket, QuicError};
+use crate::protocols::stream::quic::{QuicError, QuicPacket};
 use crate::protocols::stream::{
     ConnParsable, ConnState, L4Pdu, ParseResult, ProbeResult, Session, SessionData,
 };
-use crate::protocols::stream::quic::frame::QuicFrame;
 use byteorder::{BigEndian, ByteOrder};
 use std::collections::HashMap;
 
@@ -357,7 +357,7 @@ impl QuicPacket {
                     token,
                     retry_tag,
                 }),
-                frames: frames,
+                frames,
             })
         } else {
             // Short Header
