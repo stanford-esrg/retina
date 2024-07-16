@@ -23,11 +23,28 @@ TODO: support HTTP/3
 pub(crate) mod parser;
 
 pub use self::header::{QuicLongHeader, QuicShortHeader};
+use frame::QuicFrame;
 use header::LongHeaderPacketType;
-use parser::QuicError;
 use serde::Serialize;
 pub(crate) mod crypto;
 pub(crate) mod header;
+pub(crate) mod frame;
+
+/// Errors Thrown throughout QUIC parsing. These are handled by retina and used to skip packets.
+#[derive(Debug)]
+pub enum QuicError {
+    FixedBitNotSet,
+    PacketTooShort,
+    UnknownVersion,
+    ShortHeader,
+    UnknowLongHeaderPacketType,
+    NoLongHeader,
+    UnsupportedVarLen,
+    InvalidDataIndices,
+    CryptoFail,
+    FailedHeaderProtection,
+    UnknownFrameType,
+}
 
 /// Parsed Quic Packet contents
 #[derive(Debug, Serialize, Clone)]
@@ -41,8 +58,7 @@ pub struct QuicPacket {
     /// The number of bytes contained in the estimated payload
     pub payload_bytes_count: Option<u64>,
 
-    // The decrypted QUIC packet payload
-    pub decrypted_payload: Option<Vec<u8>>,
+    pub frames: Option<Vec<QuicFrame>>,
 }
 
 impl QuicPacket {

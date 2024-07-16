@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 
-use crate::protocols::stream::quic::parser::QuicError;
+use crate::protocols::stream::quic::QuicError;
 
 /// Quic Long Header
 #[derive(Debug, Serialize, Clone)]

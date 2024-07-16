@@ -35,7 +35,7 @@ use crypto::aes_gcm::AesGcm;
 use ring::aead;
 use ring::hkdf;
 
-use crate::protocols::stream::quic::parser::QuicError;
+use crate::protocols::stream::quic::QuicError;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Algorithm {
