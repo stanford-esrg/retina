@@ -6,10 +6,11 @@ use crate::protocols::stream::quic::crypto::calc_init_keys;
 use crate::protocols::stream::quic::header::{
     LongHeaderPacketType, QuicLongHeader, QuicShortHeader,
 };
-use crate::protocols::stream::quic::QuicPacket;
+use crate::protocols::stream::quic::{QuicPacket, QuicError};
 use crate::protocols::stream::{
     ConnParsable, ConnState, L4Pdu, ParseResult, ProbeResult, Session, SessionData,
 };
+use crate::protocols::stream::quic::frame::QuicFrame;
 use byteorder::{BigEndian, ByteOrder};
 use std::collections::HashMap;
 
@@ -120,21 +121,6 @@ impl QuicVersion {
     }
 }
 
-/// Errors Thrown by Quic Parser. These are handled by retina and used to skip packets.
-#[derive(Debug)]
-pub enum QuicError {
-    FixedBitNotSet,
-    PacketTooShort,
-    UnknownVersion,
-    ShortHeader,
-    UnknowLongHeaderPacketType,
-    NoLongHeader,
-    UnsupportedVarLen,
-    InvalidDataIndices,
-    CryptoFail,
-    FailedHeaderProtection,
-}
-
 impl QuicPacket {
     /// Processes the connection ID bytes array to a hex string
     pub fn vec_u8_to_hex_string(vec: &[u8]) -> String {
@@ -158,7 +144,7 @@ impl QuicPacket {
     }
 
     // Masks variable length encoding and returns u64 value for remainder of field
-    fn slice_to_u64(data: &[u8]) -> Result<u64, QuicError> {
+    pub fn slice_to_u64(data: &[u8]) -> Result<u64, QuicError> {
         if data.len() > 8 {
             return Err(QuicError::UnsupportedVarLen);
         }
@@ -171,7 +157,7 @@ impl QuicPacket {
         Ok(result)
     }
 
-    fn access_data(data: &[u8], start: usize, end: usize) -> Result<&[u8], QuicError> {
+    pub fn access_data(data: &[u8], start: usize, end: usize) -> Result<&[u8], QuicError> {
         if end < start {
             return Err(QuicError::InvalidDataIndices);
         }
@@ -348,6 +334,14 @@ impl QuicPacket {
                 }
             }
 
+            let frames: Option<Vec<QuicFrame>>;
+            // If decrypted payload is not None, parse the frames
+            if let Some(frame_bytes) = decrypted_payload {
+                frames = Some(QuicFrame::parse_frames(&frame_bytes)?);
+            } else {
+                frames = None;
+            }
+
             Ok(QuicPacket {
                 payload_bytes_count: packet_len,
                 short_header: None,
@@ -363,7 +357,7 @@ impl QuicPacket {
                     token,
                     retry_tag,
                 }),
-                decrypted_payload,
+                frames: frames,
             })
         } else {
             // Short Header
@@ -383,7 +377,7 @@ impl QuicPacket {
                 }),
                 long_header: None,
                 payload_bytes_count,
-                decrypted_payload: None,
+                frames: None,
             })
         }
     }
