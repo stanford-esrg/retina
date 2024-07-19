@@ -8,11 +8,13 @@ use crate::protocols::stream::quic::header::{
     LongHeaderPacketType, QuicLongHeader, QuicShortHeader,
 };
 use crate::protocols::stream::quic::{QuicError, QuicPacket};
+use crate::protocols::stream::tls::{ClientHello, Tls};
 use crate::protocols::stream::{
     ConnParsable, ConnState, L4Pdu, ParseResult, ProbeResult, Session, SessionData,
 };
 use byteorder::{BigEndian, ByteOrder};
 use std::collections::HashMap;
+use tls_parser::parse_tls_message_handshake;
 
 #[derive(Default, Debug)]
 pub struct QuicParser {
@@ -31,7 +33,7 @@ impl ConnParsable for QuicParser {
         }
 
         if let Ok(data) = (pdu.mbuf_ref()).get_data_slice(offset, length) {
-            self.process(data)
+            self.process(data, pdu)
         } else {
             log::warn!("Malformed packet on parse");
             ParseResult::Skipped
@@ -103,19 +105,28 @@ impl ConnParsable for QuicParser {
 
 /// Supported Quic Versions
 #[derive(Debug, PartialEq, Eq, Hash)]
-enum QuicVersion {
+#[repr(u32)]
+pub enum QuicVersion {
     ReservedNegotiation = 0x00000000,
     Rfc9000 = 0x00000001, // Quic V1
     Rfc9369 = 0x6b3343cf, // Quic V2
+    Draft27 = 0xff00001b, // Quic draft 27
+    Draft28 = 0xff00001c, // Quic draft 28
+    Draft29 = 0xff00001d, // Quic draft 29
+    Mvfst27 = 0xfaceb002, // Facebook Implementation of draft 27
     Unknown,
 }
 
 impl QuicVersion {
-    fn from_u32(version: u32) -> Self {
+    pub fn from_u32(version: u32) -> Self {
         match version {
             0x00000000 => QuicVersion::ReservedNegotiation,
             0x00000001 => QuicVersion::Rfc9000,
             0x6b3343cf => QuicVersion::Rfc9369,
+            0xff00001b => QuicVersion::Draft27,
+            0xff00001c => QuicVersion::Draft28,
+            0xff00001d => QuicVersion::Draft29,
+            0xfaceb002 => QuicVersion::Mvfst27,
             _ => QuicVersion::Unknown,
         }
     }
@@ -168,7 +179,7 @@ impl QuicPacket {
     }
 
     /// Parses Quic packet from bytes
-    pub fn parse_from(data: &[u8], cnt: usize) -> Result<QuicPacket, QuicError> {
+    pub fn parse_from(data: &[u8], cnt: usize, dir: bool) -> Result<QuicPacket, QuicError> {
         let mut offset = 0;
         let packet_header_byte = QuicPacket::access_data(data, offset, offset + 1)?[0];
         offset += 1;
@@ -239,7 +250,7 @@ impl QuicPacket {
                     offset += packet_len_len;
                     if cnt == 0 {
                         // Derive initial keys
-                        let [client_opener, server_opener] = calc_init_keys(dcid_bytes, version)?;
+                        let [client_opener, _server_opener] = calc_init_keys(dcid_bytes, version)?;
                         // Calculate HP
                         let sample_len = client_opener.sample_len();
                         let hp_sample =
@@ -274,7 +285,9 @@ impl QuicPacket {
                         offset += cipher_text_len;
                         // Parse auth tag
                         let tag = QuicPacket::access_data(data, offset, offset + tag_len)?;
-                        offset += tag_len;
+                        // Commenting out the offset increase for tag_len to make clippy happy
+                        // Will be needed when handling multiple QUIC packets in single datagram
+                        // offset += tag_len;
                         // Reconstruct authenticated data
                         let mut ad = Vec::new();
                         ad.append(&mut [unprotected_header].to_vec());
@@ -334,12 +347,22 @@ impl QuicPacket {
                 }
             }
 
-            let frames: Option<Vec<QuicFrame>>;
+            let mut frames: Option<Vec<QuicFrame>> = None;
+            let mut ch: Option<ClientHello> = None;
             // If decrypted payload is not None, parse the frames
             if let Some(frame_bytes) = decrypted_payload {
-                frames = Some(QuicFrame::parse_frames(&frame_bytes)?);
-            } else {
-                frames = None;
+                let (q_frames, ch_bytes) = QuicFrame::parse_frames(&frame_bytes)?;
+                frames = Some(q_frames);
+                match parse_tls_message_handshake(&ch_bytes) {
+                    Ok((_, msg)) => {
+                        let mut tls = Tls::new();
+                        tls.parse_message_level(&msg, dir);
+                        if let Some(client_hello) = tls.client_hello {
+                            ch = Some(client_hello);
+                        }
+                    }
+                    Err(_) => return Err(QuicError::TlsParseFail),
+                }
             }
 
             Ok(QuicPacket {
@@ -358,6 +381,7 @@ impl QuicPacket {
                     retry_tag,
                 }),
                 frames,
+                tls: ch,
             })
         } else {
             // Short Header
@@ -378,14 +402,15 @@ impl QuicPacket {
                 long_header: None,
                 payload_bytes_count,
                 frames: None,
+                tls: None,
             })
         }
     }
 }
 
 impl QuicParser {
-    fn process(&mut self, data: &[u8]) -> ParseResult {
-        if let Ok(quic) = QuicPacket::parse_from(data, self.cnt) {
+    fn process(&mut self, data: &[u8], pdu: &L4Pdu) -> ParseResult {
+        if let Ok(quic) = QuicPacket::parse_from(data, self.cnt, pdu.dir) {
             let session_id = self.cnt;
             self.sessions.insert(session_id, quic);
             self.cnt += 1;
