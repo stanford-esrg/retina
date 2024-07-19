@@ -1,4 +1,7 @@
-// This is heavily based on Cloudflare's Rust implementation of QUIC, known as Quiche.
+// crypto.rs contains the cryptograpic functions needed to derive QUIC
+// initial keys. These keys can be used to remove header protection and
+// decrypt QUIC initial packets. This file is heavily based on Cloudflare's
+// crypto module in their Rust implementation of QUIC, known as Quiche.
 // Therefore, the original license from https://github.com/cloudflare/quiche/blob/master/quiche/src/crypto/mod.rs is below:
 
 // Copyright (C) 2018-2019, Cloudflare, Inc.
@@ -35,8 +38,12 @@ use crypto::aes_gcm::AesGcm;
 use ring::aead;
 use ring::hkdf;
 
+use crate::protocols::stream::quic::parser::QuicVersion;
 use crate::protocols::stream::quic::QuicError;
 
+// The algorithm enum defines the available
+// cryptographic algorithms used to secure
+// QUIC packets.
 #[derive(Copy, Clone, Debug)]
 pub enum Algorithm {
     AES128GCM,
@@ -80,6 +87,9 @@ impl Algorithm {
     }
 }
 
+// The Open struct gives a return value
+// that contains all of the components
+// needed for HP removal and decryption
 pub struct Open {
     alg: Algorithm,
 
@@ -192,13 +202,32 @@ pub fn calc_init_keys(cid: &[u8], version: u32) -> Result<[Open; 2], QuicError> 
 }
 
 fn derive_initial_secret(secret: &[u8], version: u32) -> hkdf::Prk {
-    const INITIAL_SALT: [u8; 20] = [
+    const INITIAL_SALT_RFC9000: [u8; 20] = [
         0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c,
         0xad, 0xcc, 0xbb, 0x7f, 0x0a,
     ];
 
-    let salt = match version {
-        _ => &INITIAL_SALT,
+    const INITIAL_SALT_RFC9369: [u8; 20] = [
+        0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93, 0x81, 0xbe, 0x6e, 0x26, 0x9d,
+        0xcb, 0xf9, 0xbd, 0x2e, 0xd9,
+    ];
+
+    const INITIAL_SALT_DRAFT29: [u8; 20] = [
+        0xaf, 0xbf, 0xec, 0x28, 0x99, 0x93, 0xd2, 0x4c, 0x9e, 0x97, 0x86, 0xf1, 0x9c, 0x61, 0x11,
+        0xe0, 0x43, 0x90, 0xa8, 0x99,
+    ];
+
+    const INITIAL_SALT_DRAFT27: [u8; 20] = [
+        0xc3, 0xee, 0xf7, 0x12, 0xc7, 0x2e, 0xbb, 0x5a, 0x11, 0xa7, 0xd2, 0x43, 0x2b, 0xb4, 0x63,
+        0x65, 0xbe, 0xf9, 0xf5, 0x02,
+    ];
+
+    let salt = match QuicVersion::from_u32(version) {
+        QuicVersion::Rfc9000 => &INITIAL_SALT_RFC9000,
+        QuicVersion::Rfc9369 => &INITIAL_SALT_RFC9369,
+        QuicVersion::Draft29 => &INITIAL_SALT_DRAFT29,
+        QuicVersion::Draft27 | QuicVersion::Draft28 | QuicVersion::Mvfst27 => &INITIAL_SALT_DRAFT27,
+        _ => &INITIAL_SALT_RFC9000,
     };
 
     let salt = hkdf::Salt::new(hkdf::HKDF_SHA256, salt);

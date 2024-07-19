@@ -121,7 +121,7 @@ impl Trackable for TrackedQuic {
 
     fn on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) {
         if let SessionData::Quic(quic) = session.data {
-            let mut quic_clone = (*quic).clone();
+            let mut quic_clone = *quic;
 
             if let Some(long_header) = &quic_clone.long_header {
                 if long_header.dcid_len > 0 {
