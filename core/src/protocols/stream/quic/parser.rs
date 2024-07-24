@@ -13,15 +13,26 @@ use crate::protocols::stream::{
     ConnParsable, ConnState, L4Pdu, ParseResult, ProbeResult, Session, SessionData,
 };
 use byteorder::{BigEndian, ByteOrder};
-use std::collections::HashMap;
+use std::collections::HashSet;
 use tls_parser::parse_tls_message_handshake;
 
-#[derive(Default, Debug)]
+use super::QuicConn;
+
+#[derive(Debug)]
 pub struct QuicParser {
-    /// Maps session ID to Quic transaction
-    sessions: HashMap<usize, QuicPacket>,
-    /// Total sessions ever seen (Running session ID)
-    cnt: usize,
+    // /// Maps session ID to Quic transaction
+    // sessions: HashMap<usize, QuicPacket>,
+    // /// Total sessions ever seen (Running session ID)
+    // cnt: usize,
+    sessions: Vec<QuicConn>,
+}
+
+impl Default for QuicParser {
+    fn default() -> Self {
+        QuicParser {
+            sessions: vec![QuicConn::new()],
+        }
+    }
 }
 
 impl ConnParsable for QuicParser {
@@ -33,7 +44,7 @@ impl ConnParsable for QuicParser {
         }
 
         if let Ok(data) = (pdu.mbuf_ref()).get_data_slice(offset, length) {
-            self.process(data, pdu)
+            self.sessions[0].parse_packet(data, pdu.dir)
         } else {
             log::warn!("Malformed packet on parse");
             ParseResult::Skipped
@@ -79,7 +90,7 @@ impl ConnParsable for QuicParser {
     }
 
     fn remove_session(&mut self, session_id: usize) -> Option<Session> {
-        self.sessions.remove(&session_id).map(|quic| Session {
+        self.sessions.pop().map(|quic| Session {
             data: SessionData::Quic(Box::new(quic)),
             id: session_id,
         })
@@ -87,10 +98,10 @@ impl ConnParsable for QuicParser {
 
     fn drain_sessions(&mut self) -> Vec<Session> {
         self.sessions
-            .drain()
-            .map(|(session_id, quic)| Session {
+            .drain(..)
+            .map(|quic| Session {
                 data: SessionData::Quic(Box::new(quic)),
-                id: session_id,
+                id: 0,
             })
             .collect()
     }
@@ -179,7 +190,11 @@ impl QuicPacket {
     }
 
     /// Parses Quic packet from bytes
-    pub fn parse_from(data: &[u8], cnt: usize, dir: bool) -> Result<QuicPacket, QuicError> {
+    pub fn parse_from(
+        conn: &mut QuicConn,
+        data: &[u8],
+        dir: bool,
+    ) -> Result<QuicPacket, QuicError> {
         let mut offset = 0;
         let packet_header_byte = QuicPacket::access_data(data, offset, offset + 1)?[0];
         offset += 1;
@@ -208,12 +223,18 @@ impl QuicPacket {
             offset += 1;
             let dcid_bytes = QuicPacket::access_data(data, offset, offset + dcid_len as usize)?;
             let dcid = QuicPacket::vec_u8_to_hex_string(dcid_bytes);
+            if dcid_len > 0 && !conn.cids.contains(&dcid) {
+                conn.cids.insert(dcid.clone());
+            }
             offset += dcid_len as usize;
             // Parse SCID
             let scid_len = QuicPacket::access_data(data, offset, offset + 1)?[0];
             offset += 1;
             let scid_bytes = QuicPacket::access_data(data, offset, offset + scid_len as usize)?;
             let scid = QuicPacket::vec_u8_to_hex_string(scid_bytes);
+            if scid_len > 0 && !conn.cids.contains(&scid) {
+                conn.cids.insert(scid.clone());
+            }
             offset += scid_len as usize;
 
             let token_len;
@@ -248,9 +269,9 @@ impl QuicPacket {
                         QuicPacket::access_data(data, offset, offset + packet_len_len)?;
                     packet_len = Some(QuicPacket::slice_to_u64(packet_len_bytes)?);
                     offset += packet_len_len;
-                    if cnt == 0 {
+                    if conn.client_opener.is_none() {
                         // Derive initial keys
-                        let [client_opener, _server_opener] = calc_init_keys(dcid_bytes, version)?;
+                        let [client_opener, server_opener] = calc_init_keys(dcid_bytes, version)?;
                         // Calculate HP
                         let sample_len = client_opener.sample_len();
                         let hp_sample =
@@ -306,6 +327,8 @@ impl QuicPacket {
                             &mut encrypted_payload,
                             tag,
                         )?);
+                        conn.client_opener = Some(client_opener);
+                        conn.server_opener = Some(server_opener);
                     } else {
                         decrypted_payload = None;
                     }
@@ -390,15 +413,22 @@ impl QuicPacket {
                 max_dcid_len = data.len() - 1;
             }
             // Parse DCID
-            let dcid_bytes = QuicPacket::access_data(data, offset, offset + max_dcid_len)?.to_vec();
+            let dcid_hex = QuicPacket::vec_u8_to_hex_string(QuicPacket::access_data(
+                data,
+                offset,
+                offset + max_dcid_len,
+            )?);
+            let mut dcid = None;
+            for cid in &conn.cids {
+                if dcid_hex.starts_with(cid) {
+                    dcid = Some(cid.clone());
+                }
+            }
             offset += max_dcid_len;
             // Counts all bytes remaining
             let payload_bytes_count = Some((data.len() - offset) as u64);
             Ok(QuicPacket {
-                short_header: Some(QuicShortHeader {
-                    dcid: None,
-                    dcid_bytes,
-                }),
+                short_header: Some(QuicShortHeader { dcid }),
                 long_header: None,
                 payload_bytes_count,
                 frames: None,
@@ -408,13 +438,21 @@ impl QuicPacket {
     }
 }
 
-impl QuicParser {
-    fn process(&mut self, data: &[u8], pdu: &L4Pdu) -> ParseResult {
-        if let Ok(quic) = QuicPacket::parse_from(data, self.cnt, pdu.dir) {
-            let session_id = self.cnt;
-            self.sessions.insert(session_id, quic);
-            self.cnt += 1;
-            ParseResult::Done(session_id)
+impl QuicConn {
+    pub(crate) fn new() -> QuicConn {
+        QuicConn {
+            packets: Vec::new(),
+            cids: HashSet::new(),
+            tls: Tls::new(),
+            client_opener: None,
+            server_opener: None,
+        }
+    }
+
+    fn parse_packet(&mut self, data: &[u8], direction: bool) -> ParseResult {
+        if let Ok(quic) = QuicPacket::parse_from(self, data, direction) {
+            self.packets.push(quic);
+            ParseResult::Continue(0)
         } else {
             ParseResult::Skipped
         }

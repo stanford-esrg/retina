@@ -22,12 +22,15 @@ TODO: support HTTP/3
 */
 pub(crate) mod parser;
 
+use std::collections::HashSet;
+
 pub use self::header::{QuicLongHeader, QuicShortHeader};
+use crypto::Open;
 use frame::QuicFrame;
 use header::LongHeaderPacketType;
 use serde::Serialize;
 
-use super::tls::ClientHello;
+use super::tls::{ClientHello, Tls};
 pub(crate) mod crypto;
 pub(crate) mod frame;
 pub(crate) mod header;
@@ -48,6 +51,16 @@ pub enum QuicError {
     UnknownFrameType,
     TlsParseFail,
     MissingCryptoFrames,
+}
+
+/// Parsed Quic Packet contents
+#[derive(Debug, Serialize)]
+pub struct QuicConn {
+    pub packets: Vec<QuicPacket>,
+    pub cids: HashSet<String>,
+    pub tls: Tls,
+    pub client_opener: Option<Open>,
+    pub server_opener: Option<Open>,
 }
 
 /// Parsed Quic Packet contents
