@@ -37,6 +37,7 @@ use crypto::aes::KeySize;
 use crypto::aes_gcm::AesGcm;
 use ring::aead;
 use ring::hkdf;
+use serde::Serialize;
 
 use crate::protocols::stream::quic::parser::QuicVersion;
 use crate::protocols::stream::quic::QuicError;
@@ -44,7 +45,7 @@ use crate::protocols::stream::quic::QuicError;
 // The algorithm enum defines the available
 // cryptographic algorithms used to secure
 // QUIC packets.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize)]
 pub enum Algorithm {
     AES128GCM,
 }
@@ -90,13 +91,16 @@ impl Algorithm {
 // The Open struct gives a return value
 // that contains all of the components
 // needed for HP removal and decryption
+#[derive(Serialize)]
 pub struct Open {
     alg: Algorithm,
 
+    #[serde(skip_serializing)]
     key_len: Option<KeySize>,
 
     initial_key: Vec<u8>,
 
+    #[serde(skip_serializing)]
     hp_key: aead::quic::HeaderProtectionKey,
 
     iv: Vec<u8>,
