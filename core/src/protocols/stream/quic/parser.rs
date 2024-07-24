@@ -193,9 +193,9 @@ impl QuicPacket {
     pub fn parse_from(
         conn: &mut QuicConn,
         data: &[u8],
+        mut offset: usize,
         dir: bool,
-    ) -> Result<QuicPacket, QuicError> {
-        let mut offset = 0;
+    ) -> Result<(QuicPacket, usize), QuicError> {
         let packet_header_byte = QuicPacket::access_data(data, offset, offset + 1)?[0];
         offset += 1;
         // Check the fixed bit
@@ -311,6 +311,7 @@ impl QuicPacket {
                     offset += cipher_text_len;
                     // Parse auth tag
                     let tag = QuicPacket::access_data(data, offset, offset + tag_len)?;
+                    offset += tag_len;
                     // Commenting out the offset increase for tag_len to make clippy happy
                     // Will be needed when handling multiple QUIC packets in single datagram
                     // offset += tag_len;
@@ -358,6 +359,8 @@ impl QuicPacket {
                         offset,
                         offset + packet_len_len,
                     )?)?);
+                    offset += packet_len_len;
+                    offset += packet_len.unwrap() as usize;
                 }
                 LongHeaderPacketType::Retry => {
                     packet_len = None;
@@ -378,6 +381,7 @@ impl QuicPacket {
                     // Parse retry tag
                     let retry_tag_bytes = QuicPacket::access_data(data, offset, offset + 16)?;
                     retry_tag = Some(QuicPacket::vec_u8_to_hex_string(retry_tag_bytes));
+                    offset += 16;
                 }
             }
 
@@ -386,58 +390,68 @@ impl QuicPacket {
             if let Some(frame_bytes) = decrypted_payload {
                 let (q_frames, crypto_bytes) = QuicFrame::parse_frames(&frame_bytes)?;
                 frames = Some(q_frames);
-                match parse_tls_message_handshake(&crypto_bytes) {
-                    Ok((_, msg)) => {
-                        conn.tls.parse_message_level(&msg, dir);
+                if !crypto_bytes.is_empty() {
+                    match parse_tls_message_handshake(&crypto_bytes) {
+                        Ok((_, msg)) => {
+                            conn.tls.parse_message_level(&msg, dir);
+                        }
+                        Err(_) => return Err(QuicError::TlsParseFail),
                     }
-                    Err(_) => return Err(QuicError::TlsParseFail),
                 }
             }
 
-            Ok(QuicPacket {
-                payload_bytes_count: packet_len,
-                short_header: None,
-                long_header: Some(QuicLongHeader {
-                    packet_type,
-                    type_specific,
-                    version,
-                    dcid_len,
-                    dcid,
-                    scid_len,
-                    scid,
-                    token_len,
-                    token,
-                    retry_tag,
-                }),
-                frames,
-            })
+            Ok((
+                QuicPacket {
+                    payload_bytes_count: packet_len,
+                    short_header: None,
+                    long_header: Some(QuicLongHeader {
+                        packet_type,
+                        type_specific,
+                        version,
+                        dcid_len,
+                        dcid,
+                        scid_len,
+                        scid,
+                        token_len,
+                        token,
+                        retry_tag,
+                    }),
+                    frames,
+                },
+                offset,
+            ))
         } else {
             // Short Header
-            let mut max_dcid_len = 20;
-            if data.len() < 1 + max_dcid_len {
-                max_dcid_len = data.len() - 1;
+            let mut dcid_len = 20;
+            if data.len() < 1 + dcid_len {
+                dcid_len = data.len() - 1;
             }
             // Parse DCID
             let dcid_hex = QuicPacket::vec_u8_to_hex_string(QuicPacket::access_data(
                 data,
                 offset,
-                offset + max_dcid_len,
+                offset + dcid_len,
             )?);
             let mut dcid = None;
             for cid in &conn.cids {
                 if dcid_hex.starts_with(cid) {
+                    dcid_len = cid.chars().count() / 2;
                     dcid = Some(cid.clone());
                 }
             }
-            offset += max_dcid_len;
+            offset += dcid_len;
             // Counts all bytes remaining
-            let payload_bytes_count = Some((data.len() - offset) as u64);
-            Ok(QuicPacket {
-                short_header: Some(QuicShortHeader { dcid }),
-                long_header: None,
-                payload_bytes_count,
-                frames: None,
-            })
+            let payload_bytes_count = (data.len() - offset) as u64;
+            offset += payload_bytes_count as usize;
+            Ok((
+                QuicPacket {
+                    short_header: Some(QuicShortHeader { dcid }),
+                    long_header: None,
+                    payload_bytes_count: Some(payload_bytes_count),
+                    frames: None,
+                },
+                offset,
+            ))
         }
     }
 }
@@ -454,11 +468,15 @@ impl QuicConn {
     }
 
     fn parse_packet(&mut self, data: &[u8], direction: bool) -> ParseResult {
-        if let Ok(quic) = QuicPacket::parse_from(self, data, direction) {
-            self.packets.push(quic);
-            ParseResult::Continue(0)
-        } else {
-            ParseResult::Skipped
+        let mut offset = 0;
+        while data.len() > offset {
+            if let Ok((quic, off)) = QuicPacket::parse_from(self, data, offset, direction) {
+                self.packets.push(quic);
+                offset = off;
+            } else {
+                return ParseResult::Skipped;
+            }
         }
+        ParseResult::Continue(0)
     }
 }
