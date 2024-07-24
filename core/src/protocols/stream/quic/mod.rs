@@ -30,7 +30,7 @@ use frame::QuicFrame;
 use header::LongHeaderPacketType;
 use serde::Serialize;
 
-use super::tls::{ClientHello, Tls};
+use super::tls::Tls;
 pub(crate) mod crypto;
 pub(crate) mod frame;
 pub(crate) mod header;
@@ -76,8 +76,6 @@ pub struct QuicPacket {
     pub payload_bytes_count: Option<u64>,
 
     pub frames: Option<Vec<QuicFrame>>,
-
-    pub tls: Option<ClientHello>,
 }
 
 impl QuicPacket {
