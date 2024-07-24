@@ -46,6 +46,7 @@ pub struct EcnCounts {
 
 impl QuicFrame {
     // parse_frames takes the plaintext QUIC packet payload and parses the frame list
+    // it also returns the reassembled CRYPTO frame bytes as a Vec<u8>
     pub fn parse_frames(data: &[u8]) -> Result<(Vec<QuicFrame>, Vec<u8>), QuicError> {
         let mut frames: Vec<QuicFrame> = Vec::new();
         let mut crypto_map: BTreeMap<u64, Vec<u8>> = BTreeMap::new();
@@ -120,6 +121,7 @@ impl QuicFrame {
                         offset,
                         offset + first_ack_range_len,
                     )?)?;
+                    offset += first_ack_range_len;
                     // Parse ACK Range list field
                     let mut ack_ranges = Vec::new();
                     for _ in 0..ack_range_count {

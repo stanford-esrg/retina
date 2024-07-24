@@ -8,7 +8,7 @@ use crate::protocols::stream::quic::header::{
     LongHeaderPacketType, QuicLongHeader, QuicShortHeader,
 };
 use crate::protocols::stream::quic::{QuicError, QuicPacket};
-use crate::protocols::stream::tls::{ClientHello, Tls};
+use crate::protocols::stream::tls::Tls;
 use crate::protocols::stream::{
     ConnParsable, ConnState, L4Pdu, ParseResult, ProbeResult, Session, SessionData,
 };
@@ -272,65 +272,76 @@ impl QuicPacket {
                     if conn.client_opener.is_none() {
                         // Derive initial keys
                         let [client_opener, server_opener] = calc_init_keys(dcid_bytes, version)?;
-                        // Calculate HP
-                        let sample_len = client_opener.sample_len();
-                        let hp_sample =
-                            QuicPacket::access_data(data, offset + 4, offset + 4 + sample_len)?;
-                        let mask = client_opener.new_mask(hp_sample)?;
-                        // Remove HP from packet header byte
-                        let unprotected_header = packet_header_byte ^ (mask[0] & 0b00001111);
-                        if (unprotected_header >> 2) & 0b00000011 != 0 {
-                            return Err(QuicError::FailedHeaderProtection);
-                        }
-                        // Parse packet number
-                        let packet_num_len = ((unprotected_header & 0b00000011) + 1) as usize;
-                        let packet_number_bytes =
-                            QuicPacket::access_data(data, offset, offset + packet_num_len)?;
-                        let mut packet_number = [0; 4];
-                        for i in 0..packet_num_len {
-                            packet_number[4 - (i + 1)] = packet_number_bytes[i] ^ mask[i + 1];
-                        }
-                        let initial_packet_number_bytes = &packet_number[4 - packet_num_len..];
-                        let packet_number_int = BigEndian::read_i32(&packet_number);
-                        offset += packet_num_len;
-                        // Parse the encrypted payload
-                        let tag_len = client_opener.alg().tag_len();
-                        if (packet_len.unwrap() as usize) < (tag_len + packet_num_len) {
-                            return Err(QuicError::PacketTooShort);
-                        }
-                        let cipher_text_len =
-                            packet_len.unwrap() as usize - tag_len - packet_num_len;
-                        let mut encrypted_payload =
-                            QuicPacket::access_data(data, offset, offset + cipher_text_len)?
-                                .to_vec();
-                        offset += cipher_text_len;
-                        // Parse auth tag
-                        let tag = QuicPacket::access_data(data, offset, offset + tag_len)?;
-                        // Commenting out the offset increase for tag_len to make clippy happy
-                        // Will be needed when handling multiple QUIC packets in single datagram
-                        // offset += tag_len;
-                        // Reconstruct authenticated data
-                        let mut ad = Vec::new();
-                        ad.append(&mut [unprotected_header].to_vec());
-                        ad.append(&mut version_bytes.to_vec());
-                        ad.append(&mut [dcid_len].to_vec());
-                        ad.append(&mut dcid_bytes.to_vec());
-                        ad.append(&mut [scid_len].to_vec());
-                        ad.append(&mut scid_bytes.to_vec());
-                        ad.append(&mut token_len_bytes.to_vec());
-                        ad.append(&mut token_bytes.to_vec());
-                        ad.append(&mut packet_len_bytes.to_vec());
-                        ad.append(&mut initial_packet_number_bytes.to_vec());
-                        decrypted_payload = Some(client_opener.open_with_u64_counter(
-                            packet_number_int as u64,
-                            &ad,
-                            &mut encrypted_payload,
-                            tag,
-                        )?);
                         conn.client_opener = Some(client_opener);
                         conn.server_opener = Some(server_opener);
+                    }
+                    // Calculate HP
+                    let sample_len = conn.client_opener.as_ref().unwrap().sample_len();
+                    let hp_sample =
+                        QuicPacket::access_data(data, offset + 4, offset + 4 + sample_len)?;
+                    let mask = if dir {
+                        conn.client_opener.as_ref().unwrap().new_mask(hp_sample)?
                     } else {
-                        decrypted_payload = None;
+                        conn.server_opener.as_ref().unwrap().new_mask(hp_sample)?
+                    };
+                    // Remove HP from packet header byte
+                    let unprotected_header = packet_header_byte ^ (mask[0] & 0b00001111);
+                    if (unprotected_header >> 2) & 0b00000011 != 0 {
+                        return Err(QuicError::FailedHeaderProtection);
+                    }
+                    // Parse packet number
+                    let packet_num_len = ((unprotected_header & 0b00000011) + 1) as usize;
+                    let packet_number_bytes =
+                        QuicPacket::access_data(data, offset, offset + packet_num_len)?;
+                    let mut packet_number = [0; 4];
+                    for i in 0..packet_num_len {
+                        packet_number[4 - (i + 1)] = packet_number_bytes[i] ^ mask[i + 1];
+                    }
+                    let initial_packet_number_bytes = &packet_number[4 - packet_num_len..];
+                    let packet_number_int = BigEndian::read_i32(&packet_number);
+                    offset += packet_num_len;
+                    // Parse the encrypted payload
+                    let tag_len = conn.client_opener.as_ref().unwrap().alg().tag_len();
+                    if (packet_len.unwrap() as usize) < (tag_len + packet_num_len) {
+                        return Err(QuicError::PacketTooShort);
+                    }
+                    let cipher_text_len = packet_len.unwrap() as usize - tag_len - packet_num_len;
+                    let mut encrypted_payload =
+                        QuicPacket::access_data(data, offset, offset + cipher_text_len)?.to_vec();
+                    offset += cipher_text_len;
+                    // Parse auth tag
+                    let tag = QuicPacket::access_data(data, offset, offset + tag_len)?;
+                    // Commenting out the offset increase for tag_len to make clippy happy
+                    // Will be needed when handling multiple QUIC packets in single datagram
+                    // offset += tag_len;
+                    // Reconstruct authenticated data
+                    let mut ad = Vec::new();
+                    ad.append(&mut [unprotected_header].to_vec());
+                    ad.append(&mut version_bytes.to_vec());
+                    ad.append(&mut [dcid_len].to_vec());
+                    ad.append(&mut dcid_bytes.to_vec());
+                    ad.append(&mut [scid_len].to_vec());
+                    ad.append(&mut scid_bytes.to_vec());
+                    ad.append(&mut token_len_bytes.to_vec());
+                    ad.append(&mut token_bytes.to_vec());
+                    ad.append(&mut packet_len_bytes.to_vec());
+                    ad.append(&mut initial_packet_number_bytes.to_vec());
+                    if dir {
+                        decrypted_payload =
+                            Some(conn.client_opener.as_ref().unwrap().open_with_u64_counter(
+                                packet_number_int as u64,
+                                &ad,
+                                &mut encrypted_payload,
+                                tag,
+                            )?);
+                    } else {
+                        decrypted_payload =
+                            Some(conn.server_opener.as_ref().unwrap().open_with_u64_counter(
+                                packet_number_int as u64,
+                                &ad,
+                                &mut encrypted_payload,
+                                tag,
+                            )?);
                     }
                 }
                 LongHeaderPacketType::ZeroRTT | LongHeaderPacketType::Handshake => {
@@ -371,18 +382,13 @@ impl QuicPacket {
             }
 
             let mut frames: Option<Vec<QuicFrame>> = None;
-            let mut ch: Option<ClientHello> = None;
             // If decrypted payload is not None, parse the frames
             if let Some(frame_bytes) = decrypted_payload {
-                let (q_frames, ch_bytes) = QuicFrame::parse_frames(&frame_bytes)?;
+                let (q_frames, crypto_bytes) = QuicFrame::parse_frames(&frame_bytes)?;
                 frames = Some(q_frames);
-                match parse_tls_message_handshake(&ch_bytes) {
+                match parse_tls_message_handshake(&crypto_bytes) {
                     Ok((_, msg)) => {
-                        let mut tls = Tls::new();
-                        tls.parse_message_level(&msg, dir);
-                        if let Some(client_hello) = tls.client_hello {
-                            ch = Some(client_hello);
-                        }
+                        conn.tls.parse_message_level(&msg, dir);
                     }
                     Err(_) => return Err(QuicError::TlsParseFail),
                 }
@@ -404,7 +410,6 @@ impl QuicPacket {
                     retry_tag,
                 }),
                 frames,
-                tls: ch,
             })
         } else {
             // Short Header
@@ -432,7 +437,6 @@ impl QuicPacket {
                 long_header: None,
                 payload_bytes_count,
                 frames: None,
-                tls: None,
             })
         }
     }
