@@ -23,9 +23,6 @@ pub struct QuicLongHeader {
 #[derive(Debug, Serialize, Clone)]
 pub struct QuicShortHeader {
     pub dcid: Option<String>, // optional. If not pre-existing cid then none.
-
-    #[serde(skip)]
-    pub dcid_bytes: Vec<u8>,
 }
 
 // Long Header Packet Types from RFC 9000 Table 5
