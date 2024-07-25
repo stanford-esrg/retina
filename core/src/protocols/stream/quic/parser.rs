@@ -293,10 +293,11 @@ impl QuicPacket {
                     let packet_num_len = ((unprotected_header & 0b00000011) + 1) as usize;
                     let packet_number_bytes =
                         QuicPacket::access_data(data, offset, offset + packet_num_len)?;
-                    let mut packet_number = [0; 4];
+                    let mut packet_number = vec![0; 4 - packet_num_len];
                     for i in 0..packet_num_len {
-                        packet_number[4 - (i + 1)] = packet_number_bytes[i] ^ mask[i + 1];
+                        packet_number.push(packet_number_bytes[i] ^ mask[i + 1]);
                     }
+
                     let initial_packet_number_bytes = &packet_number[4 - packet_num_len..];
                     let packet_number_int = BigEndian::read_i32(&packet_number);
                     offset += packet_num_len;
@@ -386,14 +387,22 @@ impl QuicPacket {
             }
 
             let mut frames: Option<Vec<QuicFrame>> = None;
+            let crypto_buffer: &mut Vec<u8> = if dir {
+                conn.client_buffer.as_mut()
+            } else {
+                conn.server_buffer.as_mut()
+            };
             // If decrypted payload is not None, parse the frames
             if let Some(frame_bytes) = decrypted_payload {
-                let (q_frames, crypto_bytes) = QuicFrame::parse_frames(&frame_bytes)?;
+                let (q_frames, mut crypto_bytes) =
+                    QuicFrame::parse_frames(&frame_bytes, crypto_buffer.len())?;
                 frames = Some(q_frames);
                 if !crypto_bytes.is_empty() {
-                    match parse_tls_message_handshake(&crypto_bytes) {
+                    crypto_buffer.append(&mut crypto_bytes);
+                    match parse_tls_message_handshake(crypto_buffer) {
                         Ok((_, msg)) => {
                             conn.tls.parse_message_level(&msg, dir);
+                            crypto_buffer.clear();
                         }
                         Err(_) => return Err(QuicError::TlsParseFail),
                     }
@@ -464,6 +473,8 @@ impl QuicConn {
             tls: Tls::new(),
             client_opener: None,
             server_opener: None,
+            client_buffer: Vec::new(),
+            server_buffer: Vec::new(),
         }
     }
 

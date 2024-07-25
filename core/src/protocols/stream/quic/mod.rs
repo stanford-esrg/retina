@@ -61,6 +61,10 @@ pub struct QuicConn {
     pub tls: Tls,
     pub client_opener: Option<Open>,
     pub server_opener: Option<Open>,
+    #[serde(skip_serializing)]
+    pub client_buffer: Vec<u8>,
+    #[serde(skip_serializing)]
+    pub server_buffer: Vec<u8>,
 }
 
 /// Parsed Quic Packet contents
