@@ -313,9 +313,6 @@ impl QuicPacket {
                     // Parse auth tag
                     let tag = QuicPacket::access_data(data, offset, offset + tag_len)?;
                     offset += tag_len;
-                    // Commenting out the offset increase for tag_len to make clippy happy
-                    // Will be needed when handling multiple QUIC packets in single datagram
-                    // offset += tag_len;
                     // Reconstruct authenticated data
                     let mut ad = Vec::new();
                     ad.append(&mut [unprotected_header].to_vec());
@@ -328,6 +325,7 @@ impl QuicPacket {
                     ad.append(&mut token_bytes.to_vec());
                     ad.append(&mut packet_len_bytes.to_vec());
                     ad.append(&mut initial_packet_number_bytes.to_vec());
+                    // Decrypt payload with proper keys based on traffic direction
                     if dir {
                         decrypted_payload =
                             Some(conn.client_opener.as_ref().unwrap().open_with_u64_counter(
@@ -387,6 +385,7 @@ impl QuicPacket {
             }
 
             let mut frames: Option<Vec<QuicFrame>> = None;
+            // Grab the proper buffer for CRYPTO frame data
             let crypto_buffer: &mut Vec<u8> = if dir {
                 conn.client_buffer.as_mut()
             } else {
@@ -394,11 +393,17 @@ impl QuicPacket {
             };
             // If decrypted payload is not None, parse the frames
             if let Some(frame_bytes) = decrypted_payload {
+                // Get frames and reassembled CRYPTO data
+                // Pass the buffer's current length as starting offset for CRYPTO frames
                 let (q_frames, mut crypto_bytes) =
                     QuicFrame::parse_frames(&frame_bytes, crypto_buffer.len())?;
                 frames = Some(q_frames);
                 if !crypto_bytes.is_empty() {
                     crypto_buffer.append(&mut crypto_bytes);
+                    // Attempt to parse CRYPTO buffer
+                    // clear on success
+                    // TODO: This naive buffer will not work for out of order frames
+                    // across packets or multiple messages in the same buffer
                     match parse_tls_message_handshake(crypto_buffer) {
                         Ok((_, msg)) => {
                             conn.tls.parse_message_level(&msg, dir);
@@ -480,6 +485,9 @@ impl QuicConn {
 
     fn parse_packet(&mut self, data: &[u8], direction: bool) -> ParseResult {
         let mut offset = 0;
+        // Iterate over all of the data in the datagram
+        // Parse as many QUIC packets as possible
+        // TODO: identify padding appended to datagram
         while data.len() > offset {
             if let Ok((quic, off)) = QuicPacket::parse_from(self, data, offset, direction) {
                 self.packets.push(quic);
