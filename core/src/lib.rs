@@ -76,5 +76,3 @@ extern crate pest_derive;
 extern crate lazy_static;
 #[macro_use]
 extern crate maplit;
-#[macro_use]
-extern crate bitmask;

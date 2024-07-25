@@ -4,7 +4,7 @@
 // Terminate handler
 // Probe, parse, etc.
 
-use crate::filter::{Actions, ActionFlags}; 
+use crate::filter::Actions; 
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
 use crate::protocols::stream::{
@@ -104,11 +104,11 @@ where
 
         #[cfg(debug_assertions)]
         {
-            if !self.actions.data.contains(ActionFlags::ConnFilter) {
+            if !self.actions.apply_proto_filter() {
                 assert!(self.actions.drop() || !self.actions.terminal_actions.is_none());
             }
         }
-        if self.actions.data.contains(ActionFlags::ConnFilter) {
+        if self.actions.apply_proto_filter() {
             let actions = subscription.filter_conn(&self.cdata);
             self.actions.update(&actions);
         } 
@@ -138,23 +138,21 @@ where
                 self.sdata.deliver_session(session, 
                                            subscription, 
                                            &self.actions.data, &self.cdata);
-                self.actions.session_delivered();
+                self.actions.session_clear_deliver();
             }
         } else {
             log::error!("Done parsing but no session found");
         }
 
         match self.cdata.conn_parser.session_parsed_state() {
-            // TODOTR confirm this logic
-            SessionState::Probing => { // ?
-                self.actions.data.set(ActionFlags::ConnParse);
-                self.actions.data.unset(ActionFlags::SessionParse);
+            SessionState::Probing => {
+                self.actions.session_set_probe();
             }
             SessionState::Remove => {
                 // Done parsing: we expect no more sessions for this connection.
                 self.actions.session_clear_parse();
             }
-            _ => { // TODOTR
+            _ => {
                 // SessionFilter and SessionParse are always terminal actions at the 
                 // connection filtering stage. By default, they will be preserved.
             }
@@ -167,13 +165,13 @@ where
         // Session parsing is ongoing: drain any remaining sessions
         if self.actions.session_parse() {
             for session in self.cdata.conn_parser.drain_sessions() {
-                if self.actions.data.contains(ActionFlags::SessionFilter) {
+                if self.actions.apply_session_filter() {
                     let actions = subscription.filter_session(&session, &self.cdata);
                     self.actions.update(&actions);
                 }
                 if self.actions.session_deliver() {
                     self.sdata.deliver_session(session, subscription,&self.actions.data, &self.cdata);
-                    self.actions.session_delivered(); // Clear session-specific match
+                    self.actions.session_clear_deliver(); // Clear session-specific match
                 }
             }
         }

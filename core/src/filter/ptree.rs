@@ -251,7 +251,7 @@ impl fmt::Display for PNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.pred)?;
         if !self.actions.drop() {
-            write!(f, " -- A: {}", self.actions.to_string())?;
+            write!(f, " -- A: {:?}", self.actions)?;
         }
         if !self.deliver.is_empty() {
             write!(f, " D: ")?;
@@ -723,12 +723,12 @@ mod tests {
     fn core_ptree_build() {
         let filter = "ipv4 and tls";
         let mut actions = Actions::new();
-        actions.data.set(ActionFlags::ConnDataTrack);
-        actions.terminal_actions.set(ActionFlags::ConnDataTrack);
+        actions.data |= ActionData::ConnDataTrack;
+        actions.terminal_actions |= ActionData::ConnDataTrack;
         let mut ptree = PTree::new_from_str(filter,
                                     FilterType::Action(FilterLayer::Connection), &actions, 0).unwrap();
         actions.clear();
-        actions.data.set(ActionFlags::ConnParse);
+        actions.data |= ActionData::ProtoProbe;
         ptree.add_filter_from_str("ipv4.src_addr = 1.2.3.0/24", &actions, 1);
         // println!("{}", ptree);
         
@@ -749,13 +749,13 @@ mod tests {
         let filter_child4 = "ipv4.src_addr = 1.2.3.1/31";
         let filter_child5 = "ipv4.src_addr = 1.2.3.1/32";
         let mut actions = Actions::new();
-        actions.data.set(ActionFlags::ConnDataTrack);
-        actions.terminal_actions.set(ActionFlags::ConnDataTrack);
+        actions.data |= ActionData::ConnDataTrack;
+        actions.terminal_actions |= ActionData::ConnDataTrack;
         
         let mut ptree = PTree::new_from_str(filter,
                                     FilterType::Action(FilterLayer::Connection), &actions, 0).unwrap();
         actions.clear();
-        actions.data.set(ActionFlags::ConnParse);
+        actions.data |= ActionData::SessionFilter;
 
         ptree.add_filter_from_str(filter_child1, &actions, 0);
         ptree.add_filter_from_str(filter_child2, &actions, 0);
@@ -794,8 +794,8 @@ mod tests {
         let filter_child2 = "ipv4.addr = 1.2.2.0/24";
 
         let mut actions = Actions::new();
-        actions.data.set(ActionFlags::ConnDataTrack);
-        actions.terminal_actions.set(ActionFlags::ConnDataTrack);
+        actions.data |= ActionData::ConnDataTrack;
+        actions.terminal_actions |= ActionData::ConnDataTrack;
 
         let mut ptree = PTree::new_from_str(filter,
             FilterType::Action(FilterLayer::Packet), &actions, 0).unwrap();
