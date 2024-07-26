@@ -44,7 +44,10 @@ impl ConnParsable for QuicParser {
         }
 
         if let Ok(data) = (pdu.mbuf_ref()).get_data_slice(offset, length) {
-            self.sessions[0].parse_packet(data, pdu.dir)
+            if !self.sessions.is_empty() {
+                return self.sessions[0].parse_packet(data, pdu.dir)
+            }
+            return ParseResult::Skipped
         } else {
             log::warn!("Malformed packet on parse");
             ParseResult::Skipped
@@ -495,6 +498,9 @@ impl QuicConn {
             } else {
                 return ParseResult::Skipped;
             }
+        }
+        if self.packets.last().is_some_and(|p| p.short_header.is_some()) {
+            return ParseResult::Done(0)
         }
         ParseResult::Continue(0)
     }
