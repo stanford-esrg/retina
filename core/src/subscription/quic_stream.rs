@@ -3,25 +3,14 @@
 //! This is a session-level subscription that delivers parsed QUIC stream records and associated
 //! connection metadata.
 //!
-//! ## Example
-//! Prints QUIC connections that use long headers:
-//! ```
-//! #[filter("quic.header_type = 'long'")]
-//! fn main() {
-//!     let config = default_config();
-//!     let cb = |quic: QuicStream| {
-//!         println!("{}", quic.data);
-//!     };
-//!     let mut runtime = Runtime::new(config, filter, cb).unwrap();
-//!     runtime.run();
-//! }
 
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
 use crate::filter::FilterResult;
 use crate::memory::mbuf::Mbuf;
-use crate::protocols::stream::quic::{parser::QuicParser, QuicPacket};
+use crate::protocols::stream::quic::parser::QuicParser;
+use crate::protocols::stream::quic::QuicConn;
 use crate::protocols::stream::{ConnParser, Session, SessionData};
 use crate::subscription::{Level, Subscribable, Subscription, Trackable};
 use std::collections::HashSet;
@@ -34,7 +23,7 @@ use std::net::SocketAddr;
 #[derive(Debug, Serialize)]
 pub struct QuicStream {
     pub five_tuple: FiveTuple,
-    pub data: QuicPacket,
+    pub data: QuicConn,
 }
 
 impl QuicStream {
@@ -95,18 +84,6 @@ pub struct TrackedQuic {
     connection_id: HashSet<String>,
 }
 
-impl TrackedQuic {
-    fn get_connection_id(&self, dcid_bytes: &[u8]) -> Option<String> {
-        let dcid_hex = QuicPacket::vec_u8_to_hex_string(dcid_bytes);
-        for dcid in &self.connection_id {
-            if dcid_hex.starts_with(dcid) {
-                return Some(dcid.clone());
-            }
-        }
-        None
-    }
-}
-
 impl Trackable for TrackedQuic {
     type Subscribed = QuicStream;
 
@@ -121,24 +98,9 @@ impl Trackable for TrackedQuic {
 
     fn on_match(&mut self, session: Session, subscription: &Subscription<Self::Subscribed>) {
         if let SessionData::Quic(quic) = session.data {
-            let mut quic_clone = (*quic).clone();
-
-            if let Some(long_header) = &quic_clone.long_header {
-                if long_header.dcid_len > 0 {
-                    self.connection_id.insert(long_header.dcid.clone());
-                }
-                if long_header.scid_len > 0 {
-                    self.connection_id.insert(long_header.scid.clone());
-                }
-            } else {
-                if let Some(ref mut short_header_value) = quic_clone.short_header {
-                    short_header_value.dcid =
-                        self.get_connection_id(&short_header_value.dcid_bytes);
-                }
-                return subscription.invoke(QuicStream {
-                    five_tuple: self.five_tuple,
-                    data: quic_clone,
-                });
+            let quic_clone = *quic;
+            for cid in &quic_clone.cids {
+                self.connection_id.insert(cid.to_string());
             }
 
             subscription.invoke(QuicStream {
