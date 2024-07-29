@@ -294,8 +294,7 @@ impl Port {
             port_conf.rxmode.mq_mode = dpdk::rte_eth_rx_mq_mode_ETH_MQ_RX_RSS;
             port_conf.rx_adv_conf.rss_conf.rss_key = SYMMETRIC_RSS_KEY.as_ptr() as *mut u8;
             port_conf.rx_adv_conf.rss_conf.rss_key_len = RSS_KEY_LEN as u8;
-            port_conf.rx_adv_conf.rss_conf.rss_hf =
-                (dpdk::ETH_RSS_IP | dpdk::ETH_RSS_TCP | dpdk::ETH_RSS_UDP) as u64;
+            port_conf.rx_adv_conf.rss_conf.rss_hf = dev_info.flow_type_rss_offloads;
         }
 
         let max_rx_pkt_len = mtu_to_max_frame_len(mtu as u32);
