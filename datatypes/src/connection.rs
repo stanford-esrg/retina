@@ -4,7 +4,7 @@ use retina_core::protocols::packet::tcp::{ACK, FIN, RST, SYN};
 use retina_core::protocols::stream::{ConnParser, Session};
 use retina_core::conntrack::pdu::L4Pdu;
 
-use super::{SubscribedData, TrackedData};
+use super::Tracked;
 
 use serde::ser::{SerializeStruct, Serializer};
 use serde::Serialize;
@@ -26,95 +26,6 @@ const HIST_DATA: u8 = b'D';
 const HIST_FIN: u8 = b'F';
 /// Has RST set
 const HIST_RST: u8 = b'R';
-
-/// A connection record.
-///
-/// This subscribable type returns general information regarding TCP and UDP connections but does
-/// does not track payload data. If applicable, Retina internally manages stream reassembly. All
-/// connections are interpreted using flow semantics.
-#[derive(Debug, Clone)]
-pub struct Connection {
-    /// The connection 5-tuple.
-    pub five_tuple: FiveTuple,
-    /// Timestamp of the first packet.
-    ///
-    /// ## Remarks
-    /// This represents the time Retina observed the first packet in the connection, and does not
-    /// reflect timestamps read from a packet capture in offline analysis.
-    // TODO: embed a hardware timestamp in the Mbuf itself.
-    pub ts: Instant,
-    /// The duration of the connection.
-    ///
-    /// ## Remarks
-    /// This does not represent the actual duration of the connection in offline analysis. It
-    /// approximates the elapsed time between observation of the first and last observed packet in
-    /// the connection.
-    pub duration: Duration,
-    /// Maximum duration of inactivity (the maximum time between observed segments).
-    pub max_inactivity: Duration,
-    /// The duration between the first and second packets.
-    pub time_to_second_packet: Duration,
-    /// Connection history.
-    ///
-    /// This represents a summary of the connection history in the order the packets were observed,
-    /// with letters encoded as a vector of bytes. This is a simplified version of [state history in
-    /// Zeek](https://docs.zeek.org/en/v5.0.0/scripts/base/protocols/conn/main.zeek.html), and the
-    /// meanings of each letter are similar: If the event comes from the originator, the letter is
-    /// uppercase; if the event comes from the responder, the letter is lowercase.
-    /// - S: a pure SYN with only the SYN bit set (may have payload)
-    /// - H: a pure SYNACK with only the SYN and ACK bits set (may have payload)
-    /// - A: a pure ACK with only the ACK bit set and no payload
-    /// - D: segment contains non-zero payload length
-    /// - F: the segment has the FIN bit set (may have other flags and/or payload)
-    /// - R: segment has the RST bit set (may have other flags and/or payload)
-    ///
-    /// Each letter is recorded a maximum of once in either direction.
-    pub history: Vec<u8>,
-    /// Originator flow.
-    pub orig: Flow,
-    /// Responder flow.
-    pub resp: Flow,
-}
-
-impl SubscribedData for Connection {
-    type T = TrackedConnection;
-    fn from_tracked(tracked: &Self::T, five_tuple: FiveTuple) -> Self {
-        let (duration, max_inactivity, time_to_second_packet) =
-            if tracked.ctos.nb_pkts + tracked.stoc.nb_pkts == 1 {
-                (
-                    Duration::default(),
-                    Duration::default(),
-                    Duration::default(),
-                )
-            } else {
-                (
-                    tracked.last_seen_ts - tracked.first_seen_ts,
-                    tracked.max_inactivity,
-                    tracked.second_seen_ts - tracked.first_seen_ts,
-                )
-            };
-
-        Self {
-            five_tuple,
-            ts: tracked.first_seen_ts,
-            duration,
-            max_inactivity,
-            time_to_second_packet,
-            history: tracked.history.clone(),
-            orig: tracked.ctos.clone(),
-            resp: tracked.stoc.clone(),
-        }
-    }
-
-    fn conn_parsers() -> Vec<ConnParser> {
-        vec![]
-    }
-
-    fn name() -> &'static str {
-        "Connection"
-    }
-    
-}
 
 impl Connection {
     /// Returns the client (originator) socket address.
@@ -146,6 +57,22 @@ impl Connection {
     pub fn history(&self) -> String {
         String::from_utf8_lossy(&self.history).into_owned()
     }
+
+    #[inline]
+    pub fn duration(&self) -> Duration {
+        if self.orig.nb_pkts + self.resp.nb_pkts == 1 {
+            return Duration::default();
+        }
+        self.last_seen_ts - self.first_seen_ts
+    }
+
+    #[inline]
+    pub fn time_to_second_packet(&self) -> Duration {
+        if self.orig.nb_pkts + self.resp.nb_pkts == 1 {
+            return Duration::default();
+        }
+        self.second_seen_ts - self.first_seen_ts
+    }
 }
 
 impl Serialize for Connection {
@@ -155,7 +82,8 @@ impl Serialize for Connection {
     {
         let mut state = serializer.serialize_struct("Connection", 6)?;
         state.serialize_field("five_tuple", &self.five_tuple)?;
-        state.serialize_field("duration", &self.duration)?;
+        state.serialize_field("duration", &self.duration())?;
+        state.serialize_field("time_to_second_pkt", &self.time_to_second_packet())?;
         state.serialize_field("max_inactivity", &self.max_inactivity)?;
         state.serialize_field("history", &self.history())?;
         state.serialize_field("orig", &self.orig)?;
@@ -177,17 +105,18 @@ impl fmt::Display for Connection {
 /// Internal connection state is an associated type of a `pub` trait, and therefore must also be
 /// public. Documentation is hidden by default to avoid confusing users.
 #[doc(hidden)]
-pub struct TrackedConnection {
+pub struct Connection {
+    five_tuple: FiveTuple,
     first_seen_ts: Instant,
     second_seen_ts: Instant,
     last_seen_ts: Instant,
     max_inactivity: Duration,
     history: Vec<u8>,
-    ctos: Flow,
-    stoc: Flow,
+    orig: Flow,
+    resp: Flow,
 }
 
-impl TrackedConnection {
+impl Connection {
     #[inline]
     fn update_data(&mut self, segment: &L4Pdu) {
         let now = Instant::now();
@@ -201,13 +130,13 @@ impl TrackedConnection {
             self.update_history(segment, 0x0);
             // TODO need a separate `update` for `update_owned`
             // Cloning segment is a non-starter.
-            self.ctos.insert_segment(segment);
+            self.orig.insert_segment(segment);
         } else {
             self.update_history(&segment, 0x20);
-            self.stoc.insert_segment(segment);
+            self.resp.insert_segment(segment);
         }
 
-        if self.ctos.nb_pkts + self.stoc.nb_pkts == 2 {
+        if self.orig.nb_pkts + self.resp.nb_pkts == 2 {
             self.second_seen_ts = now;
         }
     }
@@ -239,39 +168,28 @@ impl TrackedConnection {
     }
 }
 
-impl TrackedData for TrackedConnection {
-    type S = Connection;
-    fn new() -> Self {
+impl Tracked for Connection {
+    fn new(five_tuple: &FiveTuple) -> Self {
         let now = Instant::now();
         Self {
+            five_tuple: five_tuple.clone(),
             first_seen_ts: now,
             second_seen_ts: now,
             last_seen_ts: now,
             max_inactivity: Duration::default(),
             history: Vec::with_capacity(16),
-            ctos: Flow::new(),
-            stoc: Flow::new(),
+            orig: Flow::new(),
+            resp: Flow::new(),
         }
-    }
-    // Format: field_name: Type
-    // e.g., tracked_conn: TrackedConnection
-    fn named_data() -> (String, String) {
-        ( "tracked_conn".into(), "TrackedConnection".into() )
-    }
-
-    fn needs_update() -> bool {
-        true 
     }
 
     fn update(&mut self, pdu: &L4Pdu, _session_id: Option<usize>) {
         self.update_data(pdu);
     }
-    
-    fn needs_session_match() -> bool {
-        false
-    }
 
-    fn session_matched(&mut self, _session: std::rc::Rc<Session>) { }
+    fn session_matched(&mut self, _session: &Session) { }
+
+    fn conn_parsers() -> Vec<ConnParser> { vec![] }
 }
 
 /// A uni-directional flow.

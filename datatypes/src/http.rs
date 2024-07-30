@@ -3,27 +3,21 @@ use retina_core::conntrack::pdu::L4Pdu;
 use retina_core::protocols::stream::http::{parser::HttpParser, Http};
 use retina_core::protocols::stream::{ConnParser, Session, SessionData};
 
-use super::{SubscribedData, TrackedData};
-
-// use serde::Serialize;
-use std::rc::Rc;
+use super::Tracked;
 
 #[derive(Debug)]
 pub struct HttpTransaction {
     pub five_tuple: FiveTuple,
-    pub data: Option<Rc<Http>>,
+    // \tmp change to lifetime per subscription [ideal] or Rc<RefCell
+    pub data: Option<Box<Http>>
 }
 
-impl SubscribedData for HttpTransaction {
-    type T = TrackedHttp;
-    
-    fn from_tracked(tracked: &Self::T, five_tuple: FiveTuple) -> Self {
+impl Tracked for HttpTransaction {
+
+    fn new(five_tuple: &FiveTuple) -> Self {
         Self {
-            five_tuple,
-            data: match tracked.http.last() { // TODO there is automated way to do this
-                Some(data) => Some(data.clone()),
-                None => None,
-            }
+            five_tuple: five_tuple.clone(),
+            data: None,
         }
     }
 
@@ -31,44 +25,13 @@ impl SubscribedData for HttpTransaction {
         vec![ConnParser::Http(HttpParser::default())]
     }
 
-    fn name() -> &'static str {
-        "HttpTransaction"
-    }
-
-}
-
-pub struct TrackedHttp {
-    http: Vec<Rc<Http>>,
-}
-
-impl TrackedData for TrackedHttp {
-    type S = HttpTransaction;
-
-    fn new() -> Self {
-        Self {
-            http: vec![]
-        }
-    }
-
-    fn named_data() -> (String, String) {
-        ( "tracked_http".into(), "TrackedHttp".into() )
-    }
-
-    fn needs_update() -> bool {
-        false
-    }
-
     fn update(&mut self, _pdu: &L4Pdu, _session_id: Option<usize>) {}
 
-    fn needs_session_match() -> bool {
-        true
-    }
-
-    // TODO use refcell to avoid cloning, or ref keyword?
-    fn session_matched(&mut self, session: Rc<Session>) {
-        let session_data = session.data.clone();
+    fn session_matched(&mut self, session: &Session) {
+        // \tmp Cloning until lifetimes or Rc<RefCell impl.
+        let session_data = &session.data;
         if let SessionData::Http(http) = session_data {
-            self.http.push(Rc::new(*http)); // todo better data sharing
+            self.data = Some(http.clone());
         }
     }
 }

@@ -14,7 +14,7 @@ use retina_core::protocols::stream::dns::parser::DnsParser;
 use retina_core::protocols::stream::tls::parser::TlsParser;
 
 
-use retina_filtergen::subscription;
+// use retina_filtergen::subscription;
 
 lazy_static!(
     static ref CYCLES: RwLock<u64> = RwLock::new(0);
@@ -50,5 +50,5 @@ pub(crate) fn print() {
     // println!("HTTP: {}", *HTTP.read().unwrap());
 }
 
-#[subscription("/home/tcr6/retina/examples/basic/filter_out.toml")]
+// #[subscription("/home/tcr6/retina/examples/basic/filter_out.toml")]
 fn test() {}

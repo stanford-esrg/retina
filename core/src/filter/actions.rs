@@ -157,7 +157,72 @@ impl Actions {
 }
 
 
-/// Sample usage of bitmask! macro
+
+use std::str::FromStr;
+use quote::{ToTokens, quote};
+use proc_macro2::{Ident, Span};
+
+impl FromStr for ActionData {
+    type Err = core::fmt::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s { 
+            "PacketContinue" => Ok(ActionData::PacketContinue),
+            "ProtoProbe" => Ok(ActionData::ProtoProbe),
+            "ProtoFilter" => Ok(ActionData::ProtoFilter),
+            "SessionFilter" => Ok(ActionData::SessionFilter),
+            "SessionDeliver" => Ok(ActionData::SessionDeliver),
+            "ConnDataTrack" => Ok(ActionData::ConnDataTrack),
+            "PacketTrack" => Ok(ActionData::PacketTrack),
+            "PacketDrain" => Ok(ActionData::PacketDrain),
+            _ => Result::Err(core::fmt::Error)
+        }
+    }
+}
+
+impl ToString for ActionData {
+
+    fn to_string(&self) -> String {
+        match self{ 
+            &ActionData::PacketContinue => "ActionData::PacketContinue".into(),
+            &ActionData::ProtoProbe => "ActionData::ProtoProbe".into(),
+            &ActionData::ProtoFilter => "ActionData::ProtoFilter".into(),
+            &ActionData::SessionFilter => "ActionData::SessionFilter".into(),
+            &ActionData::SessionDeliver => "ActionData::SessionDeliver".into(),
+            &ActionData::ConnDataTrack => "ActionData::ConnDataTrack".into(),
+            &ActionData::PacketTrack => "ActionData::PacketTrack".into(),
+            &ActionData::PacketDrain => "ActionData::PacketDrain".into(),
+            _ => { panic!("Unknown ActionData"); }
+        }
+    }
+}
+
+impl ToTokens for ActionData {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let name_ident = Ident::new(&self.to_string(), Span::call_site());
+        tokens.extend( quote! { #name_ident } );
+    }
+}
+
+impl FromStr for Actions {
+    type Err = core::fmt::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut result = Actions::new();
+        let split = s.split("|");
+        for action_str in split {
+            let terminal = action_str.contains("(T)");
+            if let Ok(a) = ActionData::from_str(action_str.trim()) {
+                result.data |= a;
+                if terminal { 
+                    result.terminal_actions |= a; 
+                }
+            } else {
+                return Result::Err(core::fmt::Error);
+            }
+        }
+        Ok(result)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
