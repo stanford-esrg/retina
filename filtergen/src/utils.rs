@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct SubscriptionSpec {
     pub(crate) filter: String,
     pub(crate) datatype: String,

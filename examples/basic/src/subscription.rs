@@ -9,10 +9,6 @@ use retina_datatypes::*;
 use lazy_static::lazy_static;
 use std::sync::RwLock;
 
-use retina_core::protocols::stream::http::parser::HttpParser;
-use retina_core::protocols::stream::dns::parser::DnsParser;
-use retina_core::protocols::stream::tls::parser::TlsParser;
-
 use retina_datatypes::{HttpTransaction, Connection};
 
 use retina_filtergen::subscription;
@@ -42,6 +38,7 @@ fn tcp_port_cb(_subscribed: Subscribed) {
 }
 
 #[inline]
+#[allow(dead_code)]
 fn default_cb(_subscribed: Subscribed) { }
 
 pub(crate) fn print() {

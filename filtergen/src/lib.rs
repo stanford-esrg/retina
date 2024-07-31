@@ -21,6 +21,7 @@ use crate::connection_filter::*;
 use crate::session_filter::*;
 use crate::parse::*;
 use crate::data::*;
+use crate::utils::SubscriptionSpec;
 
 fn get_hw_filter(packet_continue: &HashMap<Actions, Vec<String>>) -> String {
     if packet_continue.is_empty() {
@@ -48,7 +49,7 @@ fn filter_subtree(input: &HashMap<Actions, Vec<String>>,
                                              k, 0).expect(
                 format!("Could not parse filter {}", sub_filter).as_str()
             );
-            ptree.build_tree(&filter.get_patterns_flat(), k, 0);
+            ptree.build_tree(&filter.get_patterns_flat(), k, 0, &String::from(""));
         }
         ptree.prune_branches();
         action_ptrees.push((ptree.to_flat_patterns(), k.clone()));
@@ -59,7 +60,8 @@ fn filter_subtree(input: &HashMap<Actions, Vec<String>>,
         ptree.add_filter(
             &patterns,
             &actions,
-            0
+            0,
+            &String::from("")
         );
     }
 
@@ -70,35 +72,32 @@ fn filter_subtree(input: &HashMap<Actions, Vec<String>>,
 
 }
 
-fn deliver_subtree(input: &HashMap<usize, String>,  
+fn deliver_subtree(input: &HashMap<usize, SubscriptionSpec>,  
                    filter_type: FilterType,
                    parsers: &mut HashSet<&'static str>) -> PTree
 {
-    let mut ptrees = vec![];
-    for (k, v) in input {
-        // Build "pruned" tree for this action
-        let filter = Filter::new(v, filter_type, 
-                                                        &Actions::new(), *k)
-                                                        .expect(&format!("Failed to parse filter {}", v));
-
-        ptrees.push(
-            (filter.get_patterns_flat(), *k)
-        );
-    }
-
     let mut ptree = PTree::new_empty(filter_type);
     let actions_empty = Actions::new();
-    for (patterns, filter_id) in ptrees {
+
+    for (id, spec) in input {
+        // Build "pruned" tree for this action
+        let filter = Filter::new(&spec.filter, filter_type, 
+                            &Actions::new(), *id)
+                            .expect(&format!("Failed to parse filter {}", spec.filter));
+
+        let patterns = filter.get_patterns_flat();
         ptree.add_filter(
             &patterns,
             &actions_empty,
-            filter_id
+            *id,
+            &String::from(format!("{}({})", spec.callback, spec.datatype))
         );
     }
 
+    // TODO confirm that `parsers` is correct
     if !matches!(filter_type, FilterType::Deliver(FilterLayer::PacketDeliver)) {
         for (_, s) in input {
-            parsers.extend(ConnParser::requires_parsing(s));
+            parsers.extend(ConnParser::requires_parsing(&s.filter));
         }
     }
 
@@ -109,8 +108,7 @@ fn deliver_subtree(input: &HashMap<usize, String>,
 }
 
 #[proc_macro_attribute]
-pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::ItemFn);
+pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     let inp_file = parse_macro_input!(args as syn::LitStr).value();
     let config = ConfigBuilder::from_file(&inp_file);
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
@@ -248,7 +246,6 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
             )
         }
 
-        #input
     };
     tst.into()
 }

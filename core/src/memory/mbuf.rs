@@ -146,7 +146,7 @@ impl Mbuf {
 
     // TODO
     #[allow(dead_code)]
-    pub fn has_mark(&mut self, mark: u32) -> bool {
+    pub fn has_mark(&mut self, _mark: u32) -> bool {
         // unsafe { self.raw().ol_flags & PKT_RX_FDIR != 0 }
         true
     }

@@ -1,7 +1,5 @@
 use retina_core::config::load_config;
 use retina_core::Runtime;
-#[macro_use]
-extern crate lazy_static;
 
 mod subscription;
 use subscription::*;

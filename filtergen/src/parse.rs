@@ -98,9 +98,9 @@ pub(crate) struct ConfigBuilder {
     pub(crate) connection_filter: HashMap<Actions, Vec<String>>,
     pub(crate) session_filter: HashMap<Actions, Vec<String>>,
 
-    pub(crate) packet_deliver: HashMap<usize, String>, 
-    pub(crate) connection_deliver: HashMap<usize, String>, 
-    pub(crate) session_deliver: HashMap<usize, String>, 
+    pub(crate) packet_deliver: HashMap<usize, SubscriptionSpec>, 
+    pub(crate) connection_deliver: HashMap<usize, SubscriptionSpec>, 
+    pub(crate) session_deliver: HashMap<usize, SubscriptionSpec>, 
 
     pub(crate) datatypes: HashSet<String>,
 
@@ -153,19 +153,21 @@ impl ConfigBuilder {
         let session_deliver_raw = self.raw.session_deliver();
         self.session_deliver = self.get_deliver(session_deliver_raw);
         
-        // Types
-        
     }
 
-    fn get_deliver(&mut self, inp: Vec<SubscriptionSpec>) -> HashMap<usize, String> {
+    fn get_deliver(&mut self, inp: Vec<SubscriptionSpec>) -> HashMap<usize, SubscriptionSpec> {
         let mut out = HashMap::new();
 
         let mut deliver = crate::utils::DELIVER.lock().unwrap();
 
         for spec in inp {
-            out.insert(self.count, spec.filter.clone());
+            // Assign each subscription a ID
+            out.insert(self.count, spec.clone());
+            // Track the datatypes
             self.datatypes.insert(spec.datatype.clone());
+            // Track for future delivery filter
             deliver.insert(self.count, spec);
+            // Track number of subscriptions
             self.count += 1;
         }
         out

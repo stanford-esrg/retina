@@ -340,7 +340,7 @@ fn add_redirect(port: &Port, from_group: u32, to_group: u32, priority: u32) -> R
     let mut action = FlowAction::new(port.id);
     action.append_jump(to_group);
     action.finish();
-    for mut a in action.rules.iter_mut() {
+    for a in action.rules.iter_mut() {
         if let dpdk::rte_flow_action_type_RTE_FLOW_ACTION_TYPE_JUMP = a.type_ {
             a.conf = &action.jump[0] as *const _ as *const c_void;
         }

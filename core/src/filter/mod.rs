@@ -138,7 +138,7 @@ impl Filter {
 
         // prune redundant branches
         let flat_patterns: Vec<_> = fq_patterns.iter().map(|p| p.to_flat_pattern()).collect();
-        let mut ptree = PTree::new(&flat_patterns, filter_type, actions, filter_id);
+        let mut ptree = PTree::new(&flat_patterns, filter_type, actions, filter_id, &String::from(""));
 
         ptree.prune_branches();
 
