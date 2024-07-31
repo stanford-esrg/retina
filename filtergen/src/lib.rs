@@ -229,7 +229,7 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
                 #conn_deliver_filter
             }
 
-            fn session_deliver(session: std::rc::Rc<Session>, 
+            fn session_deliver(session: &Session, 
                                 conn: &ConnData, tracked: &TrackedWrapper)
             {
                 #session_deliver_filter

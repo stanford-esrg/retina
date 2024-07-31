@@ -13,8 +13,9 @@ use retina_core::protocols::stream::http::parser::HttpParser;
 use retina_core::protocols::stream::dns::parser::DnsParser;
 use retina_core::protocols::stream::tls::parser::TlsParser;
 
+use retina_datatypes::{HttpTransaction, Connection};
 
-// use retina_filtergen::subscription;
+use retina_filtergen::subscription;
 
 lazy_static!(
     static ref CYCLES: RwLock<u64> = RwLock::new(0);
@@ -26,15 +27,13 @@ lazy_static!(
 );
 
 #[allow(dead_code)]
-fn http_cb(subscribed: Subscribed) {
-    /*
-    if let Subscribed::HttpTransaction(http) = subscribed {
-        if http.data.is_none() {
-            panic!("Data is none");
-        }
-    }
-     */
-    *HTTP.write().unwrap() += 1;
+fn http_cb(http: &HttpTransaction) {
+    println!("{:?}", http);
+}
+
+#[allow(dead_code)]
+fn conn_cb(conn: &Connection) {
+    println!("{:?}", conn);
 }
 
 #[allow(dead_code)]
@@ -50,5 +49,5 @@ pub(crate) fn print() {
     // println!("HTTP: {}", *HTTP.read().unwrap());
 }
 
-// #[subscription("/home/tcr6/retina/examples/basic/filter_out.toml")]
+#[subscription("/home/trossman/retina/examples/basic/filter_out.toml")]
 fn test() {}

@@ -1,17 +1,24 @@
 use retina_core::filter::ast::{BinOp, FieldName, ProtocolName, Value};
 use retina_core::filter::ptree::PNode;
-use retina_core::filter::SubscriptionSpec;
 
 use heck::CamelCase;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use regex::Regex;
-use retina_datatypes::TRACKED_DATA_FIELDS;
 use std::sync::Mutex;
 use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
+
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct SubscriptionSpec {
+    pub(crate) filter: String,
+    pub(crate) datatype: String,
+    pub(crate) callback: String,
+}
 
 lazy_static! { 
-    pub static ref DELIVER: Mutex<HashMap<usize, SubscriptionSpec>> = Mutex::new(HashMap::new()); 
+    pub(crate) static ref DELIVER: Mutex<HashMap<usize, SubscriptionSpec>> = Mutex::new(HashMap::new()); 
 }
 
 // TODO: give better compiler errors
@@ -292,7 +299,7 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
     if !node.actions.drop() {
         let actions = node.actions.clone();
         body.push(
-            quote! { result.update(&#actions); }
+            quote! { result.add_actions(&#actions); }
         );
     }
     if !node.deliver.is_empty() {
@@ -300,14 +307,11 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
             let deliver = {
                 let lock = DELIVER.lock().unwrap();
                 let spec = lock.get(id).expect(&format!("Cannot find ID {}", id));
-                let datatype = Ident::new(&spec.datatype, Span::call_site());
                 let callback = Ident::new(&spec.callback, Span::call_site());
-                let tracked_str = &TRACKED_DATA_FIELDS.get(spec.datatype.as_str())
-                                                             .expect(&format!("Cannot find tracked type for {}", &spec.datatype))
-                                                             .0;
-                let tracked_field = Ident::new(tracked_str, Span::call_site());
+                let tracked_str = spec.datatype.to_lowercase();
+                let tracked_field: Ident = Ident::new(&tracked_str, Span::call_site());
                 quote! { 
-                    #callback( Subscribed::#datatype( #datatype::from_tracked(&tracked.#tracked_field, tracked.five_tuple()) ) );
+                    #callback( &tracked.#tracked_field );
                 }
             };
             body.push( 

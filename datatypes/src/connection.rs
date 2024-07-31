@@ -104,7 +104,7 @@ impl fmt::Display for Connection {
 /// ## Note
 /// Internal connection state is an associated type of a `pub` trait, and therefore must also be
 /// public. Documentation is hidden by default to avoid confusing users.
-#[doc(hidden)]
+#[derive(Debug)]
 pub struct Connection {
     five_tuple: FiveTuple,
     first_seen_ts: Instant,

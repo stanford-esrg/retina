@@ -6,6 +6,8 @@ use retina_core::filter::ast::*;
 use retina_core::filter::ptree::{PNode, PTree};
 use crate::utils::*;
 
+// TODO delivery filter won't work for ethernet-only!! 
+
 pub(crate) fn gen_connection_filter(
     ptree: &PTree,
     statics: &mut Vec<proc_macro2::TokenStream>,

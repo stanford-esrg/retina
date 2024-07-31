@@ -5,6 +5,7 @@ use bitmask_enum::bitmask;
 pub enum ActionData {
     // Packet actions //
     PacketContinue,   // Forward new packet to connection tracker
+    PacketDeliver,    // Deliver packet to CB
 
     // Connection/session actions // 
 
@@ -50,6 +51,13 @@ impl Actions {
     #[inline]
     pub fn update(&mut self, actions: &Actions) {
         self.data = self.terminal_actions | actions.data;
+        self.terminal_actions |= actions.terminal_actions;
+    }
+
+    /// Add actions during (while applying) a filter
+    #[inline]
+    pub fn add_actions(&mut self, actions: &Actions) {
+        self.data |= actions.data;
         self.terminal_actions |= actions.terminal_actions;
     }
 
@@ -113,8 +121,8 @@ impl Actions {
     /// If no further parsing is required (e.g., TLS Handshake)
     #[inline]
     pub fn session_clear_parse(&mut self) {
-        self.data ^= ActionData::SessionFilter | ActionData::SessionDeliver;
-        self.terminal_actions ^= ActionData::SessionFilter | ActionData::SessionDeliver;
+        self.data &= (ActionData::SessionFilter | ActionData::SessionDeliver).not();
+        self.terminal_actions &= (ActionData::SessionFilter | ActionData::SessionDeliver).not();
     }
 
     /// After parsing
@@ -150,8 +158,8 @@ impl Actions {
 
     #[inline]
     pub fn clear_mask(&mut self, mask: ActionData) {
-        self.data ^= mask;
-        self.terminal_actions ^= mask;
+        self.data &= mask.not();
+        self.terminal_actions &= mask.not();
     }
 
 }
@@ -167,6 +175,7 @@ impl FromStr for ActionData {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s { 
             "PacketContinue" => Ok(ActionData::PacketContinue),
+            "PacketDeliver" => Ok(ActionData::PacketDeliver),
             "ProtoProbe" => Ok(ActionData::ProtoProbe),
             "ProtoFilter" => Ok(ActionData::ProtoFilter),
             "SessionFilter" => Ok(ActionData::SessionFilter),
@@ -183,14 +192,15 @@ impl ToString for ActionData {
 
     fn to_string(&self) -> String {
         match self{ 
-            &ActionData::PacketContinue => "ActionData::PacketContinue".into(),
-            &ActionData::ProtoProbe => "ActionData::ProtoProbe".into(),
-            &ActionData::ProtoFilter => "ActionData::ProtoFilter".into(),
-            &ActionData::SessionFilter => "ActionData::SessionFilter".into(),
-            &ActionData::SessionDeliver => "ActionData::SessionDeliver".into(),
-            &ActionData::ConnDataTrack => "ActionData::ConnDataTrack".into(),
-            &ActionData::PacketTrack => "ActionData::PacketTrack".into(),
-            &ActionData::PacketDrain => "ActionData::PacketDrain".into(),
+            &ActionData::PacketContinue => "PacketContinue".into(),
+            &ActionData::PacketDeliver => "PacketDeliver".into(),
+            &ActionData::ProtoProbe => "ProtoProbe".into(),
+            &ActionData::ProtoFilter => "ProtoFilter".into(),
+            &ActionData::SessionFilter => "SessionFilter".into(),
+            &ActionData::SessionDeliver => "SessionDeliver".into(),
+            &ActionData::ConnDataTrack => "ConnDataTrack".into(),
+            &ActionData::PacketTrack => "PacketTrack".into(),
+            &ActionData::PacketDrain => "PacketDrain".into(),
             _ => { panic!("Unknown ActionData"); }
         }
     }
@@ -199,7 +209,8 @@ impl ToString for ActionData {
 impl ToTokens for ActionData {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let name_ident = Ident::new(&self.to_string(), Span::call_site());
-        tokens.extend( quote! { #name_ident } );
+        let enum_ident = Ident::new("ActionData", Span::call_site());
+        tokens.extend( quote! { #enum_ident::#name_ident } );
     }
 }
 
@@ -208,8 +219,9 @@ impl FromStr for Actions {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut result = Actions::new();
         let split = s.split("|");
-        for action_str in split {
-            let terminal = action_str.contains("(T)");
+        for str in split {
+            let terminal = str.contains("(T)");
+            let action_str = str.replace("(T)", "");
             if let Ok(a) = ActionData::from_str(action_str.trim()) {
                 result.data |= a;
                 if terminal { 
@@ -220,6 +232,16 @@ impl FromStr for Actions {
             }
         }
         Ok(result)
+    }
+}
+
+impl ToTokens for Actions {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let bits = syn::LitInt::new(&self.data.bits.to_string(), Span::call_site());
+        let terminal_bits = syn::LitInt::new(&self.terminal_actions.bits.to_string(), Span::call_site());
+        tokens.extend( quote! { 
+            Actions { data: ActionData::from(#bits),
+                      terminal_actions: ActionData::from(#terminal_bits) } } );
     }
 }
 
@@ -245,12 +267,21 @@ mod tests {
                                      ActionData::ConnDataTrack;
         actions.data |= frame_mask;
         assert!(actions.data.contains(frame_mask));
-        actions.data ^= frame_mask;
+        actions.clear_mask(frame_mask);
         
-        // Clear an action (or set of actions)
-        actions.data ^= ActionData::SessionFilter;
+        // Clear an action (or set of actions), including some that aren't set
+        actions.clear_mask(ActionData::PacketContinue | ActionData::SessionFilter);
 
         // Check that no actions are requested
         assert!(actions.drop());
+
+        actions.data |= ActionData::ProtoProbe | ActionData::ProtoFilter;
+        assert!(actions.parse_any());
+
+        // Check from usize: 2 LSBs set
+        let mask: usize = 3;
+        let action_data = ActionData::from(mask);
+        assert!(action_data.contains(ActionData::PacketContinue) && 
+                action_data.contains(ActionData::PacketDeliver));
     }
 }

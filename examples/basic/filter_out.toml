@@ -1,18 +1,28 @@
 subscriptions = [
     "HttpTransaction",
     "Connection",
-    "SubscribedSession"
 ]
 connection_deliver = [
-    { filter = "", datatype = "SubscribedSession", callback = "default_cb" },
+    { filter = "ipv4", datatype = "Connection", callback = "conn_cb" },
+]
+session_deliver = [
+    { filter = "http", datatype = "HttpTransaction", callback = "http_cb" },
 ]
 
 [packet_continue]
-"FrameContinue" = [
-    "ipv4",
+"PacketContinue" = [
+    "ipv4 or ipv6",
 ]
 
 [packet_filter]
 "ConnDataTrack (T)" = [
     "ipv4",
+]
+"ProtoProbe | ProtoFilter" = [
+    "tcp",
+]
+
+[connection_filter]
+"SessionDeliver (T)" = [
+    "http",
 ]

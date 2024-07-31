@@ -3,12 +3,10 @@ use retina_core::Runtime;
 #[macro_use]
 extern crate lazy_static;
 
-// mod subscription;
-// use subscription::*;
+mod subscription;
+use subscription::*;
 use clap::Parser;
 use std::path::PathBuf;
-
-// use subscription::print;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -16,14 +14,10 @@ struct Args {
     config: PathBuf,
 }
 
-struct SubscribedWrapper {
-
-}
-
 fn main() {
     let args = Args::parse();
     let config = load_config(&args.config);
-    // let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
-    // runtime.run();
-    // print();
+    let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
+    runtime.run();
+    print();
 }

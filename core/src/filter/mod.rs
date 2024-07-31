@@ -37,7 +37,7 @@ pub type SessionFilterFn = fn(&Session, &ConnData) -> Actions;
 // \note Rust won't enforce trait bounds on type alias
 pub type PacketDeliverFn = fn(&Mbuf);
 pub type ConnDeliverFn<T> = fn(&ConnData, &T);
-pub type SessionDeliverFn<T> = fn(std::rc::Rc<Session>, &ConnData, &T);
+pub type SessionDeliverFn<T> = fn(&Session, &ConnData, &T);
 
 pub struct FilterFactory<T>
 where 

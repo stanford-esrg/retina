@@ -13,7 +13,7 @@ lazy_static! {
                 { DataType::new(Level::Connection, false, true) }
             ),
             (
-                "Http",
+                "HttpTransaction",
                 { DataType::new(Level::Session, true, false) }
             )
         ]) 
