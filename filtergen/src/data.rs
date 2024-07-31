@@ -28,9 +28,15 @@ impl TrackedDataBuilder {
     pub(crate) fn build(&mut self) {
         for name in &self.subscribed_data {
             let type_name_str = name.as_str();
-            let datatype = DATATYPES.get(type_name_str)
-                                    // TODO list possible datatypes in error msg
-                                               .expect(&format!("Invalid datatype: {}", name));
+            if !DATATYPES.contains_key(type_name_str) {
+                let valid_types: Vec<&str> = DATATYPES.keys()
+                                                    .map(|s| *s )
+                                                    .collect();
+
+                panic!("Invalid datatype: {};\nDid you mean:\n {}", 
+                        name, valid_types.join(",\n"));
+            }
+            let datatype = DATATYPES.get(type_name_str).unwrap();
 
             let type_name = Ident::new(&type_name_str, Span::call_site());
             let field_name_str = name.to_lowercase();
