@@ -2,7 +2,7 @@ import tomli
 import tomli_w
 import sys
 
-DEFAULT_PKT_CONT = { 'FrameContinue': ['ipv4'] }
+DEFAULT_PKT_CONT = { 'PacketContinue': ['ipv4'] }
 DEFAULT_PKT_DELIVER = {}
 DEFAULT_SUBSCRIPTIONS = ['HttpTransaction', 'Connection']
 
@@ -92,7 +92,7 @@ class FilterValues:
         subscriptions = CompleteFilter()
         subscriptions.subscriptions = ['HttpTransaction']
         subscriptions.packet_continue = { 'Packet::Track': ['tcp'] }
-        subscriptions.packet_filter['ConnFilter | ConnParse'] = ['tcp']
+        subscriptions.packet_filter['ProtoFilter | ProtoProbe'] = ['tcp']
         subscriptions.connection_filter['SessionParse (T) | SessionDeliver (T)'] = ['http']
         for i in range(NUM_SUBSCRIPTIONS):
             subscriptions.session_deliver.append(
@@ -109,7 +109,7 @@ class FilterValues:
 
         # --- Packet filter --- 
         # IPv4 and [app proto]
-        APP_ACTIONS = "ConnFilter | ConnParse"
+        APP_ACTIONS = "ProtoFilter | ProtoProbe"
         subscriptions.packet_filter[APP_ACTIONS] = []
         subscriptions.packet_filter[APP_ACTIONS].append("ipv4 and tcp")
         # IPV4 in subnets (client/server)
@@ -126,19 +126,16 @@ class FilterValues:
 
         # IPv4 and [app proto]
         subscriptions.connection_filter[CONN_ACTIONS] = [self.APPLICATION_PROTO]
+    
+        # Filter for just protocol
         if INCLUDE_SESSIONS: 
-            APP_ACTIONS = "SessionParse (T) | SessionDeliverConn (T)"
+            APP_ACTIONS = "SessionParse (T) | SessionDeliver (T)"
             subscriptions.connection_filter[APP_ACTIONS] = [self.APPLICATION_PROTO]
         
-        # For session
+        # Filter for field in protocol
         if INCLUDE_SESSIONS:
             SESSION_ACTIONS = "SessionParse | SessionFilter"
             subscriptions.connection_filter[SESSION_ACTIONS] = [self.APPLICATION_PROTO]
-        
-
-        # --- Session filter (parsed) ---
-        # Deliver session on match
-        if INCLUDE_SESSIONS:
             SESSION_ACTIONS = "SessionDeliver (T)"
             subscriptions.session_filter[SESSION_ACTIONS] = [self.SESSION_FILTER]
 
@@ -250,7 +247,7 @@ class FilterValues:
 
         # --- Packet filter --- 
         # IPv4 and [app proto]
-        PKT_APP_ACTIONS = "ConnFilter | ConnParse"
+        PKT_APP_ACTIONS = "ProtoFilter | ProtoProbe"
         if not INCLUDE_SESSIONS: ## TODO SESSIONS OPTION
             PKT_APP_ACTIONS += " | ConnDataTrack"
         
