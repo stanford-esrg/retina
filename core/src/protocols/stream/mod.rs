@@ -67,28 +67,31 @@ pub(crate) struct ParserRegistry(Vec<ConnParser>);
 impl ParserRegistry {
     /// Builds a new `ParserRegistry` from the `filter` and tracked subscribable type `T`.
     pub(crate) fn build<T: Subscribable>(filter: &Filter) -> Result<ParserRegistry> {
-        let parsers = T::parsers();
-        if !parsers.is_empty() {
-            return Ok(ParserRegistry(parsers));
-        }
-
-        let mut stream_protocols = hashset! {};
+        // Parsers requested by datatypes
+        let mut stream_protocols: HashSet<String> = T::parsers()
+                                                        .into_iter()
+                                                        .map(|p| p.protocol_name().unwrap())
+                                                        .collect();
+        // Parsers requested by filters
         for pattern in filter.get_patterns_flat().iter() {
             for predicate in pattern.predicates.iter() {
                 if predicate.on_connection() {
-                    stream_protocols.insert(predicate.get_protocol().to_owned());
+                    let protocol = predicate.get_protocol().to_owned();
+                    stream_protocols.insert(protocol.name().into());
                 }
             }
         }
 
+        // Dedup parsers
         let mut parsers = vec![];
         for stream_protocol in stream_protocols.iter() {
-            if let Ok(parser) = ConnParser::from_str(stream_protocol.name()) {
+            if let Ok(parser) = ConnParser::from_str(stream_protocol) {
                 parsers.push(parser);
             } else {
                 bail!("Unknown application-layer protocol");
             }
         }
+
         Ok(ParserRegistry(parsers))
     }
 
@@ -300,7 +303,9 @@ impl ConnParser {
         }
     }
 
-    pub fn name(&self) -> Option<String> {
+    // \note This should match the name of the protocol used
+    // in the filter syntax (see filter/ast.rs::LAYERS)
+    pub fn protocol_name(&self) -> Option<String> {
         match self {
             ConnParser::Tls(_parser) => Some("tls".into()),
             ConnParser::Dns(_parser) => Some("dns".into()),
