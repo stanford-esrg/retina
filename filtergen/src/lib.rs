@@ -24,14 +24,15 @@ use crate::data::*;
 use crate::utils::SubscriptionSpec;
 
 fn get_hw_filter(packet_continue: &HashMap<Actions, Vec<String>>) -> String {
-    if packet_continue.is_empty() {
-        return "".into();
-    }
     let mut ret = String::from("(");
     for (_, v) in packet_continue {
         ret += (v.join(") or (")).as_str();
     }
     ret += ")";
+    if ret == "()" {
+        return "".into();
+    }
+    // Validate HW filter at compile-time
     let _flat_ptree = Filter::from_str(&ret).expect(&format!("Invalid HW filter {}", &ret));
     ret
 }
