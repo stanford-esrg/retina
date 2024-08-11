@@ -1,8 +1,9 @@
-use retina_datatypes::*;
 use std::collections::HashSet;
 use proc_macro2::{Ident, Span};
 
 use quote::quote;
+
+use crate::SubscriptionConfig;
 
 pub(crate) struct TrackedDataBuilder {
     update: Vec<proc_macro2::TokenStream>,
@@ -10,39 +11,28 @@ pub(crate) struct TrackedDataBuilder {
     new: Vec<proc_macro2::TokenStream>,
     subscribable_enum: Vec<proc_macro2::TokenStream>,
     app_parsers: HashSet<String>,
-    subscribed_data: HashSet<String>
 }
 
 impl TrackedDataBuilder {
-    pub(crate) fn new(subscribed_data: HashSet<String>) -> Self {
-        Self {
+    pub(crate) fn new(subscribed_data: &SubscriptionConfig) -> Self {
+        let mut ret = Self {
             update: vec![],
             struct_def: vec![],
             new: vec![],
             subscribable_enum: vec![],
             app_parsers: HashSet::new(),
-            subscribed_data
-        }
+        };
+        ret.build(subscribed_data);
+        ret
     }
 
-    pub(crate) fn build(&mut self) {
-        for name in &self.subscribed_data {
-            let type_name_str = name.as_str();
-            if !DATATYPES.contains_key(type_name_str) {
-                let valid_types: Vec<&str> = DATATYPES.keys()
-                                                    .map(|s| *s )
-                                                    .collect();
-
-                panic!("Invalid datatype: {};\nDid you mean:\n {}", 
-                        name, valid_types.join(",\n"));
-            }
-            let datatype = DATATYPES.get(type_name_str).unwrap();
-
-            let type_name = Ident::new(&type_name_str, Span::call_site());
-            let field_name_str = name.to_lowercase();
-            let field_name = Ident::new(&field_name_str, Span::call_site());
-            let needs_update = datatype.needs_update; 
-            let needs_parse = datatype.needs_parse;
+    pub(crate) fn build(&mut self, subscribed_data: &SubscriptionConfig) {
+        for spec in &subscribed_data.subscriptions {
+            let name = &spec.datatype_str; 
+            let type_name = Ident::new(name, Span::call_site());
+            let field_name = Ident::new(&name.to_lowercase(), Span::call_site());
+            let needs_update = spec.datatype.needs_update; 
+            let needs_parse = spec.datatype.needs_parse;
             
             self.struct_def.push(
                 quote! { 

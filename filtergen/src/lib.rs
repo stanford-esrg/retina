@@ -3,7 +3,8 @@ use quote::quote;
 use syn::parse_macro_input;
 use retina_core::filter::*;
 use retina_core::filter::ptree::*;
-use std::collections::{HashMap, HashSet};
+use utils::DELIVER;
+use std::collections::HashSet;
 use retina_core::protocols::stream::ConnParser;
 
 #[macro_use]
@@ -21,87 +22,58 @@ use crate::connection_filter::*;
 use crate::session_filter::*;
 use crate::parse::*;
 use crate::data::*;
-use crate::utils::SubscriptionSpec;
 
-fn get_hw_filter(packet_continue: &HashMap<Actions, Vec<String>>) -> String {
-    let mut ret = String::from("(");
-    for (_, v) in packet_continue {
-        ret += (v.join(") or (")).as_str();
-    }
-    ret += ")";
-    if ret == "()" {
-        return "".into();
-    }
-    // Validate HW filter at compile-time
+fn get_hw_filter(packet_continue: &PTree) -> String {
+    let ret = packet_continue.to_filter_string();
     let _flat_ptree = Filter::from_str(&ret).expect(&format!("Invalid HW filter {}", &ret));
     ret
 }
 
-fn filter_subtree(input: &HashMap<Actions, Vec<String>>,  
+fn filter_subtree(input: &SubscriptionConfig,  
                   filter_type: FilterType) -> PTree
 {
-    let mut action_ptrees = vec![];
-    for (k, v) in input {
-
-        // Build "pruned" tree for this action
-        let mut ptree = PTree::new_empty(filter_type);
-        for sub_filter in v {
-            let filter = Filter::new(&sub_filter, filter_type, 
-                                             k, 0).expect(
-                format!("Could not parse filter {}", sub_filter).as_str()
-            );
-            ptree.build_tree(&filter.get_patterns_flat(), k, 0, &String::from(""));
-        }
-        ptree.prune_branches();
-        action_ptrees.push((ptree.to_flat_patterns(), k.clone()));
-    }
-
     let mut ptree = PTree::new_empty(filter_type);
-    for (patterns, actions) in action_ptrees {
-        ptree.add_filter(
-            &patterns,
-            &actions,
-            0,
-            &String::from("")
-        );
+    for sub in &input.subscriptions {
+        let filter = Filter::new(
+            &sub.filter, 
+            filter_type, 
+            &sub.datatype, 
+            0).expect(
+                format!("Could not parse filter {}", &sub.filter).as_str()
+            );
+        ptree.add_filter(&filter.get_patterns_flat(), &sub.datatype, 0, &String::from(""));
     }
-
-    // No need to update parsers here, as deliver filters will encompass
+    ptree.prune_branches();
     ptree.mark_mutual_exclusion();
     println!("{}", ptree);
     ptree
-
 }
 
-fn deliver_subtree(input: &HashMap<usize, SubscriptionSpec>,  
+fn deliver_subtree(input: &SubscriptionConfig,  
                    filter_type: FilterType,
                    parsers: &mut HashSet<&'static str>) -> PTree
 {
     let mut ptree = PTree::new_empty(filter_type);
-    let actions_empty = Actions::new();
 
-    for (id, spec) in input {
-        // Build "pruned" tree for this action
-        let filter = Filter::new(&spec.filter, filter_type, 
-                            &Actions::new(), *id)
-                            .expect(&format!("Failed to parse filter {}", spec.filter));
-
+    for i in 0..input.subscriptions.len() {
+        let spec = &input.subscriptions[i];
+        let filter = Filter::new(&spec.filter, filter_type, &spec.datatype, i)
+                     .expect(&format!("Failed to parse filter {}", spec.filter));
+        
         let patterns = filter.get_patterns_flat();
         ptree.add_filter(
             &patterns,
-            &actions_empty,
-            *id,
-            &String::from(format!("{}({})", spec.callback, spec.datatype))
+            &spec.datatype,
+            i,
+            &String::from(format!("{}({})", spec.callback, spec.datatype_str))
         );
-    }
-
-    // TODO confirm that `parsers` is correct
-    if !matches!(filter_type, FilterType::Deliver(FilterLayer::Packet)) {
-        for (_, s) in input {
-            parsers.extend(ConnParser::requires_parsing(&s.filter));
+        if !matches!(filter_type, FilterType::Deliver(FilterLayer::Packet)) {
+            parsers.extend(ConnParser::requires_parsing(&spec.filter));
         }
+        DELIVER.lock().unwrap().insert(i, spec.clone());
     }
 
+    ptree.prune_branches();
     ptree.mark_mutual_exclusion();
     println!("{}", ptree);
     ptree
@@ -111,67 +83,44 @@ fn deliver_subtree(input: &HashMap<usize, SubscriptionSpec>,
 #[proc_macro_attribute]
 pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     let inp_file = parse_macro_input!(args as syn::LitStr).value();
-    let config = ConfigBuilder::from_file(&inp_file);
+    let config = SubscriptionConfig::from_file(&inp_file);
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
 
     let mut parsers = HashSet::new();
 
-    if !config.packet_deliver.is_empty() {
-        panic!("Packet_deliver not implemented");
-    }
+    let packet_cont_ptree = filter_subtree(&config, FilterType::Action(FilterLayer::PacketContinue));
 
-    let packet_cont_ptree = filter_subtree(&config.packet_continue, 
-                                        FilterType::Action(FilterLayer::PacketContinue));
     let packet_continue = gen_packet_filter(&packet_cont_ptree, &mut statics, false);
 
-    let packet_ptree = filter_subtree(&config.packet_filter, 
+    let packet_ptree = filter_subtree(&config, 
         FilterType::Action(FilterLayer::Packet));
     let packet_filter = gen_packet_filter(&packet_ptree, &mut statics, false);
     
-    let conn_filter = match config.connection_filter.is_empty() {
-        true => { quote! { Actions::new() } },
-        false => { 
-            let conn_ptree = filter_subtree(&config.connection_filter, 
-                FilterType::Action(FilterLayer::Connection));
-            gen_connection_filter(&conn_ptree, &mut statics, false)
-        }
-    };
+    let conn_ptree = filter_subtree(&config, 
+        FilterType::Action(FilterLayer::Connection)); 
+    let conn_filter = gen_connection_filter(&conn_ptree, &mut statics, false);
+
+    let session_ptree = filter_subtree(&config, 
+        FilterType::Action(FilterLayer::Session));
+    let session_filter = gen_session_filter(&session_ptree, &mut statics, false);
     
-    let session_filter = match config.session_filter.is_empty() {
-        true => { quote! { Actions::new() } },
-        false => {
-            let session_ptree = filter_subtree(&config.session_filter, 
-                FilterType::Action(FilterLayer::Session));
-            gen_session_filter(&session_ptree, &mut statics, false)
-        }
-    };
-    let conn_deliver_filter = match config.connection_deliver.is_empty() {
-        true => { quote! {} },
-        false => { 
-            let conn_deliver_ptree = deliver_subtree(&config.connection_deliver, 
+    let conn_deliver_ptree = deliver_subtree(&config, 
                 FilterType::Deliver(FilterLayer::Connection), &mut parsers);
-            gen_connection_filter(&conn_deliver_ptree, &mut statics, true)
-        }
-    };
-    let session_deliver_filter = match config.session_deliver.is_empty() {
-        true => { quote! {} },
-        false => {
-            let session_deliver_ptree = deliver_subtree(&config.session_deliver, 
+    let conn_deliver_filter = gen_connection_filter(&conn_deliver_ptree, &mut statics, true);
+
+    let session_deliver_ptree = deliver_subtree(&config, 
                 FilterType::Deliver(FilterLayer::Session), &mut parsers);
-            gen_session_filter(&session_deliver_ptree, &mut statics, true)
-        }
-    };
+    let session_deliver_filter = gen_session_filter(&session_deliver_ptree, &mut statics, true);
 
     // TODO print something for tracked data
-    let mut tracked_data = TrackedDataBuilder::new(config.datatypes);
-    tracked_data.build();
+    let mut tracked_data = TrackedDataBuilder::new(&config);
 
     let subscribed_data = tracked_data.subscribed_enum();
     let subscribable = tracked_data.subscribable_wrapper();
     let tracked = tracked_data.tracked();
 
 
-    let filter_str = get_hw_filter(&config.packet_continue); // Packet-level keep/drop filter
+    let filter_str = get_hw_filter(&packet_cont_ptree); // Packet-level keep/drop filter
     let app_protocols = parsers.into_iter().collect::<Vec<_>>().join(" or ");
     
     let lazy_statics = if statics.is_empty() {

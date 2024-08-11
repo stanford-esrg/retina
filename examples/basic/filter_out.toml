@@ -1,28 +1,4 @@
 subscriptions = [
-    "HttpTransaction",
-    "Connection",
-]
-connection_deliver = [
     { filter = "", datatype = "Connection", callback = "conn_cb" },
-]
-session_deliver = [
     { filter = "", datatype = "HttpTransaction", callback = "http_cb" },
-]
-
-[packet_continue]
-"PacketContinue" = [
-    "",
-]
-
-[packet_filter]
-"ConnDataTrack (T)" = [
-    "",
-]
-"ProtoProbe | ProtoFilter" = [
-    "",
-]
-
-[connection_filter]
-"SessionDeliver (T)" = [
-    "",
 ]

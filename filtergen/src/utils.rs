@@ -7,15 +7,7 @@ use quote::quote;
 use regex::Regex;
 use std::sync::Mutex;
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
-
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub(crate) struct SubscriptionSpec {
-    pub(crate) filter: String,
-    pub(crate) datatype: String,
-    pub(crate) callback: String,
-}
+use super::parse::SubscriptionSpec;
 
 lazy_static! { 
     pub(crate) static ref DELIVER: Mutex<HashMap<usize, SubscriptionSpec>> = Mutex::new(HashMap::new()); 
@@ -308,7 +300,7 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
                 let lock = DELIVER.lock().unwrap();
                 let spec = lock.get(id).expect(&format!("Cannot find ID {}", id));
                 let callback = Ident::new(&spec.callback, Span::call_site());
-                let tracked_str = spec.datatype.to_lowercase();
+                let tracked_str = spec.datatype_str.to_lowercase();
                 let tracked_field: Ident = Ident::new(&tracked_str, Span::call_site());
                 quote! { 
                     #callback( &tracked.#tracked_field );
