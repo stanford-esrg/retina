@@ -140,6 +140,20 @@ impl Predicate {
         }
     }
 
+    pub(crate) fn is_last_layer(&self, filter_layer: FilterLayer) -> bool {
+        match filter_layer {
+            FilterLayer::Packet | FilterLayer::PacketContinue => {
+                return false;
+            }
+            FilterLayer::Connection => {
+                return self.on_packet();
+            }
+            FilterLayer::Session => {
+                return self.on_packet() || self.on_connection();
+            }
+        }
+    }
+
     /// Returns `true` if predicate can be pushed down to hardware port.
     pub(super) fn is_hardware_filterable(&self, port: &Port) -> bool {
         hardware::device_supported(self, port)

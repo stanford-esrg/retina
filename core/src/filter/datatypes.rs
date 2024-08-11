@@ -1,6 +1,7 @@
 use super::{Actions, ActionData};
 use super::ptree::FilterLayer;
 
+#[derive(Clone, Debug)]
 pub enum Level {
     // Deliver per-packet
     Packet,
@@ -12,6 +13,7 @@ pub enum Level {
     Streaming,
 }
 
+#[derive(Clone, Debug)]
 pub struct DataType {
     // Indicates when delivery can start
     pub level: Level, 

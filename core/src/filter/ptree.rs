@@ -354,6 +354,14 @@ impl PTree {
                               pattern_id: usize, datatype: &DataType,
                               filter_id: usize,
                               subscription_str: &String) {
+        
+        // Skip patterns that already terminated
+        if let FilterType::Action(filter_layer) = self.filter_type {
+            if pattern.predicates.iter().all(|p| p.is_last_layer(filter_layer)) {
+                return;
+            }
+        }
+
         let mut node = &mut self.root;
         node.patterns.push(pattern_id);
         for predicate in pattern.predicates.iter() {
@@ -782,6 +790,17 @@ mod tests {
         expected_actions.data |= ActionData::ProtoFilter;
         // println!("{}", ptree);
         assert!(ptree.actions == expected_actions);
+
+        // Session ptree should exclude patterns that terminate at upper layers
+        let filter = Filter::from_str("(ipv4 and tls.sni = \'abc\') or (ipv4.dst_addr = 1.1.1.1/32)").unwrap();
+        let mut ptree = PTree::new_empty(FilterType::Action(FilterLayer::Session));
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
+        assert!(ptree.size == 5); // eth - ipv4 - tls - tls sni
+
+        // Packet ptree should exclude patterns that terminate at lower layers
+        let mut ptree = PTree::new_empty(FilterType::Action(FilterLayer::Packet));
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
+        assert!(ptree.size == 4); // eth - ipv4 - tcp, ipv4.dst_addr
     }
 
     // \todo: asserts to check for correctness
