@@ -96,7 +96,7 @@ fn deliver_subtree(input: &HashMap<usize, SubscriptionSpec>,
     }
 
     // TODO confirm that `parsers` is correct
-    if !matches!(filter_type, FilterType::Deliver(FilterLayer::PacketDeliver)) {
+    if !matches!(filter_type, FilterType::Deliver(FilterLayer::Packet)) {
         for (_, s) in input {
             parsers.extend(ConnParser::requires_parsing(&s.filter));
         }
@@ -121,7 +121,7 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     }
 
     let packet_cont_ptree = filter_subtree(&config.packet_continue, 
-                                        FilterType::Action(FilterLayer::Packet));
+                                        FilterType::Action(FilterLayer::PacketContinue));
     let packet_continue = gen_packet_filter(&packet_cont_ptree, &mut statics, false);
 
     let packet_ptree = filter_subtree(&config.packet_filter, 
@@ -149,7 +149,7 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
         true => { quote! {} },
         false => { 
             let conn_deliver_ptree = deliver_subtree(&config.connection_deliver, 
-                FilterType::Deliver(FilterLayer::ConnectionDeliver), &mut parsers);
+                FilterType::Deliver(FilterLayer::Connection), &mut parsers);
             gen_connection_filter(&conn_deliver_ptree, &mut statics, true)
         }
     };
@@ -157,7 +157,7 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
         true => { quote! {} },
         false => {
             let session_deliver_ptree = deliver_subtree(&config.session_deliver, 
-                FilterType::Deliver(FilterLayer::SessionDeliver), &mut parsers);
+                FilterType::Deliver(FilterLayer::Session), &mut parsers);
             gen_session_filter(&session_deliver_ptree, &mut statics, true)
         }
     };

@@ -12,6 +12,9 @@ mod pattern;
 pub mod ptree_flat;
 pub mod ptree;
 
+pub mod datatypes;
+pub use datatypes::{Level, DataType};
+
 use crate::filter::hardware::{flush_rules, HardwareFilter};
 use crate::filter::parser::FilterParser;
 use crate::filter::pattern::{FlatPattern, LayeredPattern};
@@ -118,7 +121,7 @@ impl Filter {
     }
 
     pub fn new(filter_raw: &str, filter_type: FilterType, 
-               actions: &Actions, filter_id: usize) -> Result<Filter> {
+               datatype: &DataType, filter_id: usize) -> Result<Filter> {
         let parser = FilterParser { split_combined: true /* TODOTR */ };
         let raw_patterns = parser.parse_filter(filter_raw)?;
 
@@ -138,7 +141,7 @@ impl Filter {
 
         // prune redundant branches
         let flat_patterns: Vec<_> = fq_patterns.iter().map(|p| p.to_flat_pattern()).collect();
-        let mut ptree = PTree::new(&flat_patterns, filter_type, actions, filter_id, &String::from(""));
+        let mut ptree = PTree::new(&flat_patterns, filter_type, datatype, filter_id, &String::from(""));
 
         ptree.prune_branches();
 

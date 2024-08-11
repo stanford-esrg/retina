@@ -1,4 +1,5 @@
 use super::hardware;
+use super::ptree::FilterLayer;
 
 use std::collections::HashSet;
 use std::fmt;
@@ -123,6 +124,20 @@ impl Predicate {
     fn needs_conntrack(&self) -> bool {
         has_path(self.get_protocol(), &protocol!("tcp"))
             || has_path(self.get_protocol(), &protocol!("udp"))
+    }
+
+    pub(crate) fn is_next_layer(&self, filter_layer: FilterLayer) -> bool {
+        match filter_layer {
+            FilterLayer::Packet | FilterLayer::PacketContinue => {
+                return !self.on_packet();
+            }
+            FilterLayer::Connection => {
+                return self.on_session();
+            }
+            FilterLayer::Session => {
+                return false;
+            }
+        }
     }
 
     /// Returns `true` if predicate can be pushed down to hardware port.

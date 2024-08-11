@@ -151,6 +151,12 @@ impl Actions {
     }
 
     #[inline]
+    pub fn clear_intersection(&mut self, other: &Actions) {
+        self.data &= other.data.not();
+        self.terminal_actions &= other.terminal_actions.not();
+    }
+
+    #[inline]
     pub fn clear(&mut self) {
         self.terminal_actions = ActionData::none();
         self.data = ActionData::none();

@@ -1,4 +1,4 @@
-use super::{Level, DataType};
+use retina_core::filter::datatypes::{Level, DataType};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
