@@ -1,4 +1,4 @@
 subscriptions = [
-    { filter = "", datatype = "Connection", callback = "conn_cb" },
-    { filter = "", datatype = "HttpTransaction", callback = "http_cb" },
+    { filter = "ipv4", datatype = "Connection", callback = "conn_cb" },
+    { filter = "http", datatype = "HttpTransaction", callback = "http_cb" },
 ]

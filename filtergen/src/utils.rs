@@ -295,7 +295,8 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
         );
     }
     if !node.deliver.is_empty() {
-        for id in &node.deliver {
+        for d in &node.deliver {
+            let id = &d.id;
             let deliver = {
                 let lock = DELIVER.lock().unwrap();
                 let spec = lock.get(id).expect(&format!("Cannot find ID {}", id));
