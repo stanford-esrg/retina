@@ -288,8 +288,8 @@ impl PTree {
                 self.root.deliver.insert(Deliver { id: filter_id, as_str: subscription_str.clone()});
             } else {
                 let actions = datatype.with_term_filter(self.filter_layer);
-                self.root.actions.or_eq(&actions);
-                self.actions.or_eq(&actions);
+                self.root.actions.push(&actions);
+                self.actions.push(&actions);
             }
         }
     }
@@ -314,8 +314,8 @@ impl PTree {
             // node should be a non-terminal leaf node
             if predicate.is_next_layer(self.filter_layer) {
                 let actions = datatype.with_nonterm_filter(self.filter_layer);
-                node.actions.or_eq(&actions);
-                self.actions.or_eq(&actions);
+                node.actions.push(&actions);
+                self.actions.push(&actions);
                 // Stop descending - no terminal actions for this predicate
                 return;
             }
@@ -353,8 +353,8 @@ impl PTree {
             node.deliver.insert(Deliver { id: filter_id, as_str: subscription_str.clone() });
         } else {
             let actions = datatype.with_term_filter(self.filter_layer);
-            node.actions.or_eq(&actions);
-            self.actions.or_eq(&actions);
+            node.actions.push(&actions);
+            self.actions.push(&actions);
         }
     }
 
@@ -425,7 +425,7 @@ impl PTree {
     /// Should be called after tree is completely built
     pub fn prune_branches(&mut self) {
 
-        fn prune(node: &mut PNode, on_path_actions: &Vec<Actions>, on_path_deliver: &HashSet<String>) {
+        fn prune(node: &mut PNode, on_path_actions: &Actions, on_path_deliver: &HashSet<String>) {
             // Remove redundant delivery
             let mut my_deliver = on_path_deliver.clone();
             let mut new_ids = HashSet::new();
@@ -439,11 +439,8 @@ impl PTree {
             // Remove redundant actions
             let mut my_actions = on_path_actions.clone();
             if !node.actions.drop() {
-                if !my_actions.contains(&node.actions) {
-                    my_actions.push(node.actions.clone());
-                } else {
-                    node.actions.clear();
-                }
+                node.actions.unique(&my_actions);
+                my_actions.push(&node.actions);
             }
             // Prune children
             let mut new_children = vec![];
@@ -457,7 +454,7 @@ impl PTree {
             node.children = new_children;
         }
 
-        let on_path_actions = vec![];
+        let on_path_actions = Actions::new();
         let on_path_deliver = HashSet::new();
         prune(&mut self.root, &on_path_actions, &on_path_deliver);
         self.update_size();

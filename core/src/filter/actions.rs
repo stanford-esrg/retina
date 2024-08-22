@@ -58,9 +58,16 @@ impl Actions {
     /// Combine terminal and non-terminal actions
     /// Used for building a filter
     #[inline]
-    pub fn or_eq(&mut self, actions: &Actions) {
+    pub fn push(&mut self, actions: &Actions) {
         self.data |= actions.data;
         self.terminal_actions |= actions.terminal_actions;
+    }
+
+    /// Update self to contain only actions not in `actions`
+    #[inline]
+    pub fn unique(&mut self, actions: &Actions) {
+        self.data &= actions.data.not();
+        self.terminal_actions &= actions.data.not();
     }
 
     /// Add actions during (while applying) a filter
