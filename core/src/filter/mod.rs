@@ -33,7 +33,9 @@ use thiserror::Error;
 pub type PacketContFn = fn(&Mbuf) -> Actions;
 pub type PacketFilterFn = fn(&Mbuf) -> Actions;
 pub type ConnFilterFn = fn(&ConnData) -> Actions;
-pub type SessionFilterFn = fn(&Session, &ConnData) -> Actions;
+
+// Will apply session filter and potentially deliver
+pub type SessionFilterFn<T> = fn(&Session, &ConnData, &T) -> Actions;
 
 // Subscription deliver functions
 // \note Rust won't enforce trait bounds on type alias
@@ -50,7 +52,7 @@ where
     pub packet_continue: PacketContFn,
     pub packet_filter: PacketFilterFn,
     pub conn_filter: ConnFilterFn,
-    pub session_filter: SessionFilterFn,
+    pub session_filter: SessionFilterFn<T>,
     pub packet_deliver: PacketDeliverFn,
     pub conn_deliver: ConnDeliverFn<T>,
     pub session_deliver: SessionDeliverFn<T>,
@@ -66,7 +68,7 @@ where
         packet_continue: PacketContFn,
         packet_filter: PacketFilterFn,
         conn_filter: ConnFilterFn,
-        session_filter: SessionFilterFn,
+        session_filter: SessionFilterFn<T>,
         packet_deliver: PacketDeliverFn,
         conn_deliver: ConnDeliverFn<T>,
         session_deliver: SessionDeliverFn<T>

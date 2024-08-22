@@ -67,7 +67,7 @@ where
     packet_continue: PacketContFn,
     packet_filter: PacketFilterFn,
     conn_filter: ConnFilterFn,
-    session_filter: SessionFilterFn,
+    session_filter: SessionFilterFn<S::Tracked>,
     packet_deliver: PacketDeliverFn,
     conn_deliver: ConnDeliverFn<S::Tracked>,
     session_deliver: SessionDeliverFn<S::Tracked>,
@@ -127,9 +127,9 @@ where
         (self.conn_filter)(conn)
     }
 
-    /// Invokes the application-layer session filter. 
-    pub fn filter_session(&self, session: &Session, conn: &ConnData) -> Actions {
-        (self.session_filter)(session, conn)
+    /// Invokes the application-layer session filter. Delivers sessions if applicable.
+    pub fn filter_session(&self, session: &Session, conn: &ConnData, tracked: &S::Tracked) -> Actions {
+        (self.session_filter)(session, conn, tracked)
     }
 
     /// Delivery functions, including delivery to the correct callback

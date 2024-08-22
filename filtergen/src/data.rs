@@ -27,12 +27,17 @@ impl TrackedDataBuilder {
     }
 
     pub(crate) fn build(&mut self, subscribed_data: &SubscriptionConfig) {
+        let mut datatypes = HashSet::new();
         for spec in &subscribed_data.subscriptions {
             let name = &spec.datatype_str; 
             let type_name = Ident::new(name, Span::call_site());
             let field_name = Ident::new(&name.to_lowercase(), Span::call_site());
             let needs_update = spec.datatype.needs_update; 
             let needs_parse = spec.datatype.needs_parse;
+            if datatypes.contains(name) {
+                continue;
+            }
+            datatypes.insert(name);
             
             self.struct_def.push(
                 quote! { 
@@ -45,6 +50,7 @@ impl TrackedDataBuilder {
             self.subscribable_enum.push(
                 quote! { #type_name (#type_name), }
             );
+       
             if needs_update {
                 // TODO will a subscription ever want to be able to know if *it* is matching 
                 //              before the deliver phase? 

@@ -135,7 +135,8 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
             }
 
             fn session_filter(session: &retina_core::protocols::stream::Session,
-                                conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::actions::Actions 
+                              conn: &retina_core::protocols::stream::ConnData,
+                              tracked: &TrackedWrapper) -> retina_core::filter::actions::Actions 
             {
                 #session_filter
             }

@@ -150,10 +150,11 @@ impl Predicate {
                 return self.on_packet();
             }
             FilterLayer::Session => {
-                return self.on_packet() || self.on_connection();
+                return (self.on_packet() || self.on_connection()) &&  // prev filter
+                       !matches!(datatype.level, Level::Session);     // no delivery req'd
             }
             FilterLayer::ConnectionDeliver => {
-                return !matches!(datatype.level, Level::Connection);
+                return !matches!(datatype.level, Level::Connection); // delivery
             }
         }
     }

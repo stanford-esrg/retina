@@ -449,8 +449,8 @@ impl PTree {
             let mut new_children = vec![];
             for child in node.children.iter_mut() {
                 prune(child, &my_actions, &my_deliver);
-                // Backtrack: retain only those with actions or children
-                if !child.actions.drop() || !child.children.is_empty() {
+                // Backtrack: retain only those with actions, deliver, or children
+                if !child.actions.drop() || !child.children.is_empty() || !child.deliver.is_empty() {
                     new_children.push(child.clone());
                 }
             }
@@ -821,7 +821,7 @@ mod tests {
         let datatype_str_conn = "cb_1(Connection)".to_string();
         let datatype_conn = DataType::new(Level::Connection, false, true);
         
-        let mut ptree = PTree::new_empty(FilterLayer::Connection);
+        let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
 
         let filter = Filter::from_str(filter).unwrap();
         ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 0, &datatype_str_conn);
@@ -829,6 +829,6 @@ mod tests {
         ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 1, &datatype_str_conn);
         
         ptree.prune_branches();
-        assert!(!ptree.to_filter_string().contains("1.3.3.1/31"));
+        assert!(!ptree.to_filter_string().contains("1.3.3.1/31") && ptree.size == 3); // eth, ipv4, ipvr.src
     }
 }
