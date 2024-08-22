@@ -106,7 +106,8 @@ impl DataType {
                 // Ideally, won't be re-checked
                 if_matched.data |= ActionData::PacketDeliver;
                 if_matching.data |=  ActionData::PacketTrack;
-                panic!("Packet datatypes not (fully) implemented");
+                // TODO
+                // panic!("Packet datatypes not (fully) implemented");
             }
             Level::Connection => {
                 // Track connection metadata
@@ -143,7 +144,8 @@ impl DataType {
                 // Continue buffering packets, apply next filter
                 if_matching.data |= ActionData::PacketTrack | 
                                     ActionData::SessionFilter;
-                panic!("Packet datatypes not (fully) implemented");
+                // TODO 
+                // panic!("Packet datatypes not (fully) implemented");
             }
             Level::Connection => {
                 if_matched.data |= ActionData::ConnDataTrack;
@@ -173,15 +175,17 @@ impl DataType {
                 if_matched.data |= ActionData::PacketDrain;
                 if_matched.terminal_actions |= ActionData::PacketDeliver | 
                                                ActionData::PacketDrain;
-                panic!("Packet datatypes not (fully) implemented");
+                // TODO
+                // panic!("Packet datatypes not (fully) implemented");
             }
             Level::Connection => {
                 if_matched.data |= ActionData::ConnDataTrack;
                 if_matched.terminal_actions |= ActionData::ConnDataTrack;
+                // TODO
+                // panic!("Session filter for conn. datatype implemented");
             }
             Level::Session => {
-                if_matched.data |= ActionData::SessionDeliver;
-                if_matched.terminal_actions |= ActionData::SessionDeliver;
+                // Will be delivered in session filter
             }
             Level::Streaming => todo!()
         }
@@ -206,7 +210,8 @@ impl DataType {
                 return self.session_filter().if_matched;
             }
             FilterLayer::ConnectionDeliver => {
-                return self.session_filter().if_matched;
+                // No actions
+                return Actions::new();
             }
         }
     }

@@ -158,16 +158,6 @@ impl TrackedDataBuilder {
                 {
                     #( #update )*
                 }
-            
-                fn deliver_session(&mut self, session: Session, 
-                                subscription: &Subscription<Self::Subscribed>,
-                                actions: &ActionData, conn_data: &ConnData)
-                { 
-                    // TODO only if actually needed
-                    if actions.intersects(ActionData::SessionDeliver) {
-                        subscription.deliver_session(&session, &conn_data, &self);
-                    }
-                }
 
                 fn deliver_conn(&mut self, 
                                 subscription: &Subscription<Self::Subscribed>,

@@ -134,12 +134,6 @@ where
                 let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
                 self.actions.update(&actions);
             }
-            if self.actions.session_deliver() {
-                self.sdata.deliver_session(session, 
-                                           subscription, 
-                                           &self.actions.data, &self.cdata);
-                self.actions.session_clear_deliver();
-            }
         } else {
             log::error!("Done parsing but no session found");
         }
@@ -168,10 +162,6 @@ where
                 if self.actions.apply_session_filter() {
                     let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
                     self.actions.update(&actions);
-                }
-                if self.actions.session_deliver() {
-                    self.sdata.deliver_session(session, subscription,&self.actions.data, &self.cdata);
-                    self.actions.session_clear_deliver(); // Clear session-specific match
                 }
             }
         }

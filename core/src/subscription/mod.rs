@@ -41,14 +41,6 @@ pub trait Trackable {
     /// \todo 
     /// Handle draining frames
 
-    /// When a session has been parsed and has matched, deliver it.
-    /// If Actions includes delivery, deliver the session.
-    /// ConnData is provided to apply delivery filter.
-    /// If Actions includes storing the session, store it. 
-    fn deliver_session(&mut self, session: Session, 
-                       subscription: &Subscription<Self::Subscribed>,
-                       actions: &ActionData, conn_data: &ConnData);
-
     /// Indicate that a tracked and matched connection has terminated.
     /// If connection subscriptions are matched, they will be delivered.
     /// --- \TODO check the logic of actions on terminate. Make sure we can ascertain match.
@@ -70,7 +62,6 @@ where
     session_filter: SessionFilterFn<S::Tracked>,
     packet_deliver: PacketDeliverFn,
     conn_deliver: ConnDeliverFn<S::Tracked>,
-    session_deliver: SessionDeliverFn<S::Tracked>,
     #[cfg(feature = "timing")]
     pub(crate) timers: Timers,
 }
@@ -87,7 +78,6 @@ where
             session_filter: factory.session_filter,
             packet_deliver: factory.packet_deliver,
             conn_deliver: factory.conn_deliver,
-            session_deliver: factory.session_deliver,
             #[cfg(feature = "timing")]
             timers: Timers::new(),
         }        
@@ -140,9 +130,5 @@ where
 
     pub fn deliver_conn(&self, conn_data: &ConnData, tracked: &S::Tracked) {
         (self.conn_deliver)(conn_data, tracked)
-    }
-
-    pub fn deliver_session(&self, session: &Session, conn_data: &ConnData, tracked: &S::Tracked) {
-        (self.session_deliver)(session, conn_data, tracked)
     }
 }

@@ -120,10 +120,6 @@ impl Actions {
                              ActionData::SessionFilter)
     }
 
-    #[inline]
-    pub fn session_deliver(&mut self) -> bool {
-        self.data.contains(ActionData::SessionDeliver)
-    }
 
     /// After parsing a session, the framework must decide whether to continue
     /// probing for sessions depending on the protocol
