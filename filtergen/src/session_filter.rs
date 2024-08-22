@@ -9,8 +9,7 @@ use crate::utils::*;
 
 pub(crate) fn gen_session_filter(
     ptree: &PTree,
-    statics: &mut Vec<proc_macro2::TokenStream>,
-    deliver: bool
+    statics: &mut Vec<proc_macro2::TokenStream>
 ) -> proc_macro2::TokenStream {
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
 
@@ -20,12 +19,8 @@ pub(crate) fn gen_session_filter(
         &ptree.root,
     );
 
-    let mut start = quote! {};
-    let mut ret = quote! {};
-    if !deliver {
-        start = quote! { let mut result = retina_core::filter::Actions::new(); };
-        ret = quote! { result };
-    }
+    let start = quote! { let mut result = retina_core::filter::Actions::new(); };
+    let ret = quote! { result };
 
     let session_filter = quote!{
         #start

@@ -29,35 +29,22 @@ fn get_hw_filter(packet_continue: &PTree) -> String {
     ret
 }
 
-fn filter_subtree(input: &SubscriptionConfig,  
-                  filter_type: FilterType) -> PTree
-{
-    let mut ptree = PTree::new_empty(filter_type);
-    for sub in &input.subscriptions {
-        let filter = Filter::new(
-            &sub.filter, 
-            filter_type, 
-            &sub.datatype, 
-            0).expect(
-                format!("Could not parse filter {}", &sub.filter).as_str()
-            );
-        ptree.add_filter(&filter.get_patterns_flat(), &sub.datatype, 0, &String::from(""));
+fn parsers(input: &SubscriptionConfig) -> HashSet<&'static str> {
+    let mut parsers = HashSet::new();
+    for spec in &input.subscriptions {
+        parsers.extend(ConnParser::requires_parsing(&spec.filter));
     }
-    ptree.prune_branches();
-    ptree.mark_mutual_exclusion();
-    println!("{}", ptree);
-    ptree
+    parsers
 }
 
-fn deliver_subtree(input: &SubscriptionConfig,  
-                   filter_type: FilterType,
-                   parsers: &mut HashSet<&'static str>) -> PTree
+fn filter_subtree(input: &SubscriptionConfig,
+                  filter_layer: FilterLayer) -> PTree
 {
-    let mut ptree = PTree::new_empty(filter_type);
+    let mut ptree = PTree::new_empty(filter_layer);
 
     for i in 0..input.subscriptions.len() {
         let spec = &input.subscriptions[i];
-        let filter = Filter::new(&spec.filter, filter_type, &spec.datatype, i)
+        let filter = Filter::new(&spec.filter)
                      .expect(&format!("Failed to parse filter {}", spec.filter));
         
         let patterns = filter.get_patterns_flat();
@@ -67,9 +54,6 @@ fn deliver_subtree(input: &SubscriptionConfig,
             i,
             &String::from(format!("{}({})", spec.callback, spec.datatype_str))
         );
-        if !matches!(filter_type, FilterType::Deliver(FilterLayer::Packet)) {
-            parsers.extend(ConnParser::requires_parsing(&spec.filter));
-        }
         DELIVER.lock().unwrap().insert(i, spec.clone());
     }
 
@@ -77,7 +61,6 @@ fn deliver_subtree(input: &SubscriptionConfig,
     ptree.mark_mutual_exclusion();
     println!("{}", ptree);
     ptree
-
 }
 
 #[proc_macro_attribute]
@@ -86,35 +69,25 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     let config = SubscriptionConfig::from_file(&inp_file);
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
 
-    let mut parsers = HashSet::new();
+    let parsers = parsers(&config);
 
-    let packet_cont_ptree = filter_subtree(&config, FilterType::Action(FilterLayer::PacketContinue));
+    let packet_cont_ptree = filter_subtree(&config, FilterLayer::PacketContinue);
+    let packet_continue = gen_packet_filter(&packet_cont_ptree, &mut statics);
 
-    let packet_continue = gen_packet_filter(&packet_cont_ptree, &mut statics, false);
-
-    let packet_ptree = filter_subtree(&config, 
-        FilterType::Action(FilterLayer::Packet));
-    let packet_filter = gen_packet_filter(&packet_ptree, &mut statics, false);
+    let packet_ptree = filter_subtree(&config, FilterLayer::Packet);
+    let packet_filter = gen_packet_filter(&packet_ptree, &mut statics);
     
-    let conn_ptree = filter_subtree(&config, 
-        FilterType::Action(FilterLayer::Connection)); 
+    let conn_ptree = filter_subtree(&config, FilterLayer::Connection); 
     let conn_filter = gen_connection_filter(&conn_ptree, &mut statics, false);
 
-    let session_ptree = filter_subtree(&config, 
-        FilterType::Action(FilterLayer::Session));
-    let session_filter = gen_session_filter(&session_ptree, &mut statics, false);
+    let session_ptree = filter_subtree(&config, FilterLayer::Session);
+    let session_filter = gen_session_filter(&session_ptree, &mut statics);
     
-    let conn_deliver_ptree = deliver_subtree(&config, 
-                FilterType::Deliver(FilterLayer::Connection), &mut parsers);
+    let conn_deliver_ptree = filter_subtree(&config, FilterLayer::ConnectionDeliver);
     let conn_deliver_filter = gen_connection_filter(&conn_deliver_ptree, &mut statics, true);
-
-    let session_deliver_ptree = deliver_subtree(&config, 
-                FilterType::Deliver(FilterLayer::Session), &mut parsers);
-    let session_deliver_filter = gen_session_filter(&session_deliver_ptree, &mut statics, true);
 
     // TODO print something for tracked data
     let mut tracked_data = TrackedDataBuilder::new(&config);
-
     let subscribed_data = tracked_data.subscribed_enum();
     let subscribable = tracked_data.subscribable_wrapper();
     let tracked = tracked_data.tracked();
@@ -180,7 +153,7 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
             fn session_deliver(session: &Session, 
                                 conn: &ConnData, tracked: &TrackedWrapper)
             {
-                #session_deliver_filter
+                // tmp
             }
 
             retina_core::filter::FilterFactory::new(

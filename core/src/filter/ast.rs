@@ -1,5 +1,6 @@
 use super::hardware;
 use super::ptree::FilterLayer;
+use super::datatypes::{Level, DataType};
 
 use std::collections::HashSet;
 use std::fmt;
@@ -134,13 +135,13 @@ impl Predicate {
             FilterLayer::Connection => {
                 return self.on_session();
             }
-            FilterLayer::Session => {
+            FilterLayer::Session | FilterLayer::ConnectionDeliver => {
                 return false;
             }
         }
     }
 
-    pub(crate) fn is_last_layer(&self, filter_layer: FilterLayer) -> bool {
+    pub(crate) fn is_prev_layer(&self, filter_layer: FilterLayer, datatype: &DataType) -> bool {
         match filter_layer {
             FilterLayer::Packet | FilterLayer::PacketContinue => {
                 return false;
@@ -151,7 +152,14 @@ impl Predicate {
             FilterLayer::Session => {
                 return self.on_packet() || self.on_connection();
             }
+            FilterLayer::ConnectionDeliver => {
+                return !matches!(datatype.level, Level::Connection);
+            }
         }
+    }
+
+    pub(super) fn default_pred() -> Predicate {
+        Predicate::Unary { protocol: protocol!("ethernet") }
     }
 
     /// Returns `true` if predicate can be pushed down to hardware port.

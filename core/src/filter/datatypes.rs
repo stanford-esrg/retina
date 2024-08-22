@@ -1,3 +1,4 @@
+use super::ast::Predicate;
 use super::{Actions, ActionData};
 use super::ptree::FilterLayer;
 
@@ -37,6 +38,38 @@ impl DataType {
             level,
             needs_parse,
             needs_update
+        }
+    }
+
+    pub fn should_deliver(&self, filter_layer: FilterLayer, pred: &Predicate) -> bool {
+        match self.level {
+            Level::Packet => {
+                match filter_layer {
+                    FilterLayer::PacketContinue => {
+                        return pred.on_packet();
+                    }
+                    FilterLayer::Connection => {
+                        return pred.on_connection();
+                    }
+                    FilterLayer::Session => {
+                        return pred.on_session();
+                    }
+                    _ => {
+                        // Packet: Action-only
+                        // Conn. deliver: packets delivered when matched, not at termination
+                        return false;
+                    }
+                }
+            }
+            Level::Connection => {
+                return matches!(filter_layer, FilterLayer::ConnectionDeliver);
+            }
+            Level::Session => {
+                return matches!(filter_layer, FilterLayer::Session);
+            }
+            Level::Streaming => {
+                todo!();
+            }
         }
     }
 
@@ -172,6 +205,9 @@ impl DataType {
             FilterLayer::Session => {
                 return self.session_filter().if_matched;
             }
+            FilterLayer::ConnectionDeliver => {
+                return self.session_filter().if_matched;
+            }
         }
     }
 
@@ -196,6 +232,7 @@ impl DataType {
             FilterLayer::Session => {
                 actions.update(&self.session_filter().if_matching);
             }
+            FilterLayer::ConnectionDeliver => { }
         }
         actions
     }

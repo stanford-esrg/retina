@@ -48,9 +48,18 @@ impl Actions {
     }
 
     /// Store the result of a new filter
+    /// Used at runtime after application of next filter
     #[inline]
     pub fn update(&mut self, actions: &Actions) {
         self.data = self.terminal_actions | actions.data;
+        self.terminal_actions |= actions.terminal_actions;
+    }
+
+    /// Combine terminal and non-terminal actions
+    /// Used for building a filter
+    #[inline]
+    pub fn or_eq(&mut self, actions: &Actions) {
+        self.data |= actions.data;
         self.terminal_actions |= actions.terminal_actions;
     }
 

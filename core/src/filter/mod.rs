@@ -19,7 +19,6 @@ use crate::filter::hardware::{flush_rules, HardwareFilter};
 use crate::filter::parser::FilterParser;
 use crate::filter::pattern::{FlatPattern, LayeredPattern};
 use crate::filter::ptree_flat::FlatPTree;
-use crate::filter::ptree::{PTree, FilterType};
 use crate::memory::mbuf::Mbuf;
 use crate::port::Port;
 use crate::protocols::stream::{ConnData, Session};
@@ -120,8 +119,7 @@ impl Filter {
         })
     }
 
-    pub fn new(filter_raw: &str, filter_type: FilterType, 
-               datatype: &DataType, filter_id: usize) -> Result<Filter> {
+    pub fn new(filter_raw: &str) -> Result<Filter> {
         let parser = FilterParser { split_combined: true /* TODOTR */ };
         let raw_patterns = parser.parse_filter(filter_raw)?;
 
@@ -141,8 +139,8 @@ impl Filter {
 
         // prune redundant branches
         let flat_patterns: Vec<_> = fq_patterns.iter().map(|p| p.to_flat_pattern()).collect();
-        let mut ptree = PTree::new(&flat_patterns, filter_type, datatype, filter_id, &String::from(""));
 
+        let mut ptree = FlatPTree::new(&flat_patterns);
         ptree.prune_branches();
 
         Ok(Filter {
