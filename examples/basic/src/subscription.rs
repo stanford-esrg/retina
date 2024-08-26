@@ -24,6 +24,7 @@ lazy_static!(
 
 #[allow(dead_code)]
 fn http_cb(http: &HttpTransaction) {
+    let http = &**http;
     println!("http_cb - {:?}", http);
 }
 

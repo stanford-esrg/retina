@@ -10,12 +10,12 @@ lazy_static! {
         HashMap::from([
             ( 
                 "Connection",
-                { DataType::new(Level::Connection, false, true) }
+                { DataType::new(Level::Connection, false, true, false) }
             ),
             (
                 "HttpTransaction",
-                { DataType::new(Level::Session, true, false) }
-            )
-        ]) 
+                { DataType::new(Level::Session, true, false, true) }
+            ),
+        ])
     };
 }

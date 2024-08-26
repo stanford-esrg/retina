@@ -38,6 +38,13 @@ impl TrackedDataBuilder {
                 continue;
             }
             datatypes.insert(name);
+            if spec.datatype.from_session {
+                // Not tracked
+                continue;
+            }
+            self.subscribable_enum.push(
+                quote! { #type_name (#type_name), }
+            );
             
             self.struct_def.push(
                 quote! { 
@@ -46,9 +53,6 @@ impl TrackedDataBuilder {
             );
             self.new.push( 
                 quote! { #field_name: #type_name::new(&five_tuple), }
-            );
-            self.subscribable_enum.push(
-                quote! { #type_name (#type_name), }
             );
        
             if needs_update {

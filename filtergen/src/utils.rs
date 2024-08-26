@@ -308,13 +308,24 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
                 if matches!(spec.datatype.level, Level::Session) {
                     assert!(matches!(filter_layer, FilterLayer::Session) || 
                             matches!(filter_layer, FilterLayer::ConnectionDeliver));
-                    body.push(
-                        quote! { tracked.#tracked_field.session_matched(&session); }
-                    );
-                }
-                body.push( 
-                    quote! { #callback( &tracked.#tracked_field ); }
-                );                    
+                    let type_ident = Ident::new(&spec.datatype_str, Span::call_site());
+                    if spec.datatype.from_session {
+                        body.push(
+                            quote! { #callback( #type_ident::from_session(session) ) }
+                        );
+                    } else {
+                        body.push(
+                            quote! { 
+                                tracked.#tracked_field.session_matched(&session); 
+                                #callback( &tracked.#tracked_field );
+                            }
+                        );
+                    }
+                } else {
+                    body.push( 
+                        quote! { #callback( &tracked.#tracked_field ); }
+                    );  
+                }                  
             }
             
         }

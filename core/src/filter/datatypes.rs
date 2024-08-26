@@ -22,6 +22,8 @@ pub struct DataType {
     pub needs_parse: bool,
     // Datatype requires invoking `update` method
     pub needs_update: bool,
+    // Extracted from session (zero-copy; not tracked)
+    pub from_session: bool,
     // [note] May want other things?
 }
 
@@ -33,11 +35,17 @@ pub struct DataTypeAction {
 }
 
 impl DataType {
-    pub fn new(level: Level, needs_parse: bool, needs_update: bool) -> Self {
+    pub fn new(level: Level, needs_parse: bool, needs_update: bool,
+               from_session: bool) -> Self {
+        if from_session { 
+            assert!(!needs_update);
+            assert!(matches!(level, Level::Session));
+        }
         Self {
             level,
-            needs_parse,
-            needs_update
+            needs_parse: needs_parse || from_session,
+            needs_update,
+            from_session,
         }
     }
 

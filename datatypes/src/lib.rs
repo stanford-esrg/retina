@@ -17,3 +17,8 @@ pub trait Tracked {
     fn conn_parsers() -> Vec<ConnParser>;
     fn session_matched(&mut self, session: &Session); 
 }
+
+pub trait FromSession {
+    fn conn_parsers() -> Vec<ConnParser>;
+    fn from_session<'a>(session: &'a Session) -> &'a Self; 
+}

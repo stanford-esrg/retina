@@ -664,9 +664,9 @@ mod tests {
     fn core_ptree_session() {        
         let datatype_str_conn = "cb_1(Connection)".to_string();
         let datatype_conn = DataType::new(Level::Connection, 
-                                         false, true);
+                                         false, true, false);
         let datatype_str_session = "cb_2(Session)".to_string();
-        let datatype_session = DataType::new(Level::Session, true, false);
+        let datatype_session = DataType::new(Level::Session, true, false, false);
         
         let filter = Filter::new("tls.sni = \'abc\'").unwrap();
 
@@ -704,7 +704,7 @@ mod tests {
         let filter_conn = Filter::from_str("ipv4 and tls").unwrap();
         let datatype_str = "cb_1(Connection)".to_string();
         let datatype: DataType = DataType::new(Level::Connection, 
-                                         false, true);
+                                         false, true, false);
         
         // Connection-level datatype matching at connection level
         let mut ptree = PTree::new_empty(FilterLayer::Protocol);
@@ -718,7 +718,7 @@ mod tests {
         // Session-level datatype matching at session level
         let filter = Filter::from_str("ipv4 and tls.sni = \'abc\'").unwrap();
         let datatype_str = "cb_2(Session)".to_string();
-        let datatype = DataType::new(Level::Session, true, false);
+        let datatype = DataType::new(Level::Session, true, false, false);
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
         expected_actions.data |= ActionData::SessionFilter;
         assert!(ptree.actions == expected_actions);
@@ -737,7 +737,7 @@ mod tests {
         let filter = Filter::from_str("ipv4 and tls").unwrap();
         let datatype_str = "cb_1(Connection)".to_string();
         let datatype: DataType = DataType::new(Level::Connection, 
-                                         false, true);
+                                         false, true, false);
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
 
@@ -772,9 +772,9 @@ mod tests {
         let filter_child5 = "ipv4.src_addr = 1.3.3.1/32";
         
         let datatype_str_conn = "cb_1(Connection)".to_string();
-        let datatype_conn = DataType::new(Level::Connection, false, true);
+        let datatype_conn = DataType::new(Level::Connection, false, true, false);
         let datatype_str_session = "cb_1(Session)".to_string();
-        let datatype_session = DataType::new(Level::Session, false, true);
+        let datatype_session = DataType::new(Level::Session, false, true, false);
 
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
 
@@ -816,7 +816,7 @@ mod tests {
         let filter = "ipv4.src_addr = 1.3.3.0/24";
         let filter_child = "ipv4.src_addr = 1.3.3.1/31";
         let datatype_str_conn = "cb_1(Connection)".to_string();
-        let datatype_conn = DataType::new(Level::Connection, false, true);
+        let datatype_conn = DataType::new(Level::Connection, false, true, false);
         
         let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
 
