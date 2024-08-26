@@ -24,12 +24,17 @@ lazy_static!(
 
 #[allow(dead_code)]
 fn http_cb(http: &HttpTransaction) {
-    println!("{:?}", http);
+    println!("http_cb - {:?}", http);
 }
 
 #[allow(dead_code)]
 fn conn_cb(conn: &Connection) {
-    println!("{:?}", conn);
+    println!("conn_cb - {:?}", conn);
+}
+
+#[allow(dead_code)]
+fn conn_dns_cb(conn: &Connection) {
+    println!("conn_dns_cb - {:?}", conn);
 }
 
 #[allow(dead_code)]
