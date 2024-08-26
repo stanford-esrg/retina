@@ -15,11 +15,13 @@ mod utils;
 mod packet_filter;
 mod connection_filter;
 mod session_filter;
+mod connection_deliver;
 mod data;
 
-use crate::packet_filter::*;
-use crate::connection_filter::*;
-use crate::session_filter::*;
+use crate::packet_filter::gen_packet_filter;
+use crate::connection_filter::gen_connection_filter;
+use crate::session_filter::gen_session_filter;
+use crate::connection_deliver::gen_connection_deliver;
 use crate::parse::*;
 use crate::data::*;
 
@@ -78,13 +80,13 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     let packet_filter = gen_packet_filter(&packet_ptree, &mut statics);
     
     let conn_ptree = filter_subtree(&config, FilterLayer::Connection); 
-    let conn_filter = gen_connection_filter(&conn_ptree, &mut statics, false);
+    let conn_filter = gen_connection_filter(&conn_ptree, &mut statics);
 
     let session_ptree = filter_subtree(&config, FilterLayer::Session);
     let session_filter = gen_session_filter(&session_ptree, &mut statics);
     
     let conn_deliver_ptree = filter_subtree(&config, FilterLayer::ConnectionDeliver);
-    let conn_deliver_filter = gen_connection_filter(&conn_deliver_ptree, &mut statics, true);
+    let conn_deliver_filter = gen_connection_deliver(&conn_deliver_ptree, &mut statics);
 
     // TODO print something for tracked data
     let mut tracked_data = TrackedDataBuilder::new(&config);
@@ -136,7 +138,7 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
 
             fn session_filter(session: &retina_core::protocols::stream::Session,
                               conn: &retina_core::protocols::stream::ConnData,
-                              tracked: &TrackedWrapper) -> retina_core::filter::actions::Actions 
+                              tracked: &mut TrackedWrapper) -> retina_core::filter::actions::Actions 
             {
                 #session_filter
             }

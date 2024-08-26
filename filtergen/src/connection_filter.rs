@@ -1,17 +1,12 @@
-use heck::CamelCase;
-use proc_macro2::{Ident, Span};
 use quote::quote;
 
 use retina_core::filter::ast::*;
-use retina_core::filter::ptree::{PNode, PTree};
+use retina_core::filter::ptree::{PNode, PTree, FilterLayer};
 use crate::utils::*;
-
-// TODO delivery filter won't work for ethernet-only!! 
 
 pub(crate) fn gen_connection_filter(
     ptree: &PTree,
     statics: &mut Vec<proc_macro2::TokenStream>,
-    deliver: bool,
 ) -> proc_macro2::TokenStream {
 
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
@@ -22,12 +17,8 @@ pub(crate) fn gen_connection_filter(
         &ptree.root,
     );
 
-    let mut start = quote! {};
-    let mut ret = quote! {};
-    if !deliver {
-        start = quote! { let mut result = retina_core::filter::Actions::new(); };
-        ret = quote! { result };
-    }
+    let start = quote! { let mut result = retina_core::filter::Actions::new(); };
+    let ret = quote! { result };
 
     let connection_filter = quote!{
         #start
@@ -58,11 +49,13 @@ fn gen_connection_filter_util(
                         child,
                         protocol,
                         first_unary,
+                        FilterLayer::Connection,
                         &gen_connection_filter_util
                     );
                     first_unary = false;
                 } else if child.pred.on_connection() {
-                    add_service_pred(code, statics, child, protocol);
+                    ConnDataFilter::add_service_pred(code, statics, child, protocol, 
+                                                     FilterLayer::Connection, &gen_connection_filter_util);
                 }
             }
             Predicate::Binary {
@@ -80,28 +73,10 @@ fn gen_connection_filter_util(
                     field,
                     op,
                     value,
+                    FilterLayer::Connection,
                     &gen_connection_filter_util
                 ); 
             }
         }
     }
-}
-
-
-#[allow(clippy::ptr_arg)]
-fn add_service_pred(
-    code: &mut Vec<proc_macro2::TokenStream>,
-    _statics: &mut Vec<proc_macro2::TokenStream>,
-    node: &PNode,
-    protocol: &ProtocolName,
-) {
-    let service_ident = Ident::new(&protocol.name().to_camel_case(), Span::call_site());
-    let mut body: Vec<proc_macro2::TokenStream> = vec![];
-    update_body(&mut body, node);
-
-    code.push( quote! {
-        if matches!(conn.service(), retina_core::protocols::stream::ConnParser::#service_ident { .. }) {
-            #( #body )*
-        }
-    } );
 }

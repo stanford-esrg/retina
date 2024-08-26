@@ -3,7 +3,7 @@ use proc_macro2::{Ident, Span};
 use quote::quote;
 
 use retina_core::filter::ast::*;
-use retina_core::filter::ptree::{PNode, PTree};
+use retina_core::filter::ptree::{PNode, PTree, FilterLayer};
 use retina_core::protocol;
 use crate::utils::*;
 
@@ -103,7 +103,7 @@ fn add_unary_pred(
 
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
     gen_packet_filter_util(&mut body, statics, node, outer_protocol);
-    update_body(&mut body, node);
+    update_body(&mut body, node, FilterLayer::Packet);
 
     if first_unary {
         code.push(quote! {
@@ -133,7 +133,7 @@ fn add_binary_pred(
 ) {
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
     gen_packet_filter_util(&mut body, statics, node, outer_protocol);
-    update_body(&mut body, node);
+    update_body(&mut body, node, FilterLayer::Packet);
 
     let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
     if node.if_else {

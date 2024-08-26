@@ -137,6 +137,7 @@ impl TrackedDataBuilder {
         quote! {
             pub struct TrackedWrapper {
                 five_tuple: FiveTuple,
+                sessions: Vec<Session>,
                 #( #def )*
             }
 
@@ -147,6 +148,7 @@ impl TrackedDataBuilder {
 
                     Self {
                         five_tuple,
+                        sessions: vec![],
                         #( #new )*
                     }
                 }
@@ -168,6 +170,14 @@ impl TrackedDataBuilder {
                 
                 fn five_tuple(&self) -> FiveTuple {
                     self.five_tuple
+                }
+
+                fn sessions(&self) -> &Vec<Session> {
+                    &self.sessions
+                }
+
+                fn track_session(&mut self, session: Session) {
+                    self.sessions.push(session);
                 }
             }
         }

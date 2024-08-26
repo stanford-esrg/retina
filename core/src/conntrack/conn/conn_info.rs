@@ -131,8 +131,11 @@ where
     fn handle_session(&mut self, subscription: &Subscription<T::Subscribed>, id: usize) {
         if let Some(session) = self.cdata.conn_parser.remove_session(id) {
             if self.actions.apply_session_filter() {
-                let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
+                let actions = subscription.filter_session(&session, &self.cdata, &mut self.sdata);
                 self.actions.update(&actions);
+                if self.actions.session_track() {
+                    self.sdata.track_session(session);
+                }
             }
         } else {
             log::error!("Done parsing but no session found");
@@ -160,8 +163,11 @@ where
         if self.actions.session_parse() {
             for session in self.cdata.conn_parser.drain_sessions() {
                 if self.actions.apply_session_filter() {
-                    let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
+                    let actions = subscription.filter_session(&session, &self.cdata, &mut self.sdata);
                     self.actions.update(&actions);
+                    if self.actions.session_track() {
+                        self.sdata.track_session(session);
+                    }
                 }
             }
         }

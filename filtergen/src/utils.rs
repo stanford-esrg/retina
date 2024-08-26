@@ -1,5 +1,6 @@
 use retina_core::filter::ast::{BinOp, FieldName, ProtocolName, Value};
-use retina_core::filter::ptree::PNode;
+use retina_core::filter::ptree::{PNode, FilterLayer};
+use retina_core::filter::datatypes::Level;
 
 use heck::CamelCase;
 use proc_macro2::{Ident, Span};
@@ -287,7 +288,8 @@ fn standard_field(
     }
 }
 
-pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode) {
+pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode, 
+                          filter_layer: FilterLayer) {
     if !node.actions.drop() {
         let actions = node.actions.clone();
         body.push(
@@ -297,20 +299,24 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
     if !node.deliver.is_empty() {
         for d in &node.deliver {
             let id = &d.id;
-            let deliver = {
+            {
                 let lock = DELIVER.lock().unwrap();
                 let spec = lock.get(id).expect(&format!("Cannot find ID {}", id));
                 let callback = Ident::new(&spec.callback, Span::call_site());
                 let tracked_str = spec.datatype_str.to_lowercase();
                 let tracked_field: Ident = Ident::new(&tracked_str, Span::call_site());
-                quote! { 
-                    #callback( &tracked.#tracked_field );
+                if matches!(spec.datatype.level, Level::Session) {
+                    assert!(matches!(filter_layer, FilterLayer::Session) || 
+                            matches!(filter_layer, FilterLayer::ConnectionDeliver));
+                    body.push(
+                        quote! { tracked.#tracked_field.session_matched(&session); }
+                    );
                 }
-            };
-            body.push( 
-                // tmp
-                quote! { #deliver }
-            );
+                body.push( 
+                    quote! { #callback( &tracked.#tracked_field ); }
+                );                    
+            }
+            
         }
     }
 }
@@ -329,6 +335,7 @@ impl ConnDataFilter {
         node: &PNode,
         protocol: &ProtocolName,
         first_unary: bool,
+        filter_layer: FilterLayer,
         build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
                            &mut Vec<proc_macro2::TokenStream>,
                            &PNode,)
@@ -340,7 +347,7 @@ impl ConnDataFilter {
 
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
         (build_child_nodes)(&mut body, statics, node);
-        update_body(&mut body, node);
+        update_body(&mut body, node, filter_layer);
 
         let condition = quote! {
             &retina_core::protocols::stream::ConnData::parse_to::<retina_core::protocols::stream::conn::#ident_type>(conn)
@@ -369,13 +376,14 @@ impl ConnDataFilter {
         field: &FieldName,
         op: &BinOp,
         value: &Value,
+        filter_layer: FilterLayer,
         build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
                            &mut Vec<proc_macro2::TokenStream>,
                            &PNode,)
     ) {
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
         (build_child_nodes)(&mut body, statics, node);
-        update_body(&mut body, node);
+        update_body(&mut body, node, filter_layer);
 
         let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
         if node.if_else {
@@ -390,6 +398,80 @@ impl ConnDataFilter {
                     #( #body )*
                 }
             });
+        }
+    }
+
+    #[allow(clippy::ptr_arg)]
+    pub(crate) fn add_service_pred(
+        code: &mut Vec<proc_macro2::TokenStream>,
+        statics: &mut Vec<proc_macro2::TokenStream>,
+        node: &PNode,
+        protocol: &ProtocolName,
+        filter_layer: FilterLayer,
+        build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
+            &mut Vec<proc_macro2::TokenStream>,
+            &PNode,)
+    ) {
+        let service_ident = Ident::new(&protocol.name().to_camel_case(), Span::call_site());
+        let mut body: Vec<proc_macro2::TokenStream> = vec![];
+        (build_child_nodes)(&mut body, statics, node);
+        update_body(&mut body, node, filter_layer);
+
+        if node.if_else {
+            code.push( quote! {
+                else if matches!(conn.service(), retina_core::protocols::stream::ConnParser::#service_ident { .. }) {
+                    #( #body )*
+                }
+            } );
+        } else {
+            code.push( quote! {
+                if matches!(conn.service(), retina_core::protocols::stream::ConnParser::#service_ident { .. }) {
+                    #( #body )*
+                }
+            } );
+        }
+        
+    }
+
+}
+
+pub(crate) struct SessionDataFilter;
+
+impl SessionDataFilter {
+    #[allow(clippy::ptr_arg)]
+    pub(crate) fn add_service_pred(
+        code: &mut Vec<proc_macro2::TokenStream>,
+        statics: &mut Vec<proc_macro2::TokenStream>,
+        node: &PNode,
+        protocol: &ProtocolName,
+        first_unary: bool,
+        filter_layer: FilterLayer,
+        build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
+                           &mut Vec<proc_macro2::TokenStream>,
+                           &PNode,)
+    ) 
+    {
+        let mut body: Vec<proc_macro2::TokenStream> = vec![];
+        (build_child_nodes)(&mut body, statics, node);
+        update_body(&mut body, node, filter_layer);
+
+        let service = protocol.name();
+        let proto_name = Ident::new(service, Span::call_site());
+        let proto_variant = Ident::new(&service.to_camel_case(), Span::call_site());
+
+        let condition = quote! { let retina_core::protocols::stream::SessionData::#proto_variant(#proto_name) = &session.data };
+        if first_unary {
+            code.push(quote! {
+                if #condition {
+                    #( #body )*
+                }
+            })
+        } else {
+            code.push(quote! {
+                else if #condition {
+                    #( #body )*
+                }
+            })
         }
     }
 }

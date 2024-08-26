@@ -1,6 +1,7 @@
 subscriptions = [
     { filter = "ipv4 and dns", datatype = "Connection", callback = "conn_cb" },
     { filter = "http.user_agent = 'abcd'", datatype = "HttpTransaction", callback = "http_cb" },
+    { filter = "http.user_agent = 'abcd'", datatype = "Connection", callback = "conn_cb" },
     { filter = "http", datatype = "HttpTransaction", callback = "http_cb" },
     { filter = "http", datatype = "Connection", callback = "conn_cb" },
 ]

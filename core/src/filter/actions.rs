@@ -14,6 +14,7 @@ pub enum ActionData {
 
     SessionFilter,    // Apply session-level filter
     SessionDeliver,   // Deliver session when parsed
+    SessionTrack,     // Store session in sdata; deliver conn. at termination
 
     ConnDataTrack,    // Track connection metadata
     PacketTrack,      // Buffer frames for future possible delivery
@@ -127,6 +128,11 @@ impl Actions {
                              ActionData::SessionFilter)
     }
 
+    #[inline]
+    pub fn session_track(&self) -> bool {
+        self.data.intersects(ActionData::SessionTrack)
+    }
+
 
     /// After parsing a session, the framework must decide whether to continue
     /// probing for sessions depending on the protocol
@@ -198,6 +204,7 @@ impl FromStr for ActionData {
             "ProtoFilter" => Ok(ActionData::ProtoFilter),
             "SessionFilter" => Ok(ActionData::SessionFilter),
             "SessionDeliver" => Ok(ActionData::SessionDeliver),
+            "SessionTrack" => Ok(ActionData::SessionTrack),
             "ConnDataTrack" => Ok(ActionData::ConnDataTrack),
             "PacketTrack" => Ok(ActionData::PacketTrack),
             "PacketDrain" => Ok(ActionData::PacketDrain),
@@ -216,6 +223,7 @@ impl ToString for ActionData {
             &ActionData::ProtoFilter => "ProtoFilter".into(),
             &ActionData::SessionFilter => "SessionFilter".into(),
             &ActionData::SessionDeliver => "SessionDeliver".into(),
+            &ActionData::SessionTrack => "SessionTrack".into(),
             &ActionData::ConnDataTrack => "ConnDataTrack".into(),
             &ActionData::PacketTrack => "PacketTrack".into(),
             &ActionData::PacketDrain => "PacketDrain".into(),

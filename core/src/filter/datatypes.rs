@@ -179,8 +179,10 @@ impl DataType {
                 // panic!("Packet datatypes not (fully) implemented");
             }
             Level::Connection => {
-                if_matched.data |= ActionData::ConnDataTrack;
-                if_matched.terminal_actions |= ActionData::ConnDataTrack;
+                if_matched.data |= ActionData::ConnDataTrack | 
+                                   // Re-apply session filter at conn. term
+                                   ActionData::SessionTrack;
+                if_matched.terminal_actions |= if_matched.data.clone();
                 // TODO
                 // panic!("Session filter for conn. datatype implemented");
             }

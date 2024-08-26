@@ -50,6 +50,12 @@ pub trait Trackable {
     
     /// Deliver tracked five tuple (always tracked)
     fn five_tuple(&self) -> FiveTuple;
+
+    /// Get a reference to all sessions that matched filter(s) in connection
+    fn sessions(&self) -> &Vec<Session>;
+
+    /// Store a session that matched
+    fn track_session(&mut self, session: Session);
 }
 
 pub struct Subscription<S>
@@ -118,7 +124,7 @@ where
     }
 
     /// Invokes the application-layer session filter. Delivers sessions if applicable.
-    pub fn filter_session(&self, session: &Session, conn: &ConnData, tracked: &S::Tracked) -> Actions {
+    pub fn filter_session(&self, session: &Session, conn: &ConnData, tracked: &mut S::Tracked) -> Actions {
         (self.session_filter)(session, conn, tracked)
     }
 

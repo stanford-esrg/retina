@@ -34,8 +34,8 @@ pub type PacketContFn = fn(&Mbuf) -> Actions;
 pub type PacketFilterFn = fn(&Mbuf) -> Actions;
 pub type ConnFilterFn = fn(&ConnData) -> Actions;
 
-// Will apply session filter and potentially deliver
-pub type SessionFilterFn<T> = fn(&Session, &ConnData, &T) -> Actions;
+// Will apply session filter and potentially deliver or store session
+pub type SessionFilterFn<T> = fn(&Session, &ConnData, &mut T) -> Actions;
 
 // Subscription deliver functions
 // \note Rust won't enforce trait bounds on type alias
