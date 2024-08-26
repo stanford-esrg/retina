@@ -109,7 +109,7 @@ where
             }
         }
         if self.actions.apply_proto_filter() {
-            let actions = subscription.filter_conn(&self.cdata);
+            let actions = subscription.filter_protocol(&self.cdata);
             self.actions.update(&actions);
         } 
     }

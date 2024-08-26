@@ -110,7 +110,7 @@ impl Predicate {
 
     /// Returns `true` if predicate can be satisfied by a connection filter.
     /// i.e., the lowest filter level needed to apply the predicate is a connection filter.
-    pub fn on_connection(&self) -> bool {
+    pub fn on_proto(&self) -> bool {
         self.needs_conntrack() && self.is_unary()
     }
 
@@ -132,7 +132,7 @@ impl Predicate {
             FilterLayer::Packet | FilterLayer::PacketContinue => {
                 return !self.on_packet();
             }
-            FilterLayer::Connection => {
+            FilterLayer::Protocol=> {
                 return self.on_session();
             }
             FilterLayer::Session | FilterLayer::ConnectionDeliver => {
@@ -146,11 +146,11 @@ impl Predicate {
             FilterLayer::Packet | FilterLayer::PacketContinue => {
                 return false;
             }
-            FilterLayer::Connection => {
+            FilterLayer::Protocol=> {
                 return self.on_packet();
             }
             FilterLayer::Session => {
-                return (self.on_packet() || self.on_connection()) &&  // prev filter
+                return (self.on_packet() || self.on_proto()) &&  // prev filter
                        !matches!(datatype.level, Level::Session);     // no delivery req'd
             }
             FilterLayer::ConnectionDeliver => {
@@ -788,12 +788,12 @@ mod tests {
         let tls_unary = Predicate::Unary {
             protocol: protocol!("tls"),
         };
-        assert!(tls_unary.on_connection());
+        assert!(tls_unary.on_proto());
 
         let dns_unary = Predicate::Unary {
             protocol: protocol!("dns"),
         };
-        assert!(dns_unary.on_connection());
+        assert!(dns_unary.on_proto());
     }
 
     #[test]

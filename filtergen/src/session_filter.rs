@@ -50,7 +50,7 @@ fn gen_session_filter_util(
                         &gen_session_filter_util
                     );
                     first_unary = false;
-                } else if child.pred.on_connection() {
+                } else if child.pred.on_proto() {
                     SessionDataFilter::add_service_pred(code, statics, child, protocol, 
                                                         first_unary, 
                                                         FilterLayer::Session,

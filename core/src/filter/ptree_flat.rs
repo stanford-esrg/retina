@@ -180,9 +180,9 @@ impl FlatPTree {
                 node.children.push(FlatPNode::new(predicate.clone(), self.size));
                 self.size += 1;
 
-                if node.pred.on_packet() && predicate.on_connection() {
+                if node.pred.on_packet() && predicate.on_proto() {
                     node.terminates = Terminate::Packet;
-                } else if node.pred.on_connection() && predicate.on_session() {
+                } else if node.pred.on_proto() && predicate.on_session() {
                     node.terminates = Terminate::Connection;
                 }
             }
@@ -193,7 +193,7 @@ impl FlatPTree {
         node.is_terminal = true;
         if node.pred.on_packet() {
             node.terminates = Terminate::Packet;
-        } else if node.pred.on_connection() {
+        } else if node.pred.on_proto() {
             node.terminates = Terminate::Connection;
         } else if node.pred.on_session() {
             node.terminates = Terminate::Session;

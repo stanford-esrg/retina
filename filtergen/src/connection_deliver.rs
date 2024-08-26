@@ -19,10 +19,10 @@ pub(crate) fn gen_connection_deliver(
         &ptree.root,
     );
 
-    let connection_filter = quote!{
+    let connection_deliver = quote!{
         #( #body )*
     };
-    connection_filter
+    connection_deliver
 }
 
 
@@ -48,7 +48,7 @@ fn gen_connection_deliver_util(
                         &gen_connection_deliver_util
                     );
                     first_unary = false;
-                } else if child.pred.on_connection() {
+                } else if child.pred.on_proto() {
                     ConnDataFilter::add_service_pred(code, statics, child, protocol, 
                                          FilterLayer::ConnectionDeliver, 
                                                      &gen_connection_deliver_util);

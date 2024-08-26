@@ -48,8 +48,8 @@ impl DataType {
                     FilterLayer::PacketContinue => {
                         return pred.on_packet();
                     }
-                    FilterLayer::Connection => {
-                        return pred.on_connection();
+                    FilterLayer::Protocol => {
+                        return pred.on_proto();
                     }
                     FilterLayer::Session => {
                         return pred.on_session();
@@ -205,7 +205,7 @@ impl DataType {
             FilterLayer::Packet => {
                 return self.packet_filter().if_matched;
             }
-            FilterLayer::Connection => {
+            FilterLayer::Protocol => {
                 return self.proto_filter().if_matched;
             }
             FilterLayer::Session => {
@@ -231,7 +231,7 @@ impl DataType {
                 actions.data |= ActionData::ProtoFilter;
                 actions.update(&self.packet_filter().if_matching);
             }
-            FilterLayer::Connection => {
+            FilterLayer::Protocol => {
                 // Apply next filter
                 actions.data |= ActionData::SessionFilter;
                 actions.update(&self.proto_filter().if_matching);

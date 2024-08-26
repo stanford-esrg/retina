@@ -75,7 +75,7 @@ impl ParserRegistry {
         // Parsers requested by filters
         for pattern in filter.get_patterns_flat().iter() {
             for predicate in pattern.predicates.iter() {
-                if predicate.on_connection() {
+                if predicate.on_proto() {
                     let protocol = predicate.get_protocol().to_owned();
                     stream_protocols.insert(protocol.name().into());
                 }

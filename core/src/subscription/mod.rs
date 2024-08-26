@@ -64,7 +64,7 @@ where
 {
     packet_continue: PacketContFn,
     packet_filter: PacketFilterFn,
-    conn_filter: ConnFilterFn,
+    proto_filter: ProtoFilterFn,
     session_filter: SessionFilterFn<S::Tracked>,
     packet_deliver: PacketDeliverFn,
     conn_deliver: ConnDeliverFn<S::Tracked>,
@@ -80,7 +80,7 @@ where
         Subscription {
             packet_continue: factory.packet_continue,
             packet_filter: factory.packet_filter,
-            conn_filter: factory.conn_filter,
+            proto_filter: factory.proto_filter,
             session_filter: factory.session_filter,
             packet_deliver: factory.packet_deliver,
             conn_deliver: factory.conn_deliver,
@@ -108,22 +108,27 @@ where
     // - If no marking or no/incomplete HW filter, then optimize 
     //   as much as possible...
 
-    /// Applied when packet is first received in software.
+    /// Invokes the software packet filter.
+    /// Used for each packet to determine 
+    /// forwarding to conn. tracker.
     pub fn continue_packet(&self, mbuf: &Mbuf) -> Actions {
         (self.packet_continue)(mbuf)
     }
 
-    /// Invokes the software packet filter.
+    /// Invokes the five-tuple filter.
+    /// Applied to the first packet in the connection.
     pub fn filter_packet(&self, mbuf: &Mbuf) -> Actions {
         (self.packet_filter)(mbuf)
     }
 
-    /// Invokes the end-to-end connection filter.
-    pub fn filter_conn(&self, conn: &ConnData) -> Actions {
-        (self.conn_filter)(conn)
+    /// Invokes the end-to-end protocol filter.
+    /// Applied once a parser identifies the application-layer protocol.
+    pub fn filter_protocol(&self, conn: &ConnData) -> Actions {
+        (self.proto_filter)(conn)
     }
 
-    /// Invokes the application-layer session filter. Delivers sessions if applicable.
+    /// Invokes the application-layer session filter. 
+    /// Delivers sessions to callbacks if applicable.
     pub fn filter_session(&self, session: &Session, conn: &ConnData, tracked: &mut S::Tracked) -> Actions {
         (self.session_filter)(session, conn, tracked)
     }

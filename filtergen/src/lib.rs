@@ -13,13 +13,13 @@ extern crate lazy_static;
 mod parse;
 mod utils;
 mod packet_filter;
-mod connection_filter;
+mod proto_filter;
 mod session_filter;
 mod connection_deliver;
 mod data;
 
 use crate::packet_filter::gen_packet_filter;
-use crate::connection_filter::gen_connection_filter;
+use crate::proto_filter::gen_proto_filter;
 use crate::session_filter::gen_session_filter;
 use crate::connection_deliver::gen_connection_deliver;
 use crate::parse::*;
@@ -79,8 +79,8 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     let packet_ptree = filter_subtree(&config, FilterLayer::Packet);
     let packet_filter = gen_packet_filter(&packet_ptree, &mut statics);
     
-    let conn_ptree = filter_subtree(&config, FilterLayer::Connection); 
-    let conn_filter = gen_connection_filter(&conn_ptree, &mut statics);
+    let conn_ptree = filter_subtree(&config, FilterLayer::Protocol); 
+    let proto_filter = gen_proto_filter(&conn_ptree, &mut statics);
 
     let session_ptree = filter_subtree(&config, FilterLayer::Session);
     let session_filter = gen_session_filter(&session_ptree, &mut statics);
@@ -132,8 +132,8 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
                 #packet_filter
             }
 
-            fn connection_filter(conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::Actions {
-                #conn_filter
+            fn protocol_filter(conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::Actions {
+                #proto_filter
             }
 
             fn session_filter(session: &retina_core::protocols::stream::Session,
@@ -164,7 +164,7 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
                 #app_protocols,
                 packet_continue,
                 packet_filter,
-                connection_filter,
+                protocol_filter,
                 session_filter,
                 packet_deliver, 
                 connection_deliver,

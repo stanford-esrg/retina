@@ -16,7 +16,7 @@ pub enum FilterLayer {
     /// Packet delivery | packet filter
     Packet,
     /// Connection (protocol) filter
-    Connection, 
+    Protocol, 
     /// Session delivery | session filter
     Session,
     /// Connection delivery
@@ -28,7 +28,7 @@ impl fmt::Display for FilterLayer {
         match self {
             FilterLayer::PacketContinue => write!(f, "P (pass)"),
             FilterLayer::Packet => write!(f, "P"),
-            FilterLayer::Connection => write!(f, "C"),
+            FilterLayer::Protocol=> write!(f, "C"),
             FilterLayer::Session => write!(f, "S"),
             FilterLayer::ConnectionDeliver => write!(f, "C (D)"),
         }
@@ -575,7 +575,7 @@ impl PTree {
     // For "connection"-layer filter
     pub fn get_connection_subtree(&self) -> PTree {
         fn get_connection_subtree(p: &mut PNode) {
-            p.children.retain( |x| x.pred.on_packet() || x.pred.on_connection() );
+            p.children.retain( |x| x.pred.on_packet() || x.pred.on_proto() );
             for child in &mut p.children {
                 get_connection_subtree(child);
             }
@@ -707,7 +707,7 @@ mod tests {
                                          false, true);
         
         // Connection-level datatype matching at connection level
-        let mut ptree = PTree::new_empty(FilterLayer::Connection);
+        let mut ptree = PTree::new_empty(FilterLayer::Protocol);
         ptree.add_filter(&filter_conn.get_patterns_flat(), &datatype, 0, 
         &datatype_str);
         expected_actions.data |= ActionData::ConnDataTrack;
