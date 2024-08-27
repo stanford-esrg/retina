@@ -15,13 +15,13 @@ mod utils;
 mod packet_filter;
 mod proto_filter;
 mod session_filter;
-mod connection_deliver;
+mod deliver_filter;
 mod data;
 
 use crate::packet_filter::gen_packet_filter;
 use crate::proto_filter::gen_proto_filter;
 use crate::session_filter::gen_session_filter;
-use crate::connection_deliver::gen_connection_deliver;
+use crate::deliver_filter::gen_deliver_filter;
 use crate::parse::*;
 use crate::data::*;
 
@@ -74,10 +74,10 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     let parsers = parsers(&config);
 
     let packet_cont_ptree = filter_subtree(&config, FilterLayer::PacketContinue);
-    let packet_continue = gen_packet_filter(&packet_cont_ptree, &mut statics);
+    let packet_continue = gen_packet_filter(&packet_cont_ptree, &mut statics, FilterLayer::PacketContinue);
 
     let packet_ptree = filter_subtree(&config, FilterLayer::Packet);
-    let packet_filter = gen_packet_filter(&packet_ptree, &mut statics);
+    let packet_filter = gen_packet_filter(&packet_ptree, &mut statics, FilterLayer::Packet);
     
     let conn_ptree = filter_subtree(&config, FilterLayer::Protocol); 
     let proto_filter = gen_proto_filter(&conn_ptree, &mut statics);
@@ -86,7 +86,7 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     let session_filter = gen_session_filter(&session_ptree, &mut statics);
     
     let conn_deliver_ptree = filter_subtree(&config, FilterLayer::ConnectionDeliver);
-    let conn_deliver_filter = gen_connection_deliver(&conn_deliver_ptree, &mut statics);
+    let conn_deliver_filter = gen_deliver_filter(&conn_deliver_ptree, &mut statics, FilterLayer::ConnectionDeliver);
 
     // TODO print something for tracked data
     let mut tracked_data = TrackedDataBuilder::new(&config);

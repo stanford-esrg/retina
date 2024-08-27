@@ -34,7 +34,7 @@ pub trait Trackable {
     /// When tracking, parsing, or buffering frames, 
     /// update tracked data with new PDU
     fn update(&mut self, 
-              pdu: L4Pdu, 
+              pdu: &L4Pdu, 
               session_id: Option<usize>, 
               actions: &ActionData);
     
@@ -56,6 +56,12 @@ pub trait Trackable {
 
     /// Store a session that matched
     fn track_session(&mut self, session: Session);
+
+    /// Store packets for (possible) future delivery
+    fn track_packet(&mut self, mbuf: Mbuf);
+
+    /// Get reference to stored packets
+    fn packets(&self) -> &Vec<Mbuf>;
 }
 
 pub struct Subscription<S>

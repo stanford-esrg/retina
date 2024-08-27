@@ -19,8 +19,6 @@ pub enum ActionData {
     ConnDataTrack,    // Track connection metadata
     PacketTrack,      // Buffer frames for future possible delivery
 
-    PacketDrain,      // Deliver buffered packets to CB(s) (new match)
-
     // \note Session and packet delivery happen within filters.
     // \note This assumes that each callback has exactly one "layer"
 }
@@ -89,6 +87,13 @@ impl Actions {
     pub fn track_pdu(&self) -> bool {
         self.data.intersects(
             ActionData::ConnDataTrack
+        )
+    }
+
+    #[inline]
+    pub fn buffer_frame(&self) -> bool {
+        self.data.intersects(
+            ActionData::PacketTrack
         )
     }
 
@@ -207,7 +212,6 @@ impl FromStr for ActionData {
             "SessionTrack" => Ok(ActionData::SessionTrack),
             "ConnDataTrack" => Ok(ActionData::ConnDataTrack),
             "PacketTrack" => Ok(ActionData::PacketTrack),
-            "PacketDrain" => Ok(ActionData::PacketDrain),
             _ => Result::Err(core::fmt::Error)
         }
     }
@@ -226,7 +230,6 @@ impl ToString for ActionData {
             &ActionData::SessionTrack => "SessionTrack".into(),
             &ActionData::ConnDataTrack => "ConnDataTrack".into(),
             &ActionData::PacketTrack => "PacketTrack".into(),
-            &ActionData::PacketDrain => "PacketDrain".into(),
             _ => { panic!("Unknown ActionData"); }
         }
     }

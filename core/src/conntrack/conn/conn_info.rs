@@ -57,9 +57,11 @@ where
         // may update connection state.
         if self.actions.track_pdu() {
             // deliver data to Tracked::Update
-            self.sdata.update(pdu, None, /* TODO */&self.actions.data);
+            self.sdata.update(&pdu, None, /* TODO */&self.actions.data);
         }
-
+        if self.actions.buffer_frame() {
+            self.sdata.track_packet(pdu.mbuf_own());
+        }
     }
 
     fn handle_parse(&mut self,

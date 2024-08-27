@@ -16,6 +16,14 @@ lazy_static! {
                 "HttpTransaction",
                 { DataType::new(Level::Session, true, false, true) }
             ),
+            (
+                "ZcFrame",
+                { DataType::new(Level::Packet, false, false, false) }
+            ),
+            (
+                "Payload",
+                { DataType::new(Level::Packet, false, false, false) }
+            ),
         ])
     };
 }

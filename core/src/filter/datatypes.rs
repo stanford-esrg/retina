@@ -49,6 +49,18 @@ impl DataType {
         }
     }
 
+    pub fn new_default_connection() -> Self {
+        Self::new(Level::Connection, false, true, false)
+    }
+
+    pub fn new_default_session() -> Self {
+        Self::new(Level::Session, true, false, true)
+    }
+
+    pub fn new_default_packet() -> Self {
+        Self::new(Level::Packet, false, false, false)
+    }
+
     pub fn should_deliver(&self, filter_layer: FilterLayer, pred: &Predicate) -> bool {
         match self.level {
             Level::Packet => {
@@ -87,10 +99,7 @@ impl DataType {
 
         match self.level {
             Level::Packet => {
-                // If filter (terminally) matched, packet delivered right away
-                if_matched.data |= ActionData::PacketDeliver;
-                // Else, buffer packet until filter matches
-                if_matching.data |= ActionData::PacketTrack;
+                // If filter terminally matched, packet delivered in CB
             }
             _ => {
                 // Forward to conn tracker
@@ -110,12 +119,8 @@ impl DataType {
         let mut if_matching = Actions::new();
         match self.level {
             Level::Packet => {
-                // TODO dep. on where delivery/track happens
-                // Ideally, won't be re-checked
-                if_matched.data |= ActionData::PacketDeliver;
-                if_matching.data |=  ActionData::PacketTrack;
-                // TODO
-                // panic!("Packet datatypes not (fully) implemented");
+                // Terminal match should have already been delivered
+                if_matching.data |= ActionData::PacketTrack | ActionData::ProtoFilter;
             }
             Level::Connection => {
                 // Track connection metadata
@@ -145,15 +150,11 @@ impl DataType {
         let mut if_matching = Actions::new();
         match self.level {
             Level::Packet => {
-                // Deliver data
-                if_matched.data |= ActionData::PacketDeliver | 
-                                   ActionData::PacketDrain;
-                if_matched.terminal_actions |= if_matched.data.clone();
+                if_matched.data |= ActionData::PacketDeliver;
+                if_matched.terminal_actions |= ActionData::PacketDeliver;
                 // Continue buffering packets, apply next filter
-                if_matching.data |= ActionData::PacketTrack | 
+                if_matching.data |= ActionData::PacketTrack |
                                     ActionData::SessionFilter;
-                // TODO 
-                // panic!("Packet datatypes not (fully) implemented");
             }
             Level::Connection => {
                 if_matched.data |= ActionData::ConnDataTrack;
@@ -180,19 +181,14 @@ impl DataType {
         let mut if_matched = Actions::new();
         match self.level {
             Level::Packet => {
-                if_matched.data |= ActionData::PacketDrain;
-                if_matched.terminal_actions |= ActionData::PacketDeliver | 
-                                               ActionData::PacketDrain;
-                // TODO
-                // panic!("Packet datatypes not (fully) implemented");
+                if_matched.data |= ActionData::PacketDeliver;
+                if_matched.terminal_actions |= ActionData::PacketDeliver;
             }
             Level::Connection => {
                 if_matched.data |= ActionData::ConnDataTrack | 
                                    // Re-apply session filter at conn. term
                                    ActionData::SessionTrack;
                 if_matched.terminal_actions |= if_matched.data.clone();
-                // TODO
-                // panic!("Session filter for conn. datatype implemented");
             }
             Level::Session => {
                 // Will be delivered in session filter

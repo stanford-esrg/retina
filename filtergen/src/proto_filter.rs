@@ -15,6 +15,7 @@ pub(crate) fn gen_proto_filter(
         &mut body,
         statics,
         &ptree.root,
+        FilterLayer::Protocol
     );
 
     let start = quote! { let mut result = retina_core::filter::Actions::new(); };
@@ -33,6 +34,7 @@ fn gen_proto_filter_util(
     code: &mut Vec<proc_macro2::TokenStream>,
     statics: &mut Vec<proc_macro2::TokenStream>,
     node: &PNode,
+    _filter_layer: FilterLayer,
 ) 
 {
     let mut first_unary = true; 

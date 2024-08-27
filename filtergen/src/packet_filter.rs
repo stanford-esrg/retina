@@ -10,7 +10,8 @@ use crate::utils::*;
 
 pub(crate) fn gen_packet_filter(
     ptree: &PTree,
-    statics: &mut Vec<proc_macro2::TokenStream>
+    statics: &mut Vec<proc_macro2::TokenStream>,
+    filter_layer: FilterLayer,
 ) -> proc_macro2::TokenStream {
 
     let name = "ethernet";
@@ -24,6 +25,7 @@ pub(crate) fn gen_packet_filter(
         statics,
         &ptree.root,
         &protocol!("frame"),
+        filter_layer
     );
 
     let mut branches = quote! {};
@@ -53,6 +55,7 @@ fn gen_packet_filter_util(
     statics: &mut Vec<proc_macro2::TokenStream>,
     node: &PNode,
     outer_protocol: &ProtocolName,
+    filter_layer: FilterLayer
 ) {
     let mut first_unary = true;
     for child in node.children.iter().filter(|n| n.pred.on_packet()) {
@@ -65,6 +68,7 @@ fn gen_packet_filter_util(
                     node.pred.get_protocol(),
                     protocol,
                     first_unary,
+                    filter_layer
                 );
                 first_unary = false;
             }
@@ -83,6 +87,7 @@ fn gen_packet_filter_util(
                     field,
                     op,
                     value,
+                    filter_layer
                 );
             }
         }
@@ -96,14 +101,15 @@ fn add_unary_pred(
     outer_protocol: &ProtocolName,
     protocol: &ProtocolName,
     first_unary: bool,
+    filter_layer: FilterLayer
 ) {
     let outer = Ident::new(outer_protocol.name(), Span::call_site());
     let ident = Ident::new(protocol.name(), Span::call_site());
     let ident_type = Ident::new(&ident.to_string().to_camel_case(), Span::call_site());
 
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
-    gen_packet_filter_util(&mut body, statics, node, outer_protocol);
-    update_body(&mut body, node, FilterLayer::Packet);
+    gen_packet_filter_util(&mut body, statics, node, outer_protocol, filter_layer);
+    update_body(&mut body, node, filter_layer);
 
     if first_unary {
         code.push(quote! {
@@ -130,10 +136,11 @@ fn add_binary_pred(
     field: &FieldName,
     op: &BinOp,
     value: &Value,
+    filter_layer: FilterLayer
 ) {
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
-    gen_packet_filter_util(&mut body, statics, node, outer_protocol);
-    update_body(&mut body, node, FilterLayer::Packet);
+    gen_packet_filter_util(&mut body, statics, node, outer_protocol, filter_layer);
+    update_body(&mut body, node, filter_layer);
 
     let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
     if node.if_else {

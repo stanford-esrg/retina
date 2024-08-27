@@ -305,24 +305,40 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
                 let callback = Ident::new(&spec.callback, Span::call_site());
                 let tracked_str = spec.datatype_str.to_lowercase();
                 let tracked_field: Ident = Ident::new(&tracked_str, Span::call_site());
-                if matches!(spec.datatype.level, Level::Session) {
-                    assert!(matches!(filter_layer, FilterLayer::Session) || 
-                            matches!(filter_layer, FilterLayer::ConnectionDeliver));
-                    let type_ident = Ident::new(&spec.datatype_str, Span::call_site());
-                    if spec.datatype.from_session {
-                        body.push(
-                            quote! { #callback( #type_ident::from_session(session) ) }
-                        );
-                    } else {
+                let type_ident = Ident::new(&spec.datatype_str, Span::call_site());
+                if matches!(spec.datatype.level, Level::Session) && spec.datatype.from_session {
+                    assert!(matches!(filter_layer, FilterLayer::Session));
+                    body.push(
+                        quote! { 
+                            if let Some(s) = #type_ident::from_session(session) {
+                                #callback( s );
+                            }
+                        }
+                    );
+                } else if matches!(spec.datatype.level, Level::Packet) {
+                    // Deliver packets directly
+                    if  matches!(filter_layer, FilterLayer::PacketContinue) {
                         body.push(
                             quote! { 
-                                tracked.#tracked_field.session_matched(&session); 
-                                #callback( &tracked.#tracked_field );
+                                if let Some(p) = #type_ident::from_mbuf(mbuf) {
+                                    #callback( p );
+                                }
+                            }
+                        );
+                    } else {
+                        // Drain existing packets
+                        body.push(
+                            quote! { 
+                                for mbuf in tracked.packets() {
+                                    if let Some(p) = #type_ident::from_mbuf(mbuf) {
+                                        #callback( p );
+                                    }
+                                }
                             }
                         );
                     }
                 } else {
-                    body.push( 
+                    body.push(
                         quote! { #callback( &tracked.#tracked_field ); }
                     );  
                 }                  
@@ -349,7 +365,7 @@ impl ConnDataFilter {
         filter_layer: FilterLayer,
         build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
                            &mut Vec<proc_macro2::TokenStream>,
-                           &PNode,)
+                           &PNode, FilterLayer)
     ) 
     {
         let ident = Ident::new(protocol.name(), Span::call_site());
@@ -357,7 +373,7 @@ impl ConnDataFilter {
                                     Span::call_site());
 
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
-        (build_child_nodes)(&mut body, statics, node);
+        (build_child_nodes)(&mut body, statics, node, filter_layer);
         update_body(&mut body, node, filter_layer);
 
         let condition = quote! {
@@ -390,10 +406,10 @@ impl ConnDataFilter {
         filter_layer: FilterLayer,
         build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
                            &mut Vec<proc_macro2::TokenStream>,
-                           &PNode,)
+                           &PNode, FilterLayer)
     ) {
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
-        (build_child_nodes)(&mut body, statics, node);
+        (build_child_nodes)(&mut body, statics, node, filter_layer);
         update_body(&mut body, node, filter_layer);
 
         let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
@@ -421,11 +437,11 @@ impl ConnDataFilter {
         filter_layer: FilterLayer,
         build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
             &mut Vec<proc_macro2::TokenStream>,
-            &PNode,)
+            &PNode, FilterLayer)
     ) {
         let service_ident = Ident::new(&protocol.name().to_camel_case(), Span::call_site());
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
-        (build_child_nodes)(&mut body, statics, node);
+        (build_child_nodes)(&mut body, statics, node, filter_layer);
         update_body(&mut body, node, filter_layer);
 
         if node.if_else {
@@ -459,11 +475,11 @@ impl SessionDataFilter {
         filter_layer: FilterLayer,
         build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
                            &mut Vec<proc_macro2::TokenStream>,
-                           &PNode,)
-    ) 
+                           &PNode, FilterLayer)
+    )
     {
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
-        (build_child_nodes)(&mut body, statics, node);
+        (build_child_nodes)(&mut body, statics, node, filter_layer);
         update_body(&mut body, node, filter_layer);
 
         let service = protocol.name();

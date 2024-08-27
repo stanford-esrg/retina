@@ -61,19 +61,19 @@ impl L4Pdu {
 #[derive(Debug, Clone, Copy)]
 pub struct L4Context {
     /// Source socket address.
-    pub(crate) src: SocketAddr,
+    pub src: SocketAddr,
     /// Destination socket address.
-    pub(crate) dst: SocketAddr,
+    pub dst: SocketAddr,
     /// L4 protocol.
-    pub(crate) proto: usize,
+    pub proto: usize,
     /// Offset into the mbuf where payload begins.
-    pub(crate) offset: usize,
+    pub offset: usize,
     /// Length of the payload in bytes.
-    pub(crate) length: usize,
+    pub length: usize,
     /// Raw sequence number of segment.
-    pub(crate) seq_no: u32,
+    pub seq_no: u32,
     /// TCP flags.
-    pub(crate) flags: u8,
+    pub flags: u8,
 }
 
 impl L4Context {

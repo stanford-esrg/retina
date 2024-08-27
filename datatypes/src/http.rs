@@ -11,10 +11,10 @@ impl FromSession for HttpTransaction {
         vec![ConnParser::Http(HttpParser::default())]
     }
 
-    fn from_session<'a>(session: &'a Session) -> &'a Self {
+    fn from_session<'a>(session: &'a Session) -> Option<&'a Self> {
         if let SessionData::Http(http) = &session.data {
-            return http;
+            return Some(http);
         }
-        panic!("Only request HTTP transactions for HTTP filter");
+        None
     }
 }

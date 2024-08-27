@@ -663,10 +663,9 @@ mod tests {
     #[test]
     fn core_ptree_session() {        
         let datatype_str_conn = "cb_1(Connection)".to_string();
-        let datatype_conn = DataType::new(Level::Connection, 
-                                         false, true, false);
+        let datatype_conn = DataType::new_default_connection();
         let datatype_str_session = "cb_2(Session)".to_string();
-        let datatype_session = DataType::new(Level::Session, true, false, false);
+        let datatype_session = DataType::new_default_session();
         
         let filter = Filter::new("tls.sni = \'abc\'").unwrap();
 
@@ -678,8 +677,8 @@ mod tests {
                          &datatype_str_session);
         
         let mut expected_actions = Actions::new();
-        expected_actions.data |= ActionData::ConnDataTrack;
-        expected_actions.terminal_actions |= ActionData::ConnDataTrack;
+        expected_actions.data |= ActionData::ConnDataTrack | ActionData::SessionTrack;
+        expected_actions.terminal_actions |= ActionData::ConnDataTrack | ActionData::SessionTrack;
         assert!(ptree.actions == expected_actions);
         assert!(!ptree.get_subtree(4).unwrap().deliver.is_empty());
 
@@ -698,13 +697,12 @@ mod tests {
     }
 
     #[test]
-    fn core_ptree_connection() {
+    fn core_ptree_proto() {
         let mut expected_actions = Actions::new();
         
         let filter_conn = Filter::from_str("ipv4 and tls").unwrap();
         let datatype_str = "cb_1(Connection)".to_string();
-        let datatype: DataType = DataType::new(Level::Connection, 
-                                         false, true, false);
+        let datatype: DataType = DataType::new_default_connection();
         
         // Connection-level datatype matching at connection level
         let mut ptree = PTree::new_empty(FilterLayer::Protocol);
@@ -718,7 +716,7 @@ mod tests {
         // Session-level datatype matching at session level
         let filter = Filter::from_str("ipv4 and tls.sni = \'abc\'").unwrap();
         let datatype_str = "cb_2(Session)".to_string();
-        let datatype = DataType::new(Level::Session, true, false, false);
+        let datatype = DataType::new_default_session();
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
         expected_actions.data |= ActionData::SessionFilter;
         assert!(ptree.actions == expected_actions);
@@ -736,8 +734,7 @@ mod tests {
         let mut expected_actions = Actions::new();
         let filter = Filter::from_str("ipv4 and tls").unwrap();
         let datatype_str = "cb_1(Connection)".to_string();
-        let datatype: DataType = DataType::new(Level::Connection, 
-                                         false, true, false);
+        let datatype: DataType = DataType::new_default_connection();
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
 
@@ -748,10 +745,19 @@ mod tests {
         // Packet ptree should exclude patterns that terminate at lower layers
         let filter = Filter::from_str("ipv4.dst_addr = 1.1.1.1 or (ipv4 and tls)").unwrap();
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
+        let datatype = DataType::new_default_packet();
+        let datatype_str = "cb_1(ZcFrame)".to_string();
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
         ptree.prune_branches();
         ptree.mark_mutual_exclusion();
-        assert!(ptree.size == 4); // eth - ipv4 - tcp, ipv4.dst_addr
+        assert!(ptree.size == 3); // eth - ipv4 - tcp; ipv4.dst_addr should be prev. layer (delivered)
+        expected_actions.clear();
+        expected_actions.data = ActionData::ProtoFilter | ActionData::PacketTrack;
+        assert!(ptree.actions == expected_actions);
+
+        let mut ptree = PTree::new_empty(FilterLayer::PacketContinue);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
+        assert!(ptree.size == 4);
     }
 
     // \todo: asserts to check for correctness
@@ -772,9 +778,9 @@ mod tests {
         let filter_child5 = "ipv4.src_addr = 1.3.3.1/32";
         
         let datatype_str_conn = "cb_1(Connection)".to_string();
-        let datatype_conn = DataType::new(Level::Connection, false, true, false);
+        let datatype_conn = DataType::new_default_connection();
         let datatype_str_session = "cb_1(Session)".to_string();
-        let datatype_session = DataType::new(Level::Session, false, true, false);
+        let datatype_session = DataType::new_default_session();
 
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
 
@@ -816,7 +822,7 @@ mod tests {
         let filter = "ipv4.src_addr = 1.3.3.0/24";
         let filter_child = "ipv4.src_addr = 1.3.3.1/31";
         let datatype_str_conn = "cb_1(Connection)".to_string();
-        let datatype_conn = DataType::new(Level::Connection, false, true, false);
+        let datatype_conn = DataType::new_default_connection();
         
         let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
 

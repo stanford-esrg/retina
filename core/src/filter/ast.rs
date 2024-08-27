@@ -143,8 +143,12 @@ impl Predicate {
 
     pub(crate) fn is_prev_layer(&self, filter_layer: FilterLayer, datatype: &DataType) -> bool {
         match filter_layer {
-            FilterLayer::Packet | FilterLayer::PacketContinue => {
+            FilterLayer::PacketContinue => {
                 return false;
+            }
+            FilterLayer::Packet => {
+                // Packet would have already been delivered
+                return self.on_packet() && matches!(datatype.level, Level::Packet);
             }
             FilterLayer::Protocol=> {
                 return self.on_packet();

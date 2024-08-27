@@ -5,6 +5,8 @@ use quote::quote;
 
 use crate::SubscriptionConfig;
 
+use retina_core::filter::datatypes::Level;
+
 pub(crate) struct TrackedDataBuilder {
     update: Vec<proc_macro2::TokenStream>,
     struct_def: Vec<proc_macro2::TokenStream>,
@@ -38,8 +40,9 @@ impl TrackedDataBuilder {
                 continue;
             }
             datatypes.insert(name);
-            if spec.datatype.from_session {
-                // Not tracked
+            if spec.datatype.from_session || 
+               matches!(spec.datatype.level, Level::Packet) {
+                // Data built directly from packet or session isn't tracked
                 continue;
             }
             self.subscribable_enum.push(
@@ -59,7 +62,7 @@ impl TrackedDataBuilder {
                 // TODO will a subscription ever want to be able to know if *it* is matching 
                 //              before the deliver phase? 
                 self.update.push(
-                    quote! { self.#field_name.update(&pdu, session_id); }
+                    quote! { self.#field_name.update(pdu, session_id); }
                 );
             }
             if needs_parse {
@@ -69,29 +72,11 @@ impl TrackedDataBuilder {
     }
 
     pub(crate) fn subscribable_wrapper(&mut self) -> proc_macro2::TokenStream {
-        
-        // TODO only include if actually needed
-        let packet_deliver = quote! {
-            if actions.data.contains(ActionData::PacketDeliver) {
-                subscription.deliver_packet(&mbuf);
-            }
-        }; 
-
-        // TODO only include if actually needed
-        let packet_track = quote! {
-            if actions.data.intersects(ActionData::PacketContinue) {
-                if let Ok(ctxt) = L4Context::new(&mbuf) {
-                    conn_tracker.process(mbuf, ctxt, subscription);
-                }
-            }
-        };
 
         let mut conn_parsers = vec![];
         for datatype in &self.app_parsers {
             let type_ident = Ident::new(datatype, Span::call_site());
-            // TODO: need to make sure that the parsers unique
-            // best to do later in the code, since it also needs to be done for 
-            // filter-req. parsers
+
             conn_parsers.push(
                 quote! {
                     ret.extend(#type_ident::conn_parsers());
@@ -117,8 +102,11 @@ impl TrackedDataBuilder {
                     conn_tracker: &mut ConnTracker<Self::Tracked>,
                     actions: Actions
                 ) {
-                    #packet_deliver
-                    #packet_track
+                    if actions.data.intersects(ActionData::PacketContinue) {
+                        if let Ok(ctxt) = L4Context::new(&mbuf) {
+                            conn_tracker.process(mbuf, ctxt, subscription);
+                        }
+                    }
                 }
             } 
         }       
@@ -142,6 +130,7 @@ impl TrackedDataBuilder {
             pub struct TrackedWrapper {
                 five_tuple: FiveTuple,
                 sessions: Vec<Session>,
+                mbufs: Vec<Mbuf>,
                 #( #def )*
             }
 
@@ -153,16 +142,25 @@ impl TrackedDataBuilder {
                     Self {
                         five_tuple,
                         sessions: vec![],
+                        mbufs: vec![],
                         #( #new )*
                     }
                 }
 
                 fn update(&mut self, 
-                        pdu: L4Pdu, 
+                        pdu: &L4Pdu, 
                         session_id: Option<usize>, 
                         actions: &ActionData)
                 {
                     #( #update )*
+                }
+
+                fn track_packet(&mut self, mbuf: Mbuf) {
+                    self.mbufs.push(mbuf);
+                }
+
+                fn packets(&self) -> &Vec<Mbuf> {
+                    &self.mbufs
                 }
 
                 fn deliver_conn(&mut self, 

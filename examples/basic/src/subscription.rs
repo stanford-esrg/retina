@@ -39,13 +39,9 @@ fn conn_dns_cb(conn: &Connection) {
 }
 
 #[allow(dead_code)]
-fn tcp_port_cb(_subscribed: Subscribed) {
-    *TCP.write().unwrap() += 1;
+fn packet_cb(pkt: &ZcFrame) {
+    println!("pkt - {:?}", pkt);
 }
-
-#[inline]
-#[allow(dead_code)]
-fn default_cb(_subscribed: Subscribed) { }
 
 pub(crate) fn print() {
     // println!("TCP: {}", *TCP.read().unwrap());
