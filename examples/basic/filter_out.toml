@@ -1,7 +1,4 @@
 subscriptions = [
-    { filter = "ipv4 and dns", datatype = "Connection", callback = "conn_dns_cb" },
-    { filter = "http.user_agent ~ 'Mozilla.*'", datatype = "HttpTransaction", callback = "http_cb" },
-    { filter = "http.user_agent ~ 'Mozilla.*'", datatype = "Connection", callback = "conn_cb" },
-    { filter = "ipv4", datatype = "ZcFrame", callback = "packet_cb" },
+    { filter = "http", datatype = "ZcFrame", callback = "packet_cb" },
     { filter = "http.user_agent ~ 'Mozilla.*'", datatype = "ZcFrame", callback = "packet_cb" },
     ]

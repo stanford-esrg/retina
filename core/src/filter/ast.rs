@@ -135,7 +135,7 @@ impl Predicate {
             FilterLayer::Protocol=> {
                 return self.on_session();
             }
-            FilterLayer::Session | FilterLayer::ConnectionDeliver => {
+            FilterLayer::Session | FilterLayer::ConnectionDeliver | FilterLayer::PacketDeliver => {
                 return false;
             }
         }
@@ -146,8 +146,8 @@ impl Predicate {
             FilterLayer::PacketContinue => {
                 return false;
             }
-            FilterLayer::Packet => {
-                // Packet would have already been delivered
+            FilterLayer::Packet | FilterLayer::PacketDeliver => {
+                // Packet would have already been delivered in PacketContinue
                 return self.on_packet() && matches!(datatype.level, Level::Packet);
             }
             FilterLayer::Protocol=> {

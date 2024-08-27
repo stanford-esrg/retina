@@ -87,6 +87,8 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     
     let conn_deliver_ptree = filter_subtree(&config, FilterLayer::ConnectionDeliver);
     let conn_deliver_filter = gen_deliver_filter(&conn_deliver_ptree, &mut statics, FilterLayer::ConnectionDeliver);
+    let packet_deliver_ptree = filter_subtree(&config, FilterLayer::PacketDeliver);
+    let packet_deliver_filter = gen_deliver_filter(&packet_deliver_ptree, &mut statics, FilterLayer::PacketDeliver);
 
     // TODO print something for tracked data
     let mut tracked_data = TrackedDataBuilder::new(&config);
@@ -132,31 +134,26 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
                 #packet_filter
             }
 
-            fn protocol_filter(conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::Actions {
+            fn protocol_filter(conn: &retina_core::protocols::stream::ConnData,
+                               tracked: &TrackedWrapper) -> retina_core::filter::Actions {
                 #proto_filter
             }
 
             fn session_filter(session: &retina_core::protocols::stream::Session,
                               conn: &retina_core::protocols::stream::ConnData,
-                              tracked: &mut TrackedWrapper) -> retina_core::filter::actions::Actions 
+                              tracked: &TrackedWrapper) -> retina_core::filter::actions::Actions 
             {
                 #session_filter
             }
 
-            fn packet_deliver(mbuf: &Mbuf) 
+            fn packet_deliver(mbuf: &Mbuf, conn: &ConnData, tracked: &TrackedWrapper) 
             {
-                // tmp
+                #packet_deliver_filter
             }
             
             fn connection_deliver(conn: &ConnData, tracked: &TrackedWrapper)
             {
                 #conn_deliver_filter
-            }
-
-            fn session_deliver(session: &Session, 
-                                conn: &ConnData, tracked: &TrackedWrapper)
-            {
-                // tmp
             }
 
             retina_core::filter::FilterFactory::new(
@@ -168,7 +165,6 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
                 session_filter,
                 packet_deliver, 
                 connection_deliver,
-                session_deliver,
             )
         }
 

@@ -317,7 +317,8 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
                     );
                 } else if matches!(spec.datatype.level, Level::Packet) {
                     // Deliver packets directly
-                    if  matches!(filter_layer, FilterLayer::PacketContinue) {
+                    if matches!(filter_layer, FilterLayer::PacketContinue) || 
+                       matches!(filter_layer, FilterLayer::PacketDeliver) {
                         body.push(
                             quote! { 
                                 if let Some(p) = #type_ident::from_mbuf(mbuf) {

@@ -1,7 +1,7 @@
 use super::ast::*;
 use super::pattern::{FlatPattern, LayeredPattern};
 use super::actions::*;
-use super::datatypes::DataType;
+use super::datatypes::{Level, DataType};
 
 use std::fmt;
 use std::collections::HashSet;
@@ -19,8 +19,10 @@ pub enum FilterLayer {
     Protocol, 
     /// Session delivery | session filter
     Session,
-    /// Connection delivery
+    /// Connection delivery (conn. termination)
     ConnectionDeliver,
+    /// Packet delivery (packet datatype match at later layer)
+    PacketDeliver,
 }
 
 impl fmt::Display for FilterLayer {
@@ -31,6 +33,7 @@ impl fmt::Display for FilterLayer {
             FilterLayer::Protocol=> write!(f, "C"),
             FilterLayer::Session => write!(f, "S"),
             FilterLayer::ConnectionDeliver => write!(f, "C (D)"),
+            FilterLayer::PacketDeliver => write!(f, "P (D)"),
         }
     }
 }
@@ -266,6 +269,10 @@ impl PTree {
     pub fn add_filter(&mut self, patterns: &[FlatPattern], 
                       datatype: &DataType, filter_id: usize, 
                       subscription_str: &String) {
+        if matches!(self.filter_layer, FilterLayer::PacketDeliver) && 
+           !matches!(datatype.level, Level::Packet) {
+            return;
+        }
         self.build_tree(patterns, datatype, filter_id, subscription_str);
     }
 
@@ -758,6 +765,22 @@ mod tests {
         let mut ptree = PTree::new_empty(FilterLayer::PacketContinue);
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
         assert!(ptree.size == 4);
+    }
+
+    #[test]
+    fn core_ptree_pkt_deliver() {
+        let filter = Filter::from_str("ipv4 and tls").unwrap();
+        let datatype_str = "cb_1(Packet)".to_string();
+        let datatype: DataType = DataType::new_default_packet();
+        let mut ptree = PTree::new_empty(FilterLayer::PacketDeliver);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
+        assert!(!ptree.get_subtree(3).unwrap().deliver.is_empty());
+        
+        let mut ptree = PTree::new_empty(FilterLayer::Packet);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
+        let mut expected_actions = Actions::new();
+        expected_actions.data |= ActionData::PacketTrack | ActionData::ProtoFilter;
+        assert!(ptree.actions == expected_actions);
     }
 
     // \todo: asserts to check for correctness

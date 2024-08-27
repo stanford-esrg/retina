@@ -32,16 +32,16 @@ use thiserror::Error;
 /// Filter types
 pub type PacketContFn = fn(&Mbuf) -> Actions;
 pub type PacketFilterFn = fn(&Mbuf) -> Actions;
-pub type ProtoFilterFn = fn(&ConnData) -> Actions;
+pub type ProtoFilterFn<T> = fn(&ConnData, &T) -> Actions;
 
 // Will apply session filter and potentially deliver or store session
-pub type SessionFilterFn<T> = fn(&Session, &ConnData, &mut T) -> Actions;
+pub type SessionFilterFn<T> = fn(&Session, &ConnData, &T) -> Actions;
 
 // Subscription deliver functions
-// \note Rust won't enforce trait bounds on type alias
-pub type PacketDeliverFn = fn(&Mbuf);
+// \note Rust won't enforce trait bounds on type alias, 
+//       but T should implement Tracked.
+pub type PacketDeliverFn<T> = fn(&Mbuf, &ConnData, &T);
 pub type ConnDeliverFn<T> = fn(&ConnData, &T);
-pub type SessionDeliverFn<T> = fn(&Session, &ConnData, &T);
 
 pub struct FilterFactory<T>
 where 
@@ -51,11 +51,10 @@ where
     pub protocol_str: String,
     pub packet_continue: PacketContFn,
     pub packet_filter: PacketFilterFn,
-    pub proto_filter: ProtoFilterFn,
+    pub proto_filter: ProtoFilterFn<T>,
     pub session_filter: SessionFilterFn<T>,
-    pub packet_deliver: PacketDeliverFn,
+    pub packet_deliver: PacketDeliverFn<T>,
     pub conn_deliver: ConnDeliverFn<T>,
-    pub session_deliver: SessionDeliverFn<T>,
 }
 
 impl<T> FilterFactory<T>
@@ -67,11 +66,10 @@ where
         protocol_str: &str,
         packet_continue: PacketContFn,
         packet_filter: PacketFilterFn,
-        proto_filter: ProtoFilterFn,
+        proto_filter: ProtoFilterFn<T>,
         session_filter: SessionFilterFn<T>,
-        packet_deliver: PacketDeliverFn,
+        packet_deliver: PacketDeliverFn<T>,
         conn_deliver: ConnDeliverFn<T>,
-        session_deliver: SessionDeliverFn<T>
     ) -> Self {
         FilterFactory {
             filter_str: filter_str.to_string(),
@@ -82,7 +80,6 @@ where
             session_filter,
             packet_deliver, 
             conn_deliver, 
-            session_deliver
         }
     }
 }

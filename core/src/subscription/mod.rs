@@ -70,9 +70,9 @@ where
 {
     packet_continue: PacketContFn,
     packet_filter: PacketFilterFn,
-    proto_filter: ProtoFilterFn,
+    proto_filter: ProtoFilterFn<S::Tracked>,
     session_filter: SessionFilterFn<S::Tracked>,
-    packet_deliver: PacketDeliverFn,
+    packet_deliver: PacketDeliverFn<S::Tracked>,
     conn_deliver: ConnDeliverFn<S::Tracked>,
     #[cfg(feature = "timing")]
     pub(crate) timers: Timers,
@@ -129,20 +129,20 @@ where
 
     /// Invokes the end-to-end protocol filter.
     /// Applied once a parser identifies the application-layer protocol.
-    pub fn filter_protocol(&self, conn: &ConnData) -> Actions {
-        (self.proto_filter)(conn)
+    pub fn filter_protocol(&self, conn: &ConnData, tracked: &S::Tracked) -> Actions {
+        (self.proto_filter)(conn, tracked)
     }
 
     /// Invokes the application-layer session filter. 
     /// Delivers sessions to callbacks if applicable.
-    pub fn filter_session(&self, session: &Session, conn: &ConnData, tracked: &mut S::Tracked) -> Actions {
+    pub fn filter_session(&self, session: &Session, conn: &ConnData, tracked: &S::Tracked) -> Actions {
         (self.session_filter)(session, conn, tracked)
     }
 
     /// Delivery functions, including delivery to the correct callback
 
-    pub fn deliver_packet(&self, mbuf: &Mbuf) {
-        (self.packet_deliver)(mbuf)
+    pub fn deliver_packet(&self, mbuf: &Mbuf, conn_data: &ConnData, tracked: &S::Tracked) {
+        (self.packet_deliver)(mbuf, conn_data, tracked)
     }
 
     pub fn deliver_conn(&self, conn_data: &ConnData, tracked: &S::Tracked) {

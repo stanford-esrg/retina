@@ -59,6 +59,9 @@ where
             // deliver data to Tracked::Update
             self.sdata.update(&pdu, None, /* TODO */&self.actions.data);
         }
+        if self.actions.packet_deliver() {
+            subscription.deliver_packet(pdu.mbuf_ref(), &self.cdata, &mut self.sdata);
+        }
         if self.actions.buffer_frame() {
             self.sdata.track_packet(pdu.mbuf_own());
         }
@@ -111,7 +114,7 @@ where
             }
         }
         if self.actions.apply_proto_filter() {
-            let actions = subscription.filter_protocol(&self.cdata);
+            let actions = subscription.filter_protocol(&self.cdata, &self.sdata);
             self.actions.update(&actions);
         } 
     }
@@ -133,7 +136,7 @@ where
     fn handle_session(&mut self, subscription: &Subscription<T::Subscribed>, id: usize) {
         if let Some(session) = self.cdata.conn_parser.remove_session(id) {
             if self.actions.apply_session_filter() {
-                let actions = subscription.filter_session(&session, &self.cdata, &mut self.sdata);
+                let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
                 self.actions.update(&actions);
                 if self.actions.session_track() {
                     self.sdata.track_session(session);
@@ -165,7 +168,7 @@ where
         if self.actions.session_parse() {
             for session in self.cdata.conn_parser.drain_sessions() {
                 if self.actions.apply_session_filter() {
-                    let actions = subscription.filter_session(&session, &self.cdata, &mut self.sdata);
+                    let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
                     self.actions.update(&actions);
                     if self.actions.session_track() {
                         self.sdata.track_session(session);

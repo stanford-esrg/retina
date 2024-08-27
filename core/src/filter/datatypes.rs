@@ -10,8 +10,6 @@ pub enum Level {
     Connection,
     // Deliver when session is parsed
     Session,
-    // [TODO] need to think through
-    Streaming,
 }
 
 #[derive(Clone, Debug)]
@@ -74,7 +72,10 @@ impl DataType {
                     FilterLayer::Session => {
                         return pred.on_session();
                     }
-                    _ => {
+                    FilterLayer::PacketDeliver => {
+                        return true;
+                    }
+                    FilterLayer::ConnectionDeliver | FilterLayer::Packet => {
                         // Packet: Action-only
                         // Conn. deliver: packets delivered when matched, not at termination
                         return false;
@@ -86,9 +87,6 @@ impl DataType {
             }
             Level::Session => {
                 return matches!(filter_layer, FilterLayer::Session);
-            }
-            Level::Streaming => {
-                todo!();
             }
         }
     }
@@ -137,7 +135,6 @@ impl DataType {
                 // Apply next filter (implicitly probe for protocol)
                 if_matching.data |= ActionData::ProtoFilter;
             }
-            Level::Streaming => todo!()
         }
         DataTypeAction {
             if_matched,
@@ -169,7 +166,6 @@ impl DataType {
                 // Apply next filter (implicitly continue parsing)
                 if_matching.data |= ActionData::SessionFilter;
             }
-            Level::Streaming => todo!()
         }
         DataTypeAction {
             if_matched,
@@ -193,7 +189,6 @@ impl DataType {
             Level::Session => {
                 // Will be delivered in session filter
             }
-            Level::Streaming => todo!()
         }
         DataTypeAction {
             if_matched,
@@ -215,7 +210,7 @@ impl DataType {
             FilterLayer::Session => {
                 return self.session_filter().if_matched;
             }
-            FilterLayer::ConnectionDeliver => {
+            FilterLayer::ConnectionDeliver | FilterLayer::PacketDeliver => {
                 // No actions
                 return Actions::new();
             }
@@ -243,7 +238,7 @@ impl DataType {
             FilterLayer::Session => {
                 actions.update(&self.session_filter().if_matching);
             }
-            FilterLayer::ConnectionDeliver => { }
+            FilterLayer::ConnectionDeliver | FilterLayer::PacketDeliver => { }
         }
         actions
     }

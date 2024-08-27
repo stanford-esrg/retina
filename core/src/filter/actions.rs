@@ -138,6 +138,11 @@ impl Actions {
         self.data.intersects(ActionData::SessionTrack)
     }
 
+    #[inline]
+    pub fn packet_deliver(&self) -> bool {
+        self.data.intersects(ActionData::PacketDeliver)
+    }
+
 
     /// After parsing a session, the framework must decide whether to continue
     /// probing for sessions depending on the protocol
