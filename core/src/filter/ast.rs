@@ -24,7 +24,6 @@ lazy_static! {
         let udp      = g.add_node(protocol!("udp"));
         let tls      = g.add_node(protocol!("tls"));
         let http     = g.add_node(protocol!("http"));
-        let ssh      = g.add_node(protocol!("ssh"));
         let dns      = g.add_node(protocol!("dns"));
         // define valid outer layers for each protocol header
         g.extend_with_edges([
@@ -34,7 +33,6 @@ lazy_static! {
             (udp, ipv4), (udp, ipv6),
             (tls, tcp),
             (http, tcp),
-            (ssh, tcp),
             (dns, udp), (dns, tcp),
         ]);
         g
@@ -773,7 +771,6 @@ mod tests {
         assert!(!has_path(&protocol!("ipv4"), &protocol!("tcp")));
         assert!(!has_path(&protocol!("ipv4"), &protocol!("ipv4")));
         assert!(!has_path(&protocol!("http"), &protocol!("udp")));
-        assert!(!has_path(&protocol!("tls"), &protocol!("ssh")));
     }
 
     #[test]
