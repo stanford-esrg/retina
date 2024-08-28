@@ -87,7 +87,7 @@ where
         let mut nb_bytes = 0;
 
         let config = TrackerConfig::from(&self.conntrack);
-        let registry = ParserRegistry::build::<S>(&self.filter).expect("Unable to build registry");
+        let registry = ParserRegistry::build::<S::Tracked>(&self.filter).expect("Unable to build registry");
         log::debug!("{:#?}", registry);
         let mut conn_table = ConnTracker::<S::Tracked>::new(config, registry);
 
@@ -109,8 +109,7 @@ where
 
                     let actions = self.subscription.continue_packet(&mbuf);
                     if !actions.drop() {
-                        S::process_packet(mbuf, &self.subscription,
-                                          &mut conn_table, actions);
+                        self.subscription.process_packet(mbuf, &mut conn_table, actions);
                     }
                 }
             }

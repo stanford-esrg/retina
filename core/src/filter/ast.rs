@@ -14,7 +14,6 @@ use regex::Regex;
 
 use crate::port::Port;
 
-// TODO: define these relationships in protocols module
 lazy_static! {
     pub(crate) static ref LAYERS: Graph::<ProtocolName, ()> = {
         let mut g = Graph::<ProtocolName, ()>::new();
@@ -187,19 +186,9 @@ impl Predicate {
             return false;
         }
 
-        // Two binary predicates with diff. protocols (should be impossible?)
+        // Two binary predicates with diff. protocols
         if self.get_protocol() != pred.get_protocol() {
             return false; 
-        }
-        if self.is_unary() || pred.is_unary() {
-            // TODO remove once stable
-            log::error!("Unary + binary, same protocol, same level...?");
-            return false;
-        }
-        if self.is_child(pred) || pred.is_child(self) { 
-            // TODO remove once stable
-            log::error!("Some predicates were not inserted into tree under `parent`");
-            return false 
         }
 
         if let Predicate::Binary { protocol: _proto, field: field_name,
@@ -292,8 +281,7 @@ impl Predicate {
                              !matches!(parent_val, Value::Ipv6(_))) {
                             return false;
                         }
-                        // != should not be superset or subset of another operation
-                        // TODO confirm? 
+                        // != cannot be superset or subset of another operation
                         if matches!(op, BinOp::Ne) || matches!(parent_op, BinOp::Ne) {
                             return false;
                         }
@@ -302,7 +290,8 @@ impl Predicate {
                             return false;
                         }
                         // Determining whether a regex is a "subset" of another is more complex than what 
-                        // we want to do here. TODO allow user to specify parent.
+                        // we want to do here.
+                        // 
                         if matches!(op, BinOp::Re) && matches!(parent_op, BinOp::Re) {
                             return false;
                         }
@@ -342,7 +331,6 @@ impl Predicate {
                             if let Value::Ipv4(parent_net) = parent_val {
                                 return is_parent_ipv4(net, op, parent_net, parent_op);
                             }
-                            // TODOTR
                             return false;
                         }
                         // IPv6 address
@@ -376,13 +364,24 @@ pub(super) fn is_excl_ipv4(ipv4: &Ipv4Net, op: &BinOp,
         BinOp::Eq | BinOp::In => {
             match peer_op {
                 BinOp::Eq | BinOp::In => {
+                    // Mutually exclusive subnets
                     return !peer_ipv4.contains(ipv4) && !ipv4.contains(peer_ipv4);
                 },
-                BinOp::Ne => {}, // TODO
+                BinOp::Ne => {
+                    // Same subnet; eq. and neq.
+                    return peer_ipv4 == ipv4;
+                },
                 _ => {}
             }
         },
-        BinOp::Ne => { }, // TODO
+        BinOp::Ne => { 
+            match peer_op {
+                BinOp::Eq | BinOp::In => {
+                    return peer_ipv4 == ipv4;
+                },
+                _ => {}
+            }
+        },
         _ => {}
     }
     false
@@ -396,11 +395,20 @@ pub(super) fn is_excl_ipv6(ipv6: &Ipv6Net, op: &BinOp,
                 BinOp::Eq | BinOp::In => {
                     return !peer_ipv6.contains(ipv6) && !ipv6.contains(peer_ipv6);
                 },
-                BinOp::Ne => {}, // TODO
+                BinOp::Ne => {
+                    return peer_ipv6 == ipv6;
+                },
                 _ => {}
             }
         },
-        BinOp::Ne => { }, // TODO
+        BinOp::Ne => { 
+            match peer_op {
+                BinOp::Eq | BinOp::In => {
+                    return peer_ipv6 == ipv6;
+                },
+                _ => {}
+            }
+        },
         _ => {}
     }
     false
@@ -447,11 +455,17 @@ pub(super) fn is_parent_ipv4(child_ipv4: &Ipv4Net, child_op: &BinOp,
                 BinOp::Eq | BinOp::In => {
                     return parent_ipv4.contains(child_ipv4);
                 },
-                BinOp::Ne => {}, // TODO
                 _ => {}
             }
         },
-        BinOp::Ne => { }, // TODO
+        BinOp::Ne => { 
+            match parent_op {
+                BinOp::Ne => {
+                    return parent_ipv4.contains(child_ipv4);
+                },
+                _ => {}
+            }
+        },
         _ => {}
     }
     false
@@ -465,11 +479,17 @@ pub(super) fn is_parent_ipv6(child_ipv6: &Ipv6Net, child_op: &BinOp,
                 BinOp::Eq | BinOp::In => {
                     return parent_ipv6.contains(child_ipv6);
                 },
-                BinOp::Ne => {}, // TODO
                 _ => {}
             }
         },
-        BinOp::Ne => { }, // TODO
+        BinOp::Ne => { 
+            match parent_op {
+                BinOp::Ne => {
+                    return parent_ipv6.contains(child_ipv6);
+                },
+                _ => {}
+            }
+        },
         _ => {}
     }
     false
@@ -491,7 +511,6 @@ pub(super) fn is_parent_text(child_text: &String, child_op: &BinOp,
 pub(super) fn is_excl_int(from: u64, to: u64, op: &BinOp, 
                           peer_from: u64, peer_to: u64, peer_op: &BinOp) -> bool
 {
-    // TODO CHECK THIS
     match op {
         BinOp::Eq => { 
             match peer_op {
@@ -575,7 +594,6 @@ pub(super) fn is_excl_int(from: u64, to: u64, op: &BinOp,
 }
 
 
-/// TODO also consider predicate mutual exclusion here ??
 pub(super) fn is_parent_int(child_from: u64, child_to: u64, child_op: &BinOp, 
                             parent_from: u64, parent_to: u64, parent_op: &BinOp) -> bool
 {

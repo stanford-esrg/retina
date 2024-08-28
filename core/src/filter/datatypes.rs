@@ -25,8 +25,6 @@ pub struct DataType {
     // [note] May want other things?
 }
 
-// [TODO] allow for more complex datatypes by 
-// referring to needs_parse, needs_update
 pub struct DataTypeAction {
     pub if_matched: Actions,
     pub if_matching: Actions,

@@ -56,13 +56,16 @@ where
         // Note: tracking must happen after parsing, as the above
         // may update connection state.
         if self.actions.track_pdu() {
-            // deliver data to Tracked::Update
-            self.sdata.update(&pdu, None, /* TODO */&self.actions.data);
+            // Forward PDU to any subscriptions that require
+            // tracking ongoing connection data
+            self.sdata.update(&pdu, None);
         }
         if self.actions.packet_deliver() {
+            // Delivering all remaining packets in connection
             subscription.deliver_packet(pdu.mbuf_ref(), &self.cdata, &mut self.sdata);
         }
         if self.actions.buffer_frame() {
+            // Track frame for (potential) future delivery
             self.sdata.track_packet(pdu.mbuf_own());
         }
     }
@@ -98,7 +101,6 @@ where
                 // All relevant parsers have failed to match
                 // Handle connection state change 
                 self.handle_conn(subscription);
-                // TODOTR ensure Session::Default not needed
             }
             ProbeRegistryResult::Unsure => { /* Continue */ }
         }
@@ -137,6 +139,10 @@ where
         if let Some(session) = self.cdata.conn_parser.remove_session(id) {
             if self.actions.apply_session_filter() {
                 let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
+                if self.actions.buffer_frame() != actions.buffer_frame() && !actions.drop() {
+                    // No longer need tracked packets; delete to save memory
+                    self.sdata.drain_packets();
+                }
                 self.actions.update(&actions);
                 if self.actions.session_track() {
                     self.sdata.track_session(session);
@@ -169,6 +175,10 @@ where
             for session in self.cdata.conn_parser.drain_sessions() {
                 if self.actions.apply_session_filter() {
                     let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
+                    if self.actions.buffer_frame() != actions.buffer_frame() && !actions.drop() {
+                        // No longer need tracked packets; delete to save memory
+                        self.sdata.drain_packets();
+                    }
                     self.actions.update(&actions);
                     if self.actions.session_track() {
                         self.sdata.track_session(session);
@@ -177,9 +187,6 @@ where
             }
         }
 
-        // Once sessions are cleared, deliver all connection data
-
-        // TODOTR do we need to re-apply the connection filter here?
         if self.actions.connection_matched() {
             self.sdata.deliver_conn(subscription, &self.actions.data, &self.cdata);
         }

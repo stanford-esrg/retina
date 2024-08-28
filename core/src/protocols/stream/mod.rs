@@ -66,7 +66,7 @@ pub(crate) struct ParserRegistry(Vec<ConnParser>);
 
 impl ParserRegistry {
     /// Builds a new `ParserRegistry` from the `filter` and tracked subscribable type `T`.
-    pub(crate) fn build<T: Subscribable>(filter: &Filter) -> Result<ParserRegistry> {
+    pub(crate) fn build<T: Trackable>(filter: &Filter) -> Result<ParserRegistry> {
         // Parsers requested by datatypes
         let mut stream_protocols: HashSet<String> = T::parsers()
                                                         .into_iter()

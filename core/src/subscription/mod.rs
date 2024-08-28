@@ -1,5 +1,5 @@
 use crate::conntrack::conn_id::FiveTuple;
-use crate::conntrack::pdu::L4Pdu;
+use crate::conntrack::pdu::{L4Pdu, L4Context};
 use crate::conntrack::ConnTracker;
 use crate::filter::*;
 use crate::memory::mbuf::Mbuf;
@@ -7,19 +7,6 @@ use crate::protocols::stream::{ConnData, ConnParser, Session};
 
 pub trait Subscribable {
     type Tracked: Trackable<Subscribed = Self>;
-
-    /// Parsers needed by all filters and data types
-    fn parsers() -> Vec<ConnParser>;
-
-    /// TEMP - TODOTR move packet handling out of subscription
-    /// And figure out how to not apply it every time...?
-    fn process_packet(
-        mbuf: Mbuf,
-        subscription: &Subscription<Self>,
-        conn_tracker: &mut ConnTracker<Self::Tracked>,
-        actions: Actions
-    ) where
-        Self: Sized;
 }
 
 pub trait Trackable {
@@ -32,8 +19,7 @@ pub trait Trackable {
     /// update tracked data with new PDU
     fn update(&mut self, 
               pdu: &L4Pdu, 
-              session_id: Option<usize>, 
-              actions: &ActionData);
+              session_id: Option<usize>);
     
     /// \todo 
     /// Handle draining frames
@@ -59,6 +45,13 @@ pub trait Trackable {
 
     /// Get reference to stored packets
     fn packets(&self) -> &Vec<Mbuf>;
+
+    /// Drain vector of mbufs
+    fn drain_packets(&mut self);
+
+    /// Parsers needed by all datatypes
+    /// Parsers needed by filter are generated on program startup
+    fn parsers() -> Vec<ConnParser>;
 }
 
 pub struct Subscription<S>
@@ -92,25 +85,23 @@ where
         }        
     }
 
-    // TODOTR: 
-    // - This should be built based on what the hardware supports (and filter)
-    // 
-    // For subscriptions with one possible packet action (track or deliver):
-    // - If packet layer can be entirely realized in hardware: 
-    //   * This should be no-op that returns Track. 
-    //     (HW would have already dropped packets). 
-    // - Else: 
-    //   * Is it possible that the HW did some work for us but not all of it? 
-    //     Can we figure out what the HW would have already filtered out 
-    //     in order to reduce the work here? 
-    // 
-    // If there are two packet actions, this gets trickier. 
-    // - If HW can mark packets and filter can be realized in hardware,
-    //   then it's the same as the above --
-    //   a no-op that just translates the mark to PacketAction
-    // - If no marking or no/incomplete HW filter, then optimize 
-    //   as much as possible...
+    pub fn process_packet(
+        &self,
+        mbuf: Mbuf,
+        conn_tracker: &mut ConnTracker<S::Tracked>,
+        actions: Actions
+    ) {
+        if actions.data.intersects(ActionData::PacketContinue) {
+            if let Ok(ctxt) = L4Context::new(&mbuf) {
+                conn_tracker.process(mbuf, ctxt, self);
+            }
+        }
+    }
 
+    // TODO: packet continue filter should ideally be built at
+    // compile-time based on what the NIC supports (what has 
+    // already been filtered out in HW).
+    // Ideally, NIC would `mark` mbufs as `deliver` and/or `continue`.
     /// Invokes the software packet filter.
     /// Used for each packet to determine 
     /// forwarding to conn. tracker.

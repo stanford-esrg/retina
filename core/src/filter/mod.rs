@@ -91,8 +91,7 @@ pub struct Filter {
 
 impl Filter {
     pub fn from_str(filter_raw: &str) -> Result<Filter> {
-        let parser = FilterParser { split_combined: true /* TODOTR */ };
-        let raw_patterns = parser.parse_filter(filter_raw)?;
+        let raw_patterns = FilterParser::parse_filter(filter_raw)?;
 
         let flat_patterns = raw_patterns
             .into_iter()
@@ -119,8 +118,7 @@ impl Filter {
     }
 
     pub fn new(filter_raw: &str) -> Result<Filter> {
-        let parser = FilterParser { split_combined: true /* TODOTR */ };
-        let raw_patterns = parser.parse_filter(filter_raw)?;
+        let raw_patterns = FilterParser::parse_filter(filter_raw)?;
 
         let flat_patterns = raw_patterns
             .into_iter()
@@ -247,9 +245,5 @@ pub enum FilterError {
     },
 }
 
-#[cfg(test)]
-mod tests {
-    // use super::*;
 
-    // TODO: test filter string parsing
-}
+// Nice-to-have: tests for filter string parsing

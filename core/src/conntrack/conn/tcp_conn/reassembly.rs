@@ -8,10 +8,6 @@ use crate::filter::Actions;
 use anyhow::{bail, Result};
 use std::collections::VecDeque;
 
-/// TODOTR: 
-/// - Instead of having this invoke conninfo, have a 
-///   "drain" buffer & method instead.
-
 /// Represents a uni-directional TCP flow
 #[derive(Debug)]
 pub(crate) struct TcpFlow {

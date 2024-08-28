@@ -94,11 +94,6 @@ where
     ) {
         match &mut self.l4conn {
             L4Conn::Tcp(tcp_conn) => {
-                // TODOTR take out reassembly by default
-                // - Could have an action for "deliver without reassembly"; 
-                //   see original implementation here.
-                // TODOTR confirm that this will terminate & update flags?
-                // (diff logic in original for post_match)
                 tcp_conn.reassemble(pdu, &mut self.info, subscription, registry);
             }
             L4Conn::Udp(_udp_conn) => self.info.consume_pdu(pdu, subscription, registry),

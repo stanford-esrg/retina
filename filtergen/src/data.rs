@@ -68,6 +68,19 @@ impl TrackedDataBuilder {
 
     pub(crate) fn subscribable_wrapper(&mut self) -> proc_macro2::TokenStream {
 
+        quote! {
+            pub struct SubscribedWrapper;
+            impl Subscribable for SubscribedWrapper {
+                type Tracked = TrackedWrapper;
+            } 
+        }       
+    }
+
+    pub(crate) fn tracked(&mut self) -> proc_macro2::TokenStream {
+        let def = std::mem::take(&mut self.struct_def);
+        let update = std::mem::take(&mut self.update);
+        let new = std::mem::take(&mut self.new);
+        
         let mut conn_parsers = vec![];
         for datatype in &self.app_parsers {
             let type_ident = Ident::new(datatype, Span::call_site());
@@ -79,37 +92,6 @@ impl TrackedDataBuilder {
             );
         }
 
-        quote! {
-            pub struct SubscribedWrapper;
-
-            impl Subscribable for SubscribedWrapper {
-                type Tracked = TrackedWrapper;
-                fn parsers() -> Vec<ConnParser> {
-                    let mut ret = vec![];
-                    #( #conn_parsers )*
-                    ret
-                }
-            
-                fn process_packet(
-                    mbuf: Mbuf,
-                    subscription: &Subscription<Self>,
-                    conn_tracker: &mut ConnTracker<Self::Tracked>,
-                    actions: Actions
-                ) {
-                    if actions.data.intersects(ActionData::PacketContinue) {
-                        if let Ok(ctxt) = L4Context::new(&mbuf) {
-                            conn_tracker.process(mbuf, ctxt, subscription);
-                        }
-                    }
-                }
-            } 
-        }       
-    }
-
-    pub(crate) fn tracked(&mut self) -> proc_macro2::TokenStream {
-        let def = std::mem::take(&mut self.struct_def);
-        let update = std::mem::take(&mut self.update);
-        let new = std::mem::take(&mut self.new);
         quote! {
             pub struct TrackedWrapper {
                 five_tuple: FiveTuple,
@@ -133,8 +115,7 @@ impl TrackedDataBuilder {
 
                 fn update(&mut self, 
                         pdu: &L4Pdu, 
-                        session_id: Option<usize>, 
-                        actions: &ActionData)
+                        session_id: Option<usize>)
                 {
                     #( #update )*
                 }
@@ -145,6 +126,10 @@ impl TrackedDataBuilder {
 
                 fn packets(&self) -> &Vec<Mbuf> {
                     &self.mbufs
+                }
+
+                fn drain_packets(&mut self) {
+                    self.mbufs = vec![];
                 }
 
                 fn deliver_conn(&mut self, 
@@ -164,6 +149,12 @@ impl TrackedDataBuilder {
 
                 fn track_session(&mut self, session: Session) {
                     self.sessions.push(session);
+                }
+
+                fn parsers() -> Vec<ConnParser> {
+                    let mut ret = vec![];
+                    #( #conn_parsers )*
+                    ret
                 }
             }
         }

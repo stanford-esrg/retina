@@ -42,9 +42,10 @@ impl<'a> HardwareFilter<'a> {
             .map(|p| p.retain_hardware_predicates(port))
             .collect::<Vec<_>>();
 
-        // Prune some hidden (redundant) patterns.
-        // Only removes those with same prefix
-        // TODOTR
+        // Prune some redundant patterns.
+        // \note This does not do the parent-child sorting of the SW filter; 
+        // this seems to be ok for Retina's current scale
+        // (applying NIC rules is fast and we're not hitting NIC limits)
         let mut hw_ptree = FlatPTree::new(&hw_patterns);
         hw_ptree.prune_branches();
         let mut hw_patterns = hw_ptree.to_flat_patterns();

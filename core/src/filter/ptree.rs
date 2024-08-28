@@ -9,8 +9,6 @@ use std::cmp::{Ordering, PartialOrd};
 
 #[derive(Debug, Clone, Copy)]
 pub enum FilterLayer {
-    // TODO revisit these
-
     /// Quick-pass filter per-packet 
     PacketContinue,
     /// Packet delivery | packet filter
@@ -162,9 +160,8 @@ impl PNode {
     /// Returns true if (1) both are leaf nodes and (2) actions/CB are the same
     fn result_eq(&self, peer: &PNode) -> bool {
         if peer.children.len() > 0 || self.children.len() > 0 {
-            return false; // TODO could recurse here 
+            return false;
         }
-
         self.actions == peer.actions && self.deliver == peer.deliver
     }
 
@@ -402,7 +399,7 @@ impl PTree {
                     node.children[idx].if_else = true;
                 }
                 // If the result is equivalent (e.g., same CB in delivery filter) for child nodes, 
-                // then we can safely use first match
+                // then we can safely use first match. (Similar to "early return.")
                 if node.children[idx].result_eq(&node.children[idx - 1]) {
                     node.children[idx].if_else = true;
                 }
