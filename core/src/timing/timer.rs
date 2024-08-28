@@ -216,7 +216,7 @@ impl CycleTimer {
                     format!("{}", v.data.len()),
                     format!("{:.3}", mean(&v.data)),
                     format!("{}", v.data.iter().min().unwrap_or(&0)),
-                    String::new(), // TODO
+                    String::new(),
                     String::new(),
                     format!("{}", median(&v.data).unwrap_or(0)),
                     String::new(),

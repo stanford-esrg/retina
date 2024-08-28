@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use proc_macro2::{Ident, Span};
+use retina_datatypes::DATATYPES;
 
 use quote::quote;
 
@@ -12,6 +13,7 @@ pub(crate) struct TrackedDataBuilder {
     struct_def: Vec<proc_macro2::TokenStream>,
     new: Vec<proc_macro2::TokenStream>,
     app_parsers: HashSet<String>,
+    datatypes: HashSet<String>,
 }
 
 impl TrackedDataBuilder {
@@ -21,23 +23,26 @@ impl TrackedDataBuilder {
             struct_def: vec![],
             new: vec![],
             app_parsers: HashSet::new(),
+            datatypes: HashSet::new(),
         };
         ret.build(subscribed_data);
         ret
     }
 
     pub(crate) fn build(&mut self, subscribed_data: &SubscriptionConfig) {
-        let mut datatypes = HashSet::new();
         for spec in &subscribed_data.subscriptions {
             let name = &spec.datatype_str; 
             let type_name = Ident::new(name, Span::call_site());
             let field_name = Ident::new(&name.to_lowercase(), Span::call_site());
             let needs_update = spec.datatype.needs_update; 
             let needs_parse = spec.datatype.needs_parse;
-            if datatypes.contains(name) {
+            if self.datatypes.contains(name) {
                 continue;
             }
-            datatypes.insert(name);
+            self.datatypes.insert(name.clone());
+            if needs_parse {
+                self.app_parsers.insert(name.clone());
+            }
             if spec.datatype.from_session || 
                matches!(spec.datatype.level, Level::Packet) {
                 // Data built directly from packet or session isn't tracked
@@ -60,10 +65,21 @@ impl TrackedDataBuilder {
                     quote! { self.#field_name.update(pdu, session_id); }
                 );
             }
-            if needs_parse {
-                self.app_parsers.insert(name.clone());
-            }
         }
+        self.print();
+    }
+
+    pub(crate) fn print(&self) {
+        println!("Tracked {{");
+        for dt in &self.datatypes {
+            println!("  {} ({}{}{}),", 
+                     dt,
+                     if DATATYPES.get(&dt.as_str()).unwrap().needs_parse { "parse,"} else { "" },
+                     if DATATYPES.get(&dt.as_str()).unwrap().needs_update { "update,"} else { "" },
+                     if DATATYPES.get(&dt.as_str()).unwrap().from_session { "from session,"} else { "" },
+            );
+        }
+        println!("}}\n");
     }
 
     pub(crate) fn subscribable_wrapper(&mut self) -> proc_macro2::TokenStream {
@@ -130,13 +146,6 @@ impl TrackedDataBuilder {
 
                 fn drain_packets(&mut self) {
                     self.mbufs = vec![];
-                }
-
-                fn deliver_conn(&mut self, 
-                                subscription: &Subscription<Self::Subscribed>,
-                                actions: &ActionData, conn_data: &ConnData)
-                {
-                    subscription.deliver_conn(conn_data, self);
                 }
                 
                 fn five_tuple(&self) -> FiveTuple {

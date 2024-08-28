@@ -90,7 +90,6 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     let packet_deliver_ptree = filter_subtree(&config, FilterLayer::PacketDeliver);
     let packet_deliver_filter = gen_deliver_filter(&packet_deliver_ptree, &mut statics, FilterLayer::PacketDeliver);
 
-    // TODO print something for tracked data
     let mut tracked_data = TrackedDataBuilder::new(&config);
     let subscribable = tracked_data.subscribable_wrapper();
     let tracked = tracked_data.tracked();

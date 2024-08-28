@@ -20,17 +20,7 @@ pub trait Trackable {
     fn update(&mut self, 
               pdu: &L4Pdu, 
               session_id: Option<usize>);
-    
-    /// \todo 
-    /// Handle draining frames
 
-    /// Indicate that a tracked and matched connection has terminated.
-    /// If connection subscriptions are matched, they will be delivered.
-    /// --- \TODO check the logic of actions on terminate. Make sure we can ascertain match.
-    fn deliver_conn(&mut self, 
-                    subscription: &Subscription<Self::Subscribed>,
-                    actions: &ActionData, conn_data: &ConnData);
-    
     /// Deliver tracked five tuple (always tracked)
     fn five_tuple(&self) -> FiveTuple;
 

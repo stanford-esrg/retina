@@ -188,7 +188,7 @@ where
         }
 
         if self.actions.connection_matched() {
-            self.sdata.deliver_conn(subscription, &self.actions.data, &self.cdata);
+            subscription.deliver_conn(&self.cdata, &self.sdata)
         }
 
         self.actions.clear();
