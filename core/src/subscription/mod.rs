@@ -5,13 +5,10 @@ use crate::filter::*;
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::{ConnData, ConnParser, Session};
 
-// mod data; // SubscribedData
-
 pub trait Subscribable {
     type Tracked: Trackable<Subscribed = Self>;
-    type SubscribedData;
 
-    /// Parsers needed by all filters *and* data types [TODOTR??]
+    /// Parsers needed by all filters and data types
     fn parsers() -> Vec<ConnParser>;
 
     /// TEMP - TODOTR move packet handling out of subscription

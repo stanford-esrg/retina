@@ -92,7 +92,6 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
 
     // TODO print something for tracked data
     let mut tracked_data = TrackedDataBuilder::new(&config);
-    let subscribed_data = tracked_data.subscribed_enum();
     let subscribable = tracked_data.subscribable_wrapper();
     let tracked = tracked_data.tracked();
 
@@ -114,8 +113,6 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     let tst = quote! {
 
         use retina_datatypes::*;
-
-        #subscribed_data
 
         #subscribable
 

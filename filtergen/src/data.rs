@@ -11,7 +11,6 @@ pub(crate) struct TrackedDataBuilder {
     update: Vec<proc_macro2::TokenStream>,
     struct_def: Vec<proc_macro2::TokenStream>,
     new: Vec<proc_macro2::TokenStream>,
-    subscribable_enum: Vec<proc_macro2::TokenStream>,
     app_parsers: HashSet<String>,
 }
 
@@ -21,7 +20,6 @@ impl TrackedDataBuilder {
             update: vec![],
             struct_def: vec![],
             new: vec![],
-            subscribable_enum: vec![],
             app_parsers: HashSet::new(),
         };
         ret.build(subscribed_data);
@@ -45,9 +43,6 @@ impl TrackedDataBuilder {
                 // Data built directly from packet or session isn't tracked
                 continue;
             }
-            self.subscribable_enum.push(
-                quote! { #type_name (#type_name), }
-            );
             
             self.struct_def.push(
                 quote! { 
@@ -89,7 +84,6 @@ impl TrackedDataBuilder {
 
             impl Subscribable for SubscribedWrapper {
                 type Tracked = TrackedWrapper;
-                type SubscribedData = Subscribed;
                 fn parsers() -> Vec<ConnParser> {
                     let mut ret = vec![];
                     #( #conn_parsers )*
@@ -110,16 +104,6 @@ impl TrackedDataBuilder {
                 }
             } 
         }       
-    }
-
-    pub(crate) fn subscribed_enum(&mut self) -> proc_macro2::TokenStream {
-        let field_names = std::mem::take(&mut self.subscribable_enum);
-        quote! { 
-            #[derive(Debug)]
-            pub enum Subscribed {
-                #( #field_names )*
-            }
-        }
     }
 
     pub(crate) fn tracked(&mut self) -> proc_macro2::TokenStream {
