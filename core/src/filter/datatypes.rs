@@ -98,6 +98,7 @@ impl DataType {
         match self.level {
             Level::Packet => {
                 // If filter terminally matched, packet delivered in CB
+                if_matching.data |= ActionData::PacketContinue;
             }
             _ => {
                 // Forward to conn tracker
