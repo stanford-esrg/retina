@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use proc_macro2::{Ident, Span};
-use retina_datatypes::DATATYPES;
+use retina_core::protocols::stream::ConnParser;
 
 use quote::quote;
 
@@ -12,7 +12,7 @@ pub(crate) struct TrackedDataBuilder {
     update: Vec<proc_macro2::TokenStream>,
     struct_def: Vec<proc_macro2::TokenStream>,
     new: Vec<proc_macro2::TokenStream>,
-    app_parsers: HashSet<String>,
+    stream_protocols: HashSet<&'static str>,
     datatypes: HashSet<String>,
 }
 
@@ -22,7 +22,7 @@ impl TrackedDataBuilder {
             update: vec![],
             struct_def: vec![],
             new: vec![],
-            app_parsers: HashSet::new(),
+            stream_protocols: HashSet::new(),
             datatypes: HashSet::new(),
         };
         ret.build(subscribed_data);
@@ -34,15 +34,14 @@ impl TrackedDataBuilder {
             let name = &spec.datatype_str; 
             let type_name = Ident::new(name, Span::call_site());
             let field_name = Ident::new(&name.to_lowercase(), Span::call_site());
-            let needs_update = spec.datatype.needs_update; 
-            let needs_parse = spec.datatype.needs_parse;
+            
+            self.stream_protocols.extend(ConnParser::requires_parsing(&spec.filter));
             if self.datatypes.contains(name) {
                 continue;
             }
             self.datatypes.insert(name.clone());
-            if needs_parse {
-                self.app_parsers.insert(name.clone());
-            }
+            self.stream_protocols.extend(&spec.datatype.stream_protos);
+
             if spec.datatype.from_session || 
                matches!(spec.datatype.level, Level::Packet) {
                 // Data built directly from packet or session isn't tracked
@@ -58,7 +57,7 @@ impl TrackedDataBuilder {
                 quote! { #field_name: #type_name::new(&five_tuple), }
             );
        
-            if needs_update {
+            if spec.datatype.needs_update {
                 // TODO will a subscription ever want to be able to know if *it* is matching 
                 //              before the deliver phase? 
                 self.update.push(
@@ -72,12 +71,14 @@ impl TrackedDataBuilder {
     pub(crate) fn print(&self) {
         println!("Tracked {{");
         for dt in &self.datatypes {
-            println!("  {} ({}{}{}),", 
+            println!("  {},", 
                      dt,
-                     if DATATYPES.get(&dt.as_str()).unwrap().needs_parse { "parse,"} else { "" },
-                     if DATATYPES.get(&dt.as_str()).unwrap().needs_update { "update,"} else { "" },
-                     if DATATYPES.get(&dt.as_str()).unwrap().from_session { "from session,"} else { "" },
             );
+        }
+        println!("}}\n");
+        println!("Parsers {{");
+        for proto in &self.stream_protocols {
+            println!("  {},", proto);
         }
         println!("}}\n");
     }
@@ -98,13 +99,10 @@ impl TrackedDataBuilder {
         let new = std::mem::take(&mut self.new);
         
         let mut conn_parsers = vec![];
-        for datatype in &self.app_parsers {
-            let type_ident = Ident::new(datatype, Span::call_site());
+        for datatype in &self.stream_protocols {
 
             conn_parsers.push(
-                quote! {
-                    ret.extend(#type_ident::conn_parsers());
-                }
+                quote! { #datatype, }
             );
         }
 
@@ -160,10 +158,8 @@ impl TrackedDataBuilder {
                     self.sessions.push(session);
                 }
 
-                fn parsers() -> Vec<ConnParser> {
-                    let mut ret = vec![];
-                    #( #conn_parsers )*
-                    ret
+                fn parsers() -> retina_core::protocols::stream::ParserRegistry {
+                    retina_core::protocols::stream::ParserRegistry::from_strings(vec![ #( #conn_parsers )* ])
                 }
             }
         }

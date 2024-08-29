@@ -48,7 +48,6 @@ where
     T: Trackable
 {
     pub filter_str: String,
-    pub protocol_str: String,
     pub packet_continue: PacketContFn,
     pub packet_filter: PacketFilterFn,
     pub proto_filter: ProtoFilterFn<T>,
@@ -63,7 +62,6 @@ where
 {
     pub fn new(
         filter_str: &str,
-        protocol_str: &str,
         packet_continue: PacketContFn,
         packet_filter: PacketFilterFn,
         proto_filter: ProtoFilterFn<T>,
@@ -73,7 +71,6 @@ where
     ) -> Self {
         FilterFactory {
             filter_str: filter_str.to_string(),
-            protocol_str: protocol_str.to_string(),
             packet_continue,
             packet_filter,
             proto_filter,

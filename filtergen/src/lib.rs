@@ -4,8 +4,6 @@ use syn::parse_macro_input;
 use retina_core::filter::*;
 use retina_core::filter::ptree::*;
 use utils::DELIVER;
-use std::collections::HashSet;
-use retina_core::protocols::stream::ConnParser;
 
 #[macro_use]
 extern crate lazy_static;
@@ -29,14 +27,6 @@ fn get_hw_filter(packet_continue: &PTree) -> String {
     let ret = packet_continue.to_filter_string();
     let _flat_ptree = Filter::from_str(&ret).expect(&format!("Invalid HW filter {}", &ret));
     ret
-}
-
-fn parsers(input: &SubscriptionConfig) -> HashSet<&'static str> {
-    let mut parsers = HashSet::new();
-    for spec in &input.subscriptions {
-        parsers.extend(ConnParser::requires_parsing(&spec.filter));
-    }
-    parsers
 }
 
 fn filter_subtree(input: &SubscriptionConfig,
@@ -71,8 +61,6 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     let config = SubscriptionConfig::from_file(&inp_file);
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
 
-    let parsers = parsers(&config);
-
     let packet_cont_ptree = filter_subtree(&config, FilterLayer::PacketContinue);
     let packet_continue = gen_packet_filter(&packet_cont_ptree, &mut statics, FilterLayer::PacketContinue);
 
@@ -96,7 +84,6 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
 
 
     let filter_str = get_hw_filter(&packet_cont_ptree); // Packet-level keep/drop filter
-    let app_protocols = parsers.into_iter().collect::<Vec<_>>().join(" or ");
     
     let lazy_statics = if statics.is_empty() {
         quote! {}
@@ -154,7 +141,6 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
 
             retina_core::filter::FilterFactory::new(
                 #filter_str,
-                #app_protocols,
                 packet_continue,
                 packet_filter,
                 protocol_filter,

@@ -15,14 +15,14 @@ use self::tls::{parser::TlsParser, Tls};
 use self::conn::ConnField;
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
-use crate::filter::Filter;
-use crate::subscription::*;
 
 use std::str::FromStr;
 use std::collections::HashSet;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use strum_macros::EnumString;
+
+pub(crate) const IMPLEMENTED_PROTOCOLS: [&'static str; 3] = [ "tls", "dns", "http" ];
 
 /// Represents the result of parsing one packet as a protocol message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,37 +62,23 @@ pub(crate) enum ProbeRegistryResult {
 
 /// The set of application-layer protocol parsers required to fulfill the subscription.
 #[derive(Debug)]
-pub(crate) struct ParserRegistry(Vec<ConnParser>);
+pub struct ParserRegistry(Vec<ConnParser>);
 
 impl ParserRegistry {
-    /// Builds a new `ParserRegistry` from the `filter` and tracked subscribable type `T`.
-    pub(crate) fn build<T: Trackable>(filter: &Filter) -> Result<ParserRegistry> {
-        // Parsers requested by datatypes
-        let mut stream_protocols: HashSet<String> = T::parsers()
-                                                        .into_iter()
-                                                        .map(|p| p.protocol_name().unwrap())
-                                                        .collect();
-        // Parsers requested by filters
-        for pattern in filter.get_patterns_flat().iter() {
-            for predicate in pattern.predicates.iter() {
-                if predicate.on_proto() {
-                    let protocol = predicate.get_protocol().to_owned();
-                    stream_protocols.insert(protocol.name().into());
-                }
-            }
-        }
 
-        // Dedup parsers
+    // Assumes that `input` is deduplicated
+    pub fn from_strings(input: Vec<&'static str>) -> ParserRegistry {
+        // Deduplicate
+        let stream_protocols: HashSet<&'static str> = input
+                                                            .into_iter()
+                                                            .collect();
         let mut parsers = vec![];
-        for stream_protocol in stream_protocols.iter() {
-            if let Ok(parser) = ConnParser::from_str(stream_protocol) {
-                parsers.push(parser);
-            } else {
-                bail!("Unknown application-layer protocol");
-            }
+        for stream_protocol in stream_protocols {
+            let parser = ConnParser::from_str(stream_protocol)
+                                     .expect(&format!("Invalid stream protocol: {}", stream_protocol));
+            parsers.push(parser);
         }
-
-        Ok(ParserRegistry(parsers))
+        ParserRegistry(parsers)
     }
 
     /// Probe the packet `pdu` with all registered protocol parsers.
@@ -317,7 +303,7 @@ impl ConnParser {
     pub fn requires_parsing(filter_str: &String) -> HashSet<&'static str> {
         let mut out = hashset! {};
 
-        for s in ["tls", "dns", "http"] {
+        for s in IMPLEMENTED_PROTOCOLS {
             if filter_str.contains(s) { 
                 out.insert(s);
             }

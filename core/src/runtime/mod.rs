@@ -57,7 +57,6 @@ where
         factory: fn() -> FilterFactory<S::Tracked>,
     ) -> Result<Self> {
         let factory = factory();
-        let protocol_str = factory.protocol_str.clone();
         let filter_str = factory.filter_str.clone();
         let subscription = Arc::new(Subscription::new(factory));
 
@@ -109,7 +108,6 @@ where
                 online_opts,
                 &mut mempools,
                 filter_str.clone(),
-                protocol_str.clone(),
                 Arc::clone(&subscription),
             )
         });
@@ -123,7 +121,6 @@ where
             OfflineRuntime::new(
                 offline_opts,
                 &mempools,
-                protocol_str.clone(),
                 Arc::clone(&subscription),
             )
         });

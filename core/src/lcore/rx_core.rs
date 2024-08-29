@@ -2,10 +2,8 @@ use super::CoreId;
 use crate::config::ConnTrackConfig;
 use crate::conntrack::{ConnTracker, TrackerConfig};
 use crate::dpdk;
-use crate::filter::Filter;
 use crate::memory::mbuf::Mbuf;
 use crate::port::{RxQueue, RxQueueType};
-use crate::protocols::stream::ParserRegistry;
 use crate::subscription::*;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -21,7 +19,6 @@ where
 {
     pub(crate) id: CoreId,
     pub(crate) rxqueues: Vec<RxQueue>,
-    pub(crate) filter: Filter,
     pub(crate) conntrack: ConnTrackConfig,
     pub(crate) subscription: Arc<Subscription<S>>,
     pub(crate) is_running: Arc<AtomicBool>,
@@ -34,7 +31,6 @@ where
     pub(crate) fn new(
         core_id: CoreId,
         rxqueues: Vec<RxQueue>,
-        filter: Filter,
         conntrack: ConnTrackConfig,
         subscription: Arc<Subscription<S>>,
         is_running: Arc<AtomicBool>,
@@ -42,7 +38,6 @@ where
         RxCore {
             id: core_id,
             rxqueues,
-            filter,
             conntrack,
             subscription,
             is_running,
@@ -87,7 +82,7 @@ where
         let mut nb_bytes = 0;
 
         let config = TrackerConfig::from(&self.conntrack);
-        let registry = ParserRegistry::build::<S::Tracked>(&self.filter).expect("Unable to build registry");
+        let registry = S::Tracked::parsers();
         log::debug!("{:#?}", registry);
         let mut conn_table = ConnTracker::<S::Tracked>::new(config, registry);
 

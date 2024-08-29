@@ -2,6 +2,8 @@ use retina_core::filter::datatypes::{Level, DataType};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
+use crate::*;
+
 // To add a datatype, add it to the following map
 // This is read by the filtergen crate.
 lazy_static! {
@@ -10,19 +12,19 @@ lazy_static! {
         HashMap::from([
             ( 
                 "Connection",
-                { DataType::new(Level::Connection, false, true, false) }
+                { DataType::new(Level::Connection, false, true, false, Connection::stream_protocols()) }
             ),
             (
                 "HttpTransaction",
-                { DataType::new(Level::Session, true, false, true) }
+                { DataType::new(Level::Session, true, false, true, HttpTransaction::stream_protocols()) }
             ),
             (
                 "ZcFrame",
-                { DataType::new(Level::Packet, false, false, false) }
+                { DataType::new(Level::Packet, false, false, false, vec![]) }
             ),
             (
                 "Payload",
-                { DataType::new(Level::Packet, false, false, false) }
+                { DataType::new(Level::Packet, false, false, false, vec![]) }
             ),
         ])
     };

@@ -34,14 +34,11 @@ where
         options: OnlineOptions,
         mempools: &mut BTreeMap<SocketId, Mempool>,
         filter_str: String,
-        protocol_str: String,
         subscription: Arc<Subscription<S>>,
     ) -> Self {
 
         let hw_filter = Filter::from_str(&filter_str)
                                                .expect("Failed to parse collapsed filter");
-        let proto_filter = Filter::from_str(&protocol_str)
-                                                   .expect("Failed to parse stream protocol filter");
         // Set up signal handler
         let is_running = Arc::new(AtomicBool::new(true));
         let r = Arc::clone(&is_running);
@@ -91,7 +88,6 @@ where
             let rx_core = RxCore::new(
                 core_id,
                 rxqueues,
-                proto_filter.clone(),
                 options.conntrack.clone(),
                 Arc::clone(&subscription),
                 Arc::clone(&is_running),
