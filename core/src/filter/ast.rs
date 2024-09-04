@@ -521,10 +521,8 @@ pub(super) fn is_excl_int(from: u64, to: u64, op: &BinOp,
             }
         },
         BinOp::Ne => {
-            match peer_op {
-                BinOp::Eq => return from == peer_from,
-                BinOp::Ne => return from != peer_from,
-                _ => {}
+            if matches!(peer_op, BinOp::Eq) {
+                return from == peer_from;
             }
         },
         BinOp::Ge => {

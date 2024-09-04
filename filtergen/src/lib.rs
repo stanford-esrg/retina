@@ -49,8 +49,7 @@ fn filter_subtree(input: &SubscriptionConfig,
         DELIVER.lock().unwrap().insert(i, spec.clone());
     }
 
-    ptree.prune_branches();
-    ptree.mark_mutual_exclusion();
+    ptree.collapse();
     println!("{}", ptree);
     ptree
 }

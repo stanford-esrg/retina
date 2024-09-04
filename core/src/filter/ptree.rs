@@ -156,11 +156,11 @@ impl PNode {
     }
 
     /// Returns true if (1) both are leaf nodes and (2) actions/CB are the same
-    fn result_eq(&self, peer: &PNode) -> bool {
-        if !peer.children.is_empty() || !self.children.is_empty() {
-            return false;
-        }
-        self.actions == peer.actions && self.deliver == peer.deliver
+    fn outcome_eq(&self, peer: &PNode) -> bool {
+        peer.children.is_empty() &&
+            self.children.is_empty() &&
+            self.actions == peer.actions &&
+            self.deliver == peer.deliver
     }
 
     /// True if there is a PNode that can act as parent of `pred`.
@@ -364,19 +364,26 @@ impl PTree {
         get_subtree(id, &self.root)
     }
 
+    fn sort(&mut self) {
+        fn sort(node: &mut PNode) {
+            for child in node.children.iter_mut() {
+                sort(child);
+            }
+            node.children.sort();
+        }
+        sort(&mut self.root);
+    }
+
     /// Best-effort to give the filter generator hints as to where an "else"
     /// statement can go between two predicates.
-    pub fn mark_mutual_exclusion(&mut self) {
+    fn mark_mutual_exclusion(&mut self) {
         fn mark_mutual_exclusion(node: &mut PNode) {
-            // TODO messy
             if !node.children.is_empty() {
                 mark_mutual_exclusion(&mut node.children[0]);
             }
             if node.children.len() <= 1 {
                 return;
             }
-
-            try_reorder(&mut node.children);
 
             for idx in 1..node.children.len() {
                 mark_mutual_exclusion(&mut node.children[idx]);
@@ -386,7 +393,7 @@ impl PTree {
                 }
                 // If the result is equivalent (e.g., same CB in delivery filter) for child nodes,
                 // then we can safely use first match. (Similar to "early return.")
-                if node.children[idx].result_eq(&node.children[idx - 1]) {
+                if node.children[idx].outcome_eq(&node.children[idx - 1]) {
                     node.children[idx].if_else = true;
                 }
                 // TODO more optimizations with branches here...
@@ -413,7 +420,7 @@ impl PTree {
 
     /// Removes some patterns that are covered by others
     /// Should be called after tree is completely built
-    pub fn prune_branches(&mut self) {
+    fn prune_branches(&mut self) {
 
         fn prune(node: &mut PNode, on_path_actions: &Actions, on_path_deliver: &HashSet<String>) {
             // Remove redundant delivery
@@ -448,6 +455,12 @@ impl PTree {
         let on_path_deliver = HashSet::new();
         prune(&mut self.root, &on_path_actions, &on_path_deliver);
         self.update_size();
+    }
+
+    pub fn collapse(&mut self) {
+        self.prune_branches();
+        self.sort();
+        self.mark_mutual_exclusion();
     }
 
     pub fn to_flat_patterns(&self) -> Vec<FlatPattern> {
@@ -635,12 +648,6 @@ impl Ord for PNode {
     }
 }
 
-pub(super) fn try_reorder(input: &mut [PNode]) {
-    if input.len() < 3 { return; }
-    input.sort();
-}
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -734,8 +741,7 @@ mod tests {
         let datatype = DataType::new_default_packet();
         let datatype_str = "cb_1(ZcFrame)".to_string();
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
-        ptree.prune_branches();
-        ptree.mark_mutual_exclusion();
+        ptree.collapse();
         assert!(ptree.size == 3); // eth - ipv4 - tcp; ipv4.dst_addr should be prev. layer (delivered)
         expected_actions.clear();
         expected_actions.data = ActionData::ProtoFilter | ActionData::PacketTrack;
