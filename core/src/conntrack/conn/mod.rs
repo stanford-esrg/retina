@@ -105,8 +105,21 @@ where
         self.info.cdata.five_tuple
     }
 
-    /// Returns the connection state.
+    /// Returns `true` if the connection should be removed from the table.
+    /// Note UDP connections are kept for a buffer period. UDP packets
+    /// that pass the packet filter stage are assumed to represent an
+    /// existing or new connection and are inserted into the connection
+    /// table. Keeping UDP connections in "drop" state for a buffer
+    /// period prevents dropped connections from being re-inserted.
     pub(super) fn remove(&self) -> bool {
+        match &self.l4conn {
+            L4Conn::Udp(_) => { false },
+            _ => { self.info.actions.drop() }
+        }
+    }
+
+    /// Returns `true` if PDUs for this connection should be dropped.
+    pub(super) fn drop_pdu(&self) -> bool {
         self.info.actions.drop()
     }
 

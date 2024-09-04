@@ -90,6 +90,9 @@ where
                 };
                 if conn.remove() {
                     log::error!("Conn in Drop state when occupied in table");
+                } else if conn.drop_pdu() {
+                    drop(mbuf);
+                    return;
                 }
                 let pdu = L4Pdu::new(mbuf, ctxt, dir);
                 conn.update(pdu, subscription, &self.registry);
