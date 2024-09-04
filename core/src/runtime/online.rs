@@ -37,7 +37,7 @@ where
         subscription: Arc<Subscription<S>>,
     ) -> Self {
 
-        let hw_filter = Filter::from_str(&filter_str)
+        let hw_filter = Filter::new(&filter_str)
                                                .expect("Failed to parse collapsed filter");
         // Set up signal handler
         let is_running = Arc::new(AtomicBool::new(true));
@@ -80,7 +80,7 @@ where
             for (rxqueue, core_id) in port.queue_map.iter() {
                 core_map
                     .entry(*core_id)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(*rxqueue);
             }
         }

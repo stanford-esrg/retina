@@ -301,7 +301,7 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
             let id = &d.id;
             {
                 let lock = DELIVER.lock().unwrap();
-                let spec = lock.get(id).expect(&format!("Cannot find ID {}", id));
+                let spec = lock.get(id).unwrap_or_else(|| panic!("Cannot find ID {}", id));
                 let callback = Ident::new(&spec.callback, Span::call_site());
                 let tracked_str = spec.datatype_str.to_lowercase();
                 let tracked_field: Ident = Ident::new(&tracked_str, Span::call_site());
@@ -349,6 +349,9 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
     }
 }
 
+pub(crate) type BuildChildNodesFn = dyn Fn(&mut Vec<proc_macro2::TokenStream>,
+                                           &mut Vec<proc_macro2::TokenStream>,
+                                           &PNode, FilterLayer);
 
 // \note Because each stage's filter may be different, we default to applying an
 //       end-to-end filter at each stage. This may require, for example, re-checking
@@ -364,9 +367,7 @@ impl ConnDataFilter {
         protocol: &ProtocolName,
         first_unary: bool,
         filter_layer: FilterLayer,
-        build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
-                           &mut Vec<proc_macro2::TokenStream>,
-                           &PNode, FilterLayer)
+        build_child_nodes: &BuildChildNodesFn
     )
     {
         let ident = Ident::new(protocol.name(), Span::call_site());
@@ -396,6 +397,7 @@ impl ConnDataFilter {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn add_binary_pred(
         code: &mut Vec<proc_macro2::TokenStream>,
         statics: &mut Vec<proc_macro2::TokenStream>,
@@ -405,9 +407,7 @@ impl ConnDataFilter {
         op: &BinOp,
         value: &Value,
         filter_layer: FilterLayer,
-        build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
-                           &mut Vec<proc_macro2::TokenStream>,
-                           &PNode, FilterLayer)
+        build_child_nodes: &BuildChildNodesFn
     ) {
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
         (build_child_nodes)(&mut body, statics, node, filter_layer);
@@ -436,9 +436,7 @@ impl ConnDataFilter {
         node: &PNode,
         protocol: &ProtocolName,
         filter_layer: FilterLayer,
-        build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
-            &mut Vec<proc_macro2::TokenStream>,
-            &PNode, FilterLayer)
+        build_child_nodes: &BuildChildNodesFn
     ) {
         let service_ident = Ident::new(&protocol.name().to_camel_case(), Span::call_site());
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
@@ -474,9 +472,7 @@ impl SessionDataFilter {
         protocol: &ProtocolName,
         first_unary: bool,
         filter_layer: FilterLayer,
-        build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
-                           &mut Vec<proc_macro2::TokenStream>,
-                           &PNode, FilterLayer)
+        build_child_nodes: &BuildChildNodesFn
     )
     {
         let mut body: Vec<proc_macro2::TokenStream> = vec![];

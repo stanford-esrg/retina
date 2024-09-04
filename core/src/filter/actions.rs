@@ -36,6 +36,12 @@ pub struct Actions {
     pub terminal_actions: ActionData,
 }
 
+impl Default for Actions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Actions {
 
     /// Create an empty Actions bitmask
@@ -204,6 +210,7 @@ use std::str::FromStr;
 use quote::{ToTokens, quote};
 use proc_macro2::{Ident, Span};
 
+#[allow(clippy::to_string_trait_impl)]
 impl FromStr for ActionData {
     type Err = core::fmt::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -222,19 +229,20 @@ impl FromStr for ActionData {
     }
 }
 
+#[allow(clippy::to_string_trait_impl)]
 impl ToString for ActionData {
 
     fn to_string(&self) -> String {
-        match self{
-            &ActionData::PacketContinue => "PacketContinue".into(),
-            &ActionData::PacketDeliver => "PacketDeliver".into(),
-            &ActionData::ProtoProbe => "ProtoProbe".into(),
-            &ActionData::ProtoFilter => "ProtoFilter".into(),
-            &ActionData::SessionFilter => "SessionFilter".into(),
-            &ActionData::SessionDeliver => "SessionDeliver".into(),
-            &ActionData::SessionTrack => "SessionTrack".into(),
-            &ActionData::ConnDataTrack => "ConnDataTrack".into(),
-            &ActionData::PacketTrack => "PacketTrack".into(),
+        match *self{
+            ActionData::PacketContinue => "PacketContinue".into(),
+            ActionData::PacketDeliver => "PacketDeliver".into(),
+            ActionData::ProtoProbe => "ProtoProbe".into(),
+            ActionData::ProtoFilter => "ProtoFilter".into(),
+            ActionData::SessionFilter => "SessionFilter".into(),
+            ActionData::SessionDeliver => "SessionDeliver".into(),
+            ActionData::SessionTrack => "SessionTrack".into(),
+            ActionData::ConnDataTrack => "ConnDataTrack".into(),
+            ActionData::PacketTrack => "PacketTrack".into(),
             _ => { panic!("Unknown ActionData"); }
         }
     }

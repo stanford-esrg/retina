@@ -22,9 +22,9 @@ pub trait Tracked {
 
 pub trait FromSession {
     fn stream_protocols() -> Vec<&'static str>;
-    fn from_session<'a>(session: &'a Session) -> Option<&'a Self>;
+    fn from_session(session: &Session) -> Option<&Self>;
 }
 
 pub trait FromMbuf {
-    fn from_mbuf<'a>(mbuf: &'a Mbuf) -> Option<&'a Self>;
+    fn from_mbuf(mbuf: &Mbuf) -> Option<&Self>;
 }

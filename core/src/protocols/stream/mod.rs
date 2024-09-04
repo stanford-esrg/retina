@@ -22,7 +22,7 @@ use std::collections::HashSet;
 use anyhow::Result;
 use strum_macros::EnumString;
 
-pub(crate) const IMPLEMENTED_PROTOCOLS: [&'static str; 3] = [ "tls", "dns", "http" ];
+pub(crate) const IMPLEMENTED_PROTOCOLS: [&str; 3] = [ "tls", "dns", "http" ];
 
 /// Represents the result of parsing one packet as a protocol message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,7 +75,9 @@ impl ParserRegistry {
         let mut parsers = vec![];
         for stream_protocol in stream_protocols {
             let parser = ConnParser::from_str(stream_protocol)
-                                     .expect(&format!("Invalid stream protocol: {}", stream_protocol));
+                                     .unwrap_or_else(|_|
+                                        panic!("Invalid stream protocol: {}",
+                                               stream_protocol));
             parsers.push(parser);
         }
         ParserRegistry(parsers)
@@ -300,7 +302,7 @@ impl ConnParser {
         }
     }
 
-    pub fn requires_parsing(filter_str: &String) -> HashSet<&'static str> {
+    pub fn requires_parsing(filter_str: &str) -> HashSet<&'static str> {
         let mut out = hashset! {};
 
         for s in IMPLEMENTED_PROTOCOLS {

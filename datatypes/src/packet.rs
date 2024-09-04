@@ -6,7 +6,7 @@ pub type ZcFrame = Mbuf;
 
 impl FromMbuf for ZcFrame {
 
-    fn from_mbuf<'a>(mbuf: &'a Mbuf) -> Option<&'a Self> {
+    fn from_mbuf(mbuf: &Mbuf) -> Option<&Self> {
         Some(mbuf)
     }
 }
@@ -16,7 +16,7 @@ pub type Payload = [u8];
 
 impl FromMbuf for Payload {
 
-    fn from_mbuf<'a>(mbuf: &'a Mbuf) -> Option<&'a Self> {
+    fn from_mbuf(mbuf: &Mbuf) -> Option<&Self> {
         if let Ok(ctxt) = L4Context::new(mbuf) {
             let offset = ctxt.offset;
             let payload_len = ctxt.length;

@@ -62,7 +62,7 @@ where
         }
         if self.actions.packet_deliver() {
             // Delivering all remaining packets in connection
-            subscription.deliver_packet(pdu.mbuf_ref(), &self.cdata, &mut self.sdata);
+            subscription.deliver_packet(pdu.mbuf_ref(), &self.cdata, &self.sdata);
         }
         if self.actions.buffer_frame() {
             // Track frame for (potential) future delivery
@@ -126,12 +126,8 @@ where
         subscription: &Subscription<T::Subscribed>,
         _registry: &ParserRegistry /* tmp */)
     {
-        match self.cdata.conn_parser.parse(pdu) {
-            // Got the full session
-            ParseResult::Done(id) => {
-                self.handle_session(subscription, id);
-            }
-            _ => { }
+        if let ParseResult::Done(id) = self.cdata.conn_parser.parse(pdu) {
+            self.handle_session(subscription, id);
         }
     }
 

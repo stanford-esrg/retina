@@ -62,29 +62,29 @@ impl DataType {
             Level::Packet => {
                 match filter_layer {
                     FilterLayer::PacketContinue => {
-                        return pred.on_packet();
+                        pred.on_packet()
                     }
                     FilterLayer::Protocol => {
-                        return pred.on_proto();
+                        pred.on_proto()
                     }
                     FilterLayer::Session => {
-                        return pred.on_session();
+                        pred.on_session()
                     }
                     FilterLayer::PacketDeliver => {
-                        return true;
+                        true
                     }
                     FilterLayer::ConnectionDeliver | FilterLayer::Packet => {
                         // Packet: Action-only
                         // Conn. deliver: packets delivered when matched, not at termination
-                        return false;
+                        false
                     }
                 }
             }
             Level::Connection => {
-                return matches!(filter_layer, FilterLayer::ConnectionDeliver);
+                matches!(filter_layer, FilterLayer::ConnectionDeliver)
             }
             Level::Session => {
-                return matches!(filter_layer, FilterLayer::Session);
+                matches!(filter_layer, FilterLayer::Session)
             }
         }
     }
@@ -130,7 +130,7 @@ impl DataType {
                 // Start parsing, deliver session when parsed
                 if_matched.data |= ActionData::ProtoProbe |
                                    ActionData::SessionDeliver;
-                if_matched.terminal_actions |= if_matched.data.clone();
+                if_matched.terminal_actions |= if_matched.data;
                 // Apply next filter (implicitly probe for protocol)
                 if_matching.data |= ActionData::ProtoFilter;
             }
@@ -183,7 +183,7 @@ impl DataType {
                 if_matched.data |= ActionData::ConnDataTrack |
                                    // Re-apply session filter at conn. term
                                    ActionData::SessionTrack;
-                if_matched.terminal_actions |= if_matched.data.clone();
+                if_matched.terminal_actions |= if_matched.data;
             }
             Level::Session => {
                 // Will be delivered in session filter
@@ -198,20 +198,20 @@ impl DataType {
     pub fn with_term_filter(&self, filter_layer: FilterLayer) -> Actions {
         match filter_layer {
             FilterLayer::PacketContinue => {
-                return self.packet_continue().if_matched;
+                self.packet_continue().if_matched
             }
             FilterLayer::Packet => {
-                return self.packet_filter().if_matched;
+                self.packet_filter().if_matched
             }
             FilterLayer::Protocol => {
-                return self.proto_filter().if_matched;
+                self.proto_filter().if_matched
             }
             FilterLayer::Session => {
-                return self.session_filter().if_matched;
+                self.session_filter().if_matched
             }
             FilterLayer::ConnectionDeliver | FilterLayer::PacketDeliver => {
                 // No actions
-                return Actions::new();
+                Actions::new()
             }
         }
     }

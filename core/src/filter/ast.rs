@@ -127,13 +127,13 @@ impl Predicate {
     pub(crate) fn is_next_layer(&self, filter_layer: FilterLayer) -> bool {
         match filter_layer {
             FilterLayer::Packet | FilterLayer::PacketContinue => {
-                return !self.on_packet();
+                !self.on_packet()
             }
             FilterLayer::Protocol=> {
-                return self.on_session();
+                self.on_session()
             }
             FilterLayer::Session | FilterLayer::ConnectionDeliver | FilterLayer::PacketDeliver => {
-                return false;
+                false
             }
         }
     }
@@ -141,21 +141,21 @@ impl Predicate {
     pub(crate) fn is_prev_layer(&self, filter_layer: FilterLayer, datatype: &DataType) -> bool {
         match filter_layer {
             FilterLayer::PacketContinue => {
-                return false;
+                false
             }
             FilterLayer::Packet | FilterLayer::PacketDeliver => {
                 // Packet would have already been delivered in PacketContinue
-                return self.on_packet() && matches!(datatype.level, Level::Packet);
+                self.on_packet() && matches!(datatype.level, Level::Packet)
             }
             FilterLayer::Protocol=> {
-                return self.on_packet();
+                self.on_packet()
             }
             FilterLayer::Session => {
-                return (self.on_packet() || self.on_proto()) &&  // prev filter
-                       !matches!(datatype.level, Level::Session);     // no delivery req'd
+                (self.on_packet() || self.on_proto()) &&  // prev filter
+                !matches!(datatype.level, Level::Session) // no delivery req'd
             }
             FilterLayer::ConnectionDeliver => {
-                return !matches!(datatype.level, Level::Connection); // delivery
+                !matches!(datatype.level, Level::Connection) // delivery
             }
         }
     }
@@ -295,12 +295,12 @@ impl Predicate {
                         }
 
                         // Greater than + less than will not 100% overlap
-                        if (matches!(op, BinOp::Ge) || matches!(op, BinOp::Gt)) &&
-                            (matches!(parent_op, BinOp::Le) || matches!(parent_op, BinOp::Lt)) {
+                        if (matches!(op, BinOp::Ge | BinOp::Gt)) &&
+                            (matches!(parent_op, BinOp::Le | BinOp::Lt)) {
                             return false;
                         }
-                        if (matches!(parent_op, BinOp::Ge) || matches!(parent_op, BinOp::Gt)) &&
-                            (matches!(op, BinOp::Le) || matches!(op, BinOp::Lt)) {
+                        if (matches!(parent_op, BinOp::Ge | BinOp::Gt)) &&
+                            (matches!(op, BinOp::Le | BinOp::Lt)) {
                             return false;
                         }
 
@@ -351,7 +351,7 @@ impl Predicate {
             }
         }
 
-        return self.is_binary() && pred.is_unary()
+        self.is_binary() && pred.is_unary()
     }
 }
 
@@ -440,7 +440,7 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp,
             false => { (peer_text, text) }
         }
     };
-    let regex = Regex::new(re).expect(&format!("Invalid Regex string {} ", re));
+    let regex = Regex::new(re).unwrap_or_else(|_| panic!("Invalid Regex string {} ", re));
     !regex.is_match(txt)
 }
 
@@ -449,19 +449,14 @@ pub(super) fn is_parent_ipv4(child_ipv4: &Ipv4Net, child_op: &BinOp,
 
     match child_op {
         BinOp::Eq | BinOp::In => {
-            match parent_op {
-                BinOp::Eq | BinOp::In => {
-                    return parent_ipv4.contains(child_ipv4);
-                },
-                _ => {}
+            if matches!(parent_op, BinOp::Eq) ||
+               matches!(parent_op, BinOp::In) {
+                return parent_ipv4.contains(child_ipv4);
             }
         },
         BinOp::Ne => {
-            match parent_op {
-                BinOp::Ne => {
-                    return parent_ipv4.contains(child_ipv4);
-                },
-                _ => {}
+            if matches!(parent_op, BinOp::Ne) {
+                return parent_ipv4.contains(child_ipv4);
             }
         },
         _ => {}
@@ -473,19 +468,13 @@ pub(super) fn is_parent_ipv6(child_ipv6: &Ipv6Net, child_op: &BinOp,
                              parent_ipv6: &Ipv6Net, parent_op: &BinOp) -> bool {
     match child_op {
         BinOp::Eq | BinOp::In => {
-            match parent_op {
-                BinOp::Eq | BinOp::In => {
-                    return parent_ipv6.contains(child_ipv6);
-                },
-                _ => {}
+            if matches!(parent_op, BinOp::Eq | BinOp::In) {
+                return parent_ipv6.contains(child_ipv6);
             }
         },
         BinOp::Ne => {
-            match parent_op {
-                BinOp::Ne => {
-                    return parent_ipv6.contains(child_ipv6);
-                },
-                _ => {}
+            if matches!(parent_op, BinOp::Ne) {
+                return parent_ipv6.contains(child_ipv6);
             }
         },
         _ => {}
@@ -493,15 +482,17 @@ pub(super) fn is_parent_ipv6(child_ipv6: &Ipv6Net, child_op: &BinOp,
     false
 }
 
-pub(super) fn is_parent_text(child_text: &String, child_op: &BinOp,
-                             parent_text: &String, parent_op: &BinOp) -> bool {
+pub(super) fn is_parent_text(child_text: &str, child_op: &BinOp,
+                             parent_text: &str, parent_op: &BinOp) -> bool {
 
     if !matches!(parent_op, BinOp::Re) || !matches!(child_op, BinOp::Eq) {
         // Regex overlap is out of scope
         // Regex overlap with != doesn't really make sense
         return false;
     }
-    let parent = Regex::new(parent_text).expect(&format!("Invalid Regex string {} ", parent_text));
+    let parent = Regex::new(parent_text)
+                        .unwrap_or_else(|_|
+                            panic!("Invalid Regex string {} ", parent_text));
     parent.is_match(child_text)
 }
 
@@ -561,7 +552,7 @@ pub(super) fn is_excl_int(from: u64, to: u64, op: &BinOp,
                 BinOp::Le | BinOp::In | BinOp::Eq => return from >= peer_to,
                 // E.g., `tcp.port > 80` and `tcp.port < 81`
                 //       `tcp.port > 80` and `tcp.port < 79`
-                BinOp::Lt => return from >= peer_from + 1,
+                BinOp::Lt => return from > peer_from,
                 _ => {}
             }
         },
@@ -623,26 +614,26 @@ pub(super) fn is_parent_int(child_from: u64, child_to: u64, child_op: &BinOp,
         },
         BinOp::Ge => {
             // E.g., tcp.port >= 80 [child_from] is a child of tcp.port >= 70 [parent_from]
-            if matches!(parent_op, BinOp::Ge) || matches!(parent_op, BinOp::Gt) {
+            if matches!(parent_op, BinOp::Ge | BinOp::Gt) {
                 return parent_from < child_from;
             }
         },
         BinOp::Le => {
             // E.g., "tcp.port <= 80" [child_from] is a child of "tcp.port <= 81 [parent_from]"
             // \note Matching op and matching value is taken care of.
-            if matches!(parent_op, BinOp::Le) || matches!(parent_op, BinOp::Lt) {
+            if matches!(parent_op, BinOp::Le | BinOp::Lt) {
                 return parent_from > child_from;
             }
         },
         BinOp::Gt => {
             // E.g., tcp.port > 80 [child_from] is a child of tcp.port >= 80 [parent_from]
-            if matches!(parent_op, BinOp::Gt) || matches!(parent_op, BinOp::Ge) {
+            if matches!(parent_op, BinOp::Gt | BinOp::Ge) {
                 return parent_from <= child_from;
             }
         },
         BinOp::Lt => {
             // E.g., tcp.port < 80 [child_from] is a child of tcp.port <= 80 [parent_from]
-            if matches!(parent_op, BinOp::Le) || matches!(parent_op, BinOp::Lt) {
+            if matches!(parent_op, BinOp::Le | BinOp::Lt) {
                 return parent_from >= child_from;
             }
         },

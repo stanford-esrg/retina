@@ -113,8 +113,7 @@ impl FlatPTree {
             patterns: vec![],
             children: vec![],
         };
-        let ptree = FlatPTree { root, size: 1 };
-        ptree
+        FlatPTree { root, size: 1 }
     }
 
     // Converts PTree to vector of FlatPatterns (all root->leaf paths).

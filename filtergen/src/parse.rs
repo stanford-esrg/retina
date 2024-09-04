@@ -31,21 +31,21 @@ pub(crate) struct SubscriptionConfig {
 impl SubscriptionConfig {
     pub(crate) fn from_file(filepath_in: &str) -> Self {
         let config_str = std::fs::read_to_string(filepath_in)
-                              .expect(&format!("ERROR: File read failed {}", filepath_in));
+                              .unwrap_or_else(|_| panic!("ERROR: File read failed {}", filepath_in));
 
         let config: ConfigRaw = toml::from_str(&config_str)
-                                        .expect(&format!("ERROR: Config file invalid {}", filepath_in));
+                                .unwrap_or_else(
+                                    |_| panic!("ERROR: Config file invalid {}", filepath_in)
+                                );
 
         let mut subscriptions = vec![];
         for s in config.subscriptions {
             let datatype = s.datatype.as_str();
             if !DATATYPES.contains_key(datatype) {
-                let valid_types: Vec<&str> = DATATYPES.keys()
-                                                    .map(|s| *s )
-                                                    .collect();
+                let valid_types: Vec<&str> = DATATYPES.keys().copied().collect();
 
                 panic!("Invalid datatype: {};\nDid you mean:\n {}",
-                datatype, valid_types.join(",\n"));
+                        datatype, valid_types.join(",\n"));
             }
             subscriptions.push(
                 SubscriptionSpec {

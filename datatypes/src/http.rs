@@ -11,7 +11,7 @@ impl FromSession for HttpTransaction {
         vec!["http"]
     }
 
-    fn from_session<'a>(session: &'a Session) -> Option<&'a Self> {
+    fn from_session(session: &Session) -> Option<&Self> {
         if let SessionData::Http(http) = &session.data {
             return Some(http);
         }

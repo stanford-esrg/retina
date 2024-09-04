@@ -78,7 +78,7 @@ impl FlowAction {
 
         // Since the RSS key needs to outlive this method, we use the static
         // SYMMETRIC_RSS_KEY instead of the key queried from the existing rss_conf
-        a_rss_conf.key = SYMMETRIC_RSS_KEY.as_ptr() as *const u8;
+        a_rss_conf.key = SYMMETRIC_RSS_KEY.as_ptr();
 
         self.rss.push(a_rss_conf);
     }

@@ -87,32 +87,6 @@ pub struct Filter {
 }
 
 impl Filter {
-    pub fn from_str(filter_raw: &str) -> Result<Filter> {
-        let raw_patterns = FilterParser::parse_filter(filter_raw)?;
-
-        let flat_patterns = raw_patterns
-            .into_iter()
-            .map(|p| FlatPattern { predicates: p })
-            .collect::<Vec<_>>();
-
-        let mut fq_patterns = vec![];
-        for pattern in flat_patterns.iter() {
-            fq_patterns.extend(pattern.to_fully_qualified()?);
-        }
-
-        // deduplicate fully qualified patterns
-        fq_patterns.sort();
-        fq_patterns.dedup();
-
-        // prune redundant branches
-        let flat_patterns: Vec<_> = fq_patterns.iter().map(|p| p.to_flat_pattern()).collect();
-        let mut ptree = FlatPTree::new(&flat_patterns);
-        ptree.prune_branches();
-
-        Ok(Filter {
-            patterns: ptree.to_layered_patterns(),
-        })
-    }
 
     pub fn new(filter_raw: &str) -> Result<Filter> {
         let raw_patterns = FilterParser::parse_filter(filter_raw)?;

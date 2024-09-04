@@ -132,7 +132,7 @@ impl Connection {
             // Cloning segment is a non-starter.
             self.orig.insert_segment(segment);
         } else {
-            self.update_history(&segment, 0x20);
+            self.update_history(segment, 0x20);
             self.resp.insert_segment(segment);
         }
 
@@ -172,7 +172,7 @@ impl Tracked for Connection {
     fn new(five_tuple: &FiveTuple) -> Self {
         let now = Instant::now();
         Self {
-            five_tuple: five_tuple.clone(),
+            five_tuple: *five_tuple,
             first_seen_ts: now,
             second_seen_ts: now,
             last_seen_ts: now,
