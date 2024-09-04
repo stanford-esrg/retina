@@ -22,66 +22,14 @@ TODO: support HTTP/3
 */
 pub(crate) mod parser;
 
-use std::collections::HashSet;
-
 pub use self::header::{QuicLongHeader, QuicShortHeader};
-use crypto::Open;
-use frame::QuicFrame;
 use header::LongHeaderPacketType;
+use parser::QuicError;
 use serde::Serialize;
-
-use super::tls::Tls;
-pub(crate) mod crypto;
-pub(crate) mod frame;
 pub(crate) mod header;
 
-/// Errors Thrown throughout QUIC parsing. These are handled by retina and used to skip packets.
-#[derive(Debug)]
-pub enum QuicError {
-    FixedBitNotSet,
-    PacketTooShort,
-    UnknownVersion,
-    ShortHeader,
-    UnknowLongHeaderPacketType,
-    NoLongHeader,
-    UnsupportedVarLen,
-    InvalidDataIndices,
-    CryptoFail,
-    FailedHeaderProtection,
-    UnknownFrameType,
-    TlsParseFail,
-    MissingCryptoFrames,
-}
-
-/// Parsed Quic connections
-#[derive(Debug, Serialize)]
-pub struct QuicConn {
-    // All packets associated with the connection
-    pub packets: Vec<QuicPacket>,
-
-    // All cids, both src and destination, seen in Long Header packets
-    pub cids: HashSet<String>,
-
-    // Parsed TLS messsages
-    pub tls: Tls,
-
-    // Crypto needed to decrypt initial packets sent by client
-    pub client_opener: Option<Open>,
-
-    // Crypto needed to decrypt initial packets sent by server
-    pub server_opener: Option<Open>,
-
-    // Client buffer for multi-packet TLS messages
-    #[serde(skip_serializing)]
-    pub client_buffer: Vec<u8>,
-
-    // Server buffer for multi-packet TLS messages
-    #[serde(skip_serializing)]
-    pub server_buffer: Vec<u8>,
-}
-
 /// Parsed Quic Packet contents
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct QuicPacket {
     /// Quic Short header
     pub short_header: Option<QuicShortHeader>,
@@ -91,8 +39,6 @@ pub struct QuicPacket {
 
     /// The number of bytes contained in the estimated payload
     pub payload_bytes_count: Option<u64>,
-
-    pub frames: Option<Vec<QuicFrame>>,
 }
 
 impl QuicPacket {
