@@ -97,8 +97,12 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
 
     
     let tst = quote! {
-
-        use retina_datatypes::*;
+        use retina_core::conntrack::conn_id::FiveTuple;
+        use retina_core::conntrack::pdu::L4Pdu;
+        use retina_core::memory::mbuf::Mbuf;
+        use retina_core::protocols::stream::{Session, ConnData};
+        use retina_core::subscription::{Subscribable, Trackable};
+        use retina_core::filter::actions::*;
 
         #subscribable
 
