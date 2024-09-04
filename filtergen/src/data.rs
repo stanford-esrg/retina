@@ -42,7 +42,7 @@ impl TrackedDataBuilder {
             self.datatypes.insert(name.clone());
             self.stream_protocols.extend(&spec.datatype.stream_protos);
 
-            if spec.datatype.from_session || 
+            if matches!(spec.datatype.level, Level::Session) || 
                matches!(spec.datatype.level, Level::Packet) {
                 // Data built directly from packet or session isn't tracked
                 continue;

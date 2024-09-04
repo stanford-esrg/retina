@@ -10,6 +10,7 @@ pub enum Level {
     // Deliver at termination
     Connection,
     // Deliver when session is parsed
+    // \note Not tracked - built from session (zero-copy)
     Session,
 }
 
@@ -21,11 +22,8 @@ pub struct DataType {
     pub needs_parse: bool,
     // Datatype requires invoking `update` method
     pub needs_update: bool,
-    // Extracted from session (zero-copy; not tracked)
-    pub from_session: bool,
     // Application-layer protocols required
     pub stream_protos: Vec<&'static str>,
-    // [note] May want other things?
 }
 
 pub struct DataTypeAction {
@@ -35,33 +33,28 @@ pub struct DataTypeAction {
 
 impl DataType {
     pub fn new(level: Level, needs_parse: bool, needs_update: bool,
-               from_session: bool, stream_protos: Vec<&'static str>) -> Self {
-        if from_session { 
-            assert!(!needs_update);
-            assert!(matches!(level, Level::Session));
-        }
+               stream_protos: Vec<&'static str>) -> Self {
         if let Some(s) = stream_protos.iter().find(|s| !IMPLEMENTED_PROTOCOLS.contains(s)) {
             panic!("{} is not implemented; options: {:?}", s, IMPLEMENTED_PROTOCOLS);
         }
         Self {
             level,
-            needs_parse: needs_parse || from_session,
+            needs_parse,
             needs_update,
-            from_session,
             stream_protos
         }
     }
 
     pub fn new_default_connection() -> Self {
-        Self::new(Level::Connection, false, true, false, vec![])
+        Self::new(Level::Connection, false, true, vec![])
     }
 
     pub fn new_default_session() -> Self {
-        Self::new(Level::Session, true, false, true, vec![])
+        Self::new(Level::Session, true, false,  vec![])
     }
 
     pub fn new_default_packet() -> Self {
-        Self::new(Level::Packet, false, false, false, vec![])
+        Self::new(Level::Packet, false, false, vec![])
     }
 
     pub fn should_deliver(&self, filter_layer: FilterLayer, pred: &Predicate) -> bool {

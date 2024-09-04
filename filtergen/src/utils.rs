@@ -306,7 +306,7 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
                 let tracked_str = spec.datatype_str.to_lowercase();
                 let tracked_field: Ident = Ident::new(&tracked_str, Span::call_site());
                 let type_ident = Ident::new(&spec.datatype_str, Span::call_site());
-                if matches!(spec.datatype.level, Level::Session) && spec.datatype.from_session {
+                if matches!(spec.datatype.level, Level::Session) {
                     assert!(matches!(filter_layer, FilterLayer::Session));
                     body.push(
                         quote! { 

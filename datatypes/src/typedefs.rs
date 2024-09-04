@@ -12,19 +12,19 @@ lazy_static! {
         HashMap::from([
             ( 
                 "Connection",
-                { DataType::new(Level::Connection, false, true, false, Connection::stream_protocols()) }
+                { DataType::new(Level::Connection, false, true, Connection::stream_protocols()) }
             ),
             (
                 "HttpTransaction",
-                { DataType::new(Level::Session, true, false, true, HttpTransaction::stream_protocols()) }
+                { DataType::new(Level::Session, true, false, HttpTransaction::stream_protocols()) }
             ),
             (
                 "ZcFrame",
-                { DataType::new(Level::Packet, false, false, false, vec![]) }
+                { DataType::new(Level::Packet, false, false, vec![]) }
             ),
             (
                 "Payload",
-                { DataType::new(Level::Packet, false, false, false, vec![]) }
+                { DataType::new(Level::Packet, false, false, vec![]) }
             ),
         ])
     };
