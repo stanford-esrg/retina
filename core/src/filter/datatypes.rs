@@ -17,7 +17,7 @@ pub enum Level {
 #[derive(Clone, Debug)]
 pub struct DataType {
     // Indicates when delivery can start
-    pub level: Level, 
+    pub level: Level,
     // Datatype requires parsing app-level data
     pub needs_parse: bool,
     // Datatype requires invoking `update` method
@@ -107,7 +107,7 @@ impl DataType {
         DataTypeAction {
             if_matched,
             if_matching
-        }    
+        }
     }
 
     // First packet in connection
@@ -138,7 +138,7 @@ impl DataType {
         DataTypeAction {
             if_matched,
             if_matching
-        }  
+        }
     }
 
     pub fn proto_filter(&self) -> DataTypeAction {
@@ -180,7 +180,7 @@ impl DataType {
                 if_matched.terminal_actions |= ActionData::PacketDeliver;
             }
             Level::Connection => {
-                if_matched.data |= ActionData::ConnDataTrack | 
+                if_matched.data |= ActionData::ConnDataTrack |
                                    // Re-apply session filter at conn. term
                                    ActionData::SessionTrack;
                 if_matched.terminal_actions |= if_matched.data.clone();

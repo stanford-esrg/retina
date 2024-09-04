@@ -23,9 +23,9 @@
 //!
 //! The following example shows a simple Retina application that prints parsed TLS handshakes to
 //! stdout:
-//! 
+//!
 //! ```rust
-//! /* 
+//! /*
 //! use retina_core::config::default_config;
 //! use retina_core::subscription::TlsHandshake;
 //! use retina_core::Runtime;

@@ -33,12 +33,12 @@ fn gen_deliver_util(
     statics: &mut Vec<proc_macro2::TokenStream>,
     node: &PNode,
     filter_layer: FilterLayer,
-) 
+)
 {
-    let mut first_unary = true; 
-    for child in node.children.iter() 
+    let mut first_unary = true;
+    for child in node.children.iter()
     {
-        match &child.pred { 
+        match &child.pred {
             Predicate::Unary { protocol } => {
                 if child.pred.on_packet() {
                     ConnDataFilter::add_unary_pred(
@@ -52,7 +52,7 @@ fn gen_deliver_util(
                     );
                     first_unary = false;
                 } else if child.pred.on_proto() {
-                    ConnDataFilter::add_service_pred(code, statics, child, protocol, 
+                    ConnDataFilter::add_service_pred(code, statics, child, protocol,
                         filter_layer,
                                                      &gen_deliver_util);
                 } else {
@@ -111,13 +111,13 @@ pub(crate) fn add_session_pred(
     gen_deliver_util(&mut body, statics, node, layer);
     update_body(&mut body, node, layer);
     let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
-    
+
     let service = protocol.name();
     let proto_name = Ident::new(service, Span::call_site());
     let proto_variant = Ident::new(&service.to_camel_case(), Span::call_site());
     let proto_condition = quote! { let retina_core::protocols::stream::SessionData::#proto_variant(#proto_name) = &session.data };
 
-    code.push( 
+    code.push(
         quote! {
             for session in tracked.sessions() {
                 if #proto_condition  {

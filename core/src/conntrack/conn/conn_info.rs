@@ -4,7 +4,7 @@
 // Terminate handler
 // Probe, parse, etc.
 
-use crate::filter::Actions; 
+use crate::filter::Actions;
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
 use crate::protocols::stream::{
@@ -26,9 +26,9 @@ where
 }
 
 impl<T> ConnInfo<T>
-where 
+where
     T: Trackable,
-{   
+{
     pub(super) fn new(five_tuple: FiveTuple, pkt_actions: Actions) -> Self {
         ConnInfo {
             actions: pkt_actions,
@@ -73,7 +73,7 @@ where
     fn handle_parse(&mut self,
         pdu: &L4Pdu,
         subscription: &Subscription<T::Subscribed>,
-        registry: &ParserRegistry) 
+        registry: &ParserRegistry)
     {
         // In probing stage: application-layer protocol unknown
         if self.actions.session_probe() {
@@ -89,7 +89,7 @@ where
     fn on_probe(&mut self,
         pdu: &L4Pdu,
         subscription: &Subscription<T::Subscribed>,
-        registry: &ParserRegistry) 
+        registry: &ParserRegistry)
     {
         match registry.probe_all(pdu) {
             ProbeRegistryResult::Some(conn_parser) => {
@@ -99,14 +99,14 @@ where
             }
             ProbeRegistryResult::None => {
                 // All relevant parsers have failed to match
-                // Handle connection state change 
+                // Handle connection state change
                 self.handle_conn(subscription);
             }
             ProbeRegistryResult::Unsure => { /* Continue */ }
         }
     }
 
-    fn handle_conn(&mut self, 
+    fn handle_conn(&mut self,
                    subscription: &Subscription<T::Subscribed>) {
 
         #[cfg(debug_assertions)]
@@ -118,18 +118,18 @@ where
         if self.actions.apply_proto_filter() {
             let actions = subscription.filter_protocol(&self.cdata, &self.sdata);
             self.actions.update(&actions);
-        } 
+        }
     }
 
     fn on_parse(&mut self,
         pdu: &L4Pdu,
         subscription: &Subscription<T::Subscribed>,
-        _registry: &ParserRegistry /* tmp */) 
+        _registry: &ParserRegistry /* tmp */)
     {
         match self.cdata.conn_parser.parse(pdu) {
             // Got the full session
             ParseResult::Done(id) => {
-                self.handle_session(subscription, id);                
+                self.handle_session(subscription, id);
             }
             _ => { }
         }
@@ -161,7 +161,7 @@ where
                 self.actions.session_clear_parse();
             }
             _ => {
-                // SessionFilter and SessionParse are always terminal actions at the 
+                // SessionFilter and SessionParse are always terminal actions at the
                 // connection filtering stage. By default, they will be preserved.
             }
         }

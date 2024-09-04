@@ -10,8 +10,8 @@ use std::sync::Mutex;
 use std::collections::HashMap;
 use super::parse::SubscriptionSpec;
 
-lazy_static! { 
-    pub(crate) static ref DELIVER: Mutex<HashMap<usize, SubscriptionSpec>> = Mutex::new(HashMap::new()); 
+lazy_static! {
+    pub(crate) static ref DELIVER: Mutex<HashMap<usize, SubscriptionSpec>> = Mutex::new(HashMap::new());
 }
 
 // TODO: give better compiler errors
@@ -288,7 +288,7 @@ fn standard_field(
     }
 }
 
-pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode, 
+pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode,
                           filter_layer: FilterLayer) {
     if !node.actions.drop() {
         let actions = node.actions.clone();
@@ -309,7 +309,7 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
                 if matches!(spec.datatype.level, Level::Session) {
                     assert!(matches!(filter_layer, FilterLayer::Session));
                     body.push(
-                        quote! { 
+                        quote! {
                             if let Some(s) = #type_ident::from_session(session) {
                                 #callback( s );
                             }
@@ -317,10 +317,10 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
                     );
                 } else if matches!(spec.datatype.level, Level::Packet) {
                     // Deliver packets directly
-                    if matches!(filter_layer, FilterLayer::PacketContinue) || 
+                    if matches!(filter_layer, FilterLayer::PacketContinue) ||
                        matches!(filter_layer, FilterLayer::PacketDeliver) {
                         body.push(
-                            quote! { 
+                            quote! {
                                 if let Some(p) = #type_ident::from_mbuf(mbuf) {
                                     #callback( p );
                                 }
@@ -329,7 +329,7 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
                     } else {
                         // Drain existing packets
                         body.push(
-                            quote! { 
+                            quote! {
                                 for mbuf in tracked.packets() {
                                     if let Some(p) = #type_ident::from_mbuf(mbuf) {
                                         #callback( p );
@@ -341,17 +341,17 @@ pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode
                 } else {
                     body.push(
                         quote! { #callback( &tracked.#tracked_field ); }
-                    );  
-                }                  
+                    );
+                }
             }
-            
+
         }
     }
 }
 
 
-// \note Because each stage's filter may be different, we default to applying an 
-//       end-to-end filter at each stage. This may require, for example, re-checking 
+// \note Because each stage's filter may be different, we default to applying an
+//       end-to-end filter at each stage. This may require, for example, re-checking
 //       IP addresses. This can/should be optimized in the future.
 pub(crate) struct ConnDataFilter;
 
@@ -367,10 +367,10 @@ impl ConnDataFilter {
         build_child_nodes: &dyn Fn(&mut Vec<proc_macro2::TokenStream>,
                            &mut Vec<proc_macro2::TokenStream>,
                            &PNode, FilterLayer)
-    ) 
+    )
     {
         let ident = Ident::new(protocol.name(), Span::call_site());
-        let ident_type = Ident::new(&(protocol.name().to_owned().to_camel_case() + "CData"), 
+        let ident_type = Ident::new(&(protocol.name().to_owned().to_camel_case() + "CData"),
                                     Span::call_site());
 
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
@@ -458,7 +458,7 @@ impl ConnDataFilter {
                 }
             } );
         }
-        
+
     }
 
 }

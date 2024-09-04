@@ -38,7 +38,7 @@ fn filter_subtree(input: &SubscriptionConfig,
         let spec = &input.subscriptions[i];
         let filter = Filter::new(&spec.filter)
                      .expect(&format!("Failed to parse filter {}", spec.filter));
-        
+
         let patterns = filter.get_patterns_flat();
         ptree.add_filter(
             &patterns,
@@ -66,13 +66,13 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
 
     let packet_ptree = filter_subtree(&config, FilterLayer::Packet);
     let packet_filter = gen_packet_filter(&packet_ptree, &mut statics, FilterLayer::Packet);
-    
-    let conn_ptree = filter_subtree(&config, FilterLayer::Protocol); 
+
+    let conn_ptree = filter_subtree(&config, FilterLayer::Protocol);
     let proto_filter = gen_proto_filter(&conn_ptree, &mut statics);
 
     let session_ptree = filter_subtree(&config, FilterLayer::Session);
     let session_filter = gen_session_filter(&session_ptree, &mut statics);
-    
+
     let conn_deliver_ptree = filter_subtree(&config, FilterLayer::ConnectionDeliver);
     let conn_deliver_filter = gen_deliver_filter(&conn_deliver_ptree, &mut statics, FilterLayer::ConnectionDeliver);
     let packet_deliver_ptree = filter_subtree(&config, FilterLayer::PacketDeliver);
@@ -84,7 +84,7 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
 
 
     let filter_str = get_hw_filter(&packet_cont_ptree); // Packet-level keep/drop filter
-    
+
     let lazy_statics = if statics.is_empty() {
         quote! {}
     } else {
@@ -95,7 +95,7 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
             }
     };
 
-    
+
     let tst = quote! {
         use retina_core::conntrack::conn_id::FiveTuple;
         use retina_core::conntrack::pdu::L4Pdu;
@@ -128,16 +128,16 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
 
             fn session_filter(session: &retina_core::protocols::stream::Session,
                               conn: &retina_core::protocols::stream::ConnData,
-                              tracked: &TrackedWrapper) -> retina_core::filter::actions::Actions 
+                              tracked: &TrackedWrapper) -> retina_core::filter::actions::Actions
             {
                 #session_filter
             }
 
-            fn packet_deliver(mbuf: &Mbuf, conn: &ConnData, tracked: &TrackedWrapper) 
+            fn packet_deliver(mbuf: &Mbuf, conn: &ConnData, tracked: &TrackedWrapper)
             {
                 #packet_deliver_filter
             }
-            
+
             fn connection_deliver(conn: &ConnData, tracked: &TrackedWrapper)
             {
                 #conn_deliver_filter
@@ -149,7 +149,7 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
                 packet_filter,
                 protocol_filter,
                 session_filter,
-                packet_deliver, 
+                packet_deliver,
                 connection_deliver,
             )
         }

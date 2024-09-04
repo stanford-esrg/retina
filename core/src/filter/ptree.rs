@@ -9,12 +9,12 @@ use std::cmp::{Ordering, PartialOrd};
 
 #[derive(Debug, Clone, Copy)]
 pub enum FilterLayer {
-    /// Quick-pass filter per-packet 
+    /// Quick-pass filter per-packet
     PacketContinue,
     /// Packet delivery | packet filter
     Packet,
     /// Connection (protocol) filter
-    Protocol, 
+    Protocol,
     /// Session delivery | session filter
     Session,
     /// Connection delivery (conn. termination)
@@ -51,7 +51,7 @@ pub struct PNode {
     /// Predicate represented by this PNode
     pub pred: Predicate,
 
-    /// Actions to apply at this node 
+    /// Actions to apply at this node
     /// [for action filters]
     pub actions: Actions,
 
@@ -86,7 +86,7 @@ impl PNode {
     // Need to actually get the descendant in an `if` block to make borrow checker happy
     fn has_descendant(&self, pred: &Predicate) -> bool {
         for n in &self.children {
-            if &n.pred == pred { 
+            if &n.pred == pred {
                 return true;
             }
             if pred.is_child(&n.pred) {
@@ -101,7 +101,7 @@ impl PNode {
     fn get_descendant(&mut self, pred: &Predicate) -> Option<&mut PNode> {
         for n in &mut self.children {
             // found exact match
-            if &n.pred == pred { 
+            if &n.pred == pred {
                 return Some(n);
             }
             // node is a parent - keep descending
@@ -131,7 +131,7 @@ impl PNode {
     fn get_children_of(&mut self, pred: &Predicate) -> Vec<PNode> {
         // drain_filter is unstable in current rust
         // better way to do this is swap indices then use `drain` at index
-        /* 
+        /*
         let mut children = self.children.clone();
         self.children.retain(|x| !x.pred.is_child(pred));
         children.retain(|x| x.pred.is_child(pred));
@@ -147,12 +147,12 @@ impl PNode {
                 Some(x)
             }
         }).collect();
-        
+
         new
     }
 
-    /// Returns a reference to a PNode that is a child of `self` 
-    /// that can act as "parent" of `pred`. 
+    /// Returns a reference to a PNode that is a child of `self`
+    /// that can act as "parent" of `pred`.
     fn get_parent_candidate(&mut self, pred: &Predicate) -> Option<&mut PNode> {
         self.children.iter_mut().find(|n | pred.is_child(&n.pred))
     }
@@ -172,7 +172,7 @@ impl PNode {
             if pred.is_child(&n.pred) {
                 if n.has_parent(pred) {
                     return true;
-                } 
+                }
                 found = true;
             }
         }
@@ -183,7 +183,7 @@ impl PNode {
         if self.get_parent_candidate(pred).is_none() {
             return None;
         }
-        // This is hacky, but directly iterating through children or 
+        // This is hacky, but directly iterating through children or
         // recursing will raise flags with the borrow checker.
         let mut node = self;
         for _ in 0..tree_size {
@@ -222,7 +222,7 @@ impl fmt::Display for PNode {
     }
 }
 
-/// \todo 
+/// \todo
 /// - This should be a BDD.
 /// - There should be a better way to prune/parse here
 ///   to optimize for number of checks that are likely to be required.
@@ -250,23 +250,23 @@ impl PTree {
 
     pub fn new_empty(filter_layer: FilterLayer) -> Self {
         let pred = Predicate::Unary { protocol: protocol!("ethernet"), };
-        let root = PNode::new(pred, 0); 
-        let ptree = PTree { 
-            root, 
-            size: 1, 
+        let root = PNode::new(pred, 0);
+        let ptree = PTree {
+            root,
+            size: 1,
             actions: Actions::new(),
-            filter_layer 
+            filter_layer
         };
         ptree
     }
 
     /// Add a filter to an existing PTree
-    /// Applied for multiple subscriptions, when multiple actions 
+    /// Applied for multiple subscriptions, when multiple actions
     /// and/or delivery filters will be checked at the same stage
-    pub fn add_filter(&mut self, patterns: &[FlatPattern], 
-                      datatype: &DataType, filter_id: usize, 
+    pub fn add_filter(&mut self, patterns: &[FlatPattern],
+                      datatype: &DataType, filter_id: usize,
                       subscription_str: &String) {
-        if matches!(self.filter_layer, FilterLayer::PacketDeliver) && 
+        if matches!(self.filter_layer, FilterLayer::PacketDeliver) &&
            !matches!(datatype.level, Level::Packet) {
             return;
         }
@@ -274,14 +274,14 @@ impl PTree {
     }
 
     /// Add all given patterns (root-to-leaf paths) to a PTree
-    pub fn build_tree(&mut self, patterns: &[FlatPattern], 
+    pub fn build_tree(&mut self, patterns: &[FlatPattern],
                       datatype: &DataType, filter_id: usize,
                       subscription_str: &String) {
         // add each pattern to tree
         let mut added = false;
         for (i, pattern) in patterns.iter().enumerate() {
             added = added || !pattern.predicates.is_empty();
-            self.add_pattern(pattern, i, datatype, filter_id, 
+            self.add_pattern(pattern, i, datatype, filter_id,
                              subscription_str);
         }
 
@@ -301,11 +301,11 @@ impl PTree {
     /// Add a single pattern (root-to-leaf path) to the tree.
     /// Add nodes that don't exist. Update actions or subscription IDs
     /// for terminal nodes at this stage.
-    pub(crate) fn add_pattern(&mut self, pattern: &FlatPattern, 
+    pub(crate) fn add_pattern(&mut self, pattern: &FlatPattern,
                               pattern_id: usize, datatype: &DataType,
                               filter_id: usize,
                               subscription_str: &String) {
-        
+
         // Skip patterns that already terminated
         if pattern.predicates.iter().all(|p| p.is_prev_layer(self.filter_layer, datatype)) {
             return;
@@ -314,7 +314,7 @@ impl PTree {
         let mut node = &mut self.root;
         node.patterns.push(pattern_id);
         for predicate in pattern.predicates.iter() {
-            // Next predicate shouldn't be processed; 
+            // Next predicate shouldn't be processed;
             // node should be a non-terminal leaf node
             if predicate.is_next_layer(self.filter_layer) {
                 let actions = datatype.with_nonterm_filter(self.filter_layer);
@@ -323,11 +323,11 @@ impl PTree {
                 // Stop descending - no terminal actions for this predicate
                 return;
             }
-            
+
             // Predicate is already present
-            
+
             if node.has_descendant(predicate) {
-                node = node.get_descendant(predicate).unwrap(); 
+                node = node.get_descendant(predicate).unwrap();
                 node.patterns.push(pattern_id);
                 continue;
             }
@@ -335,14 +335,14 @@ impl PTree {
             // Predicate should be added as child of existing node
             if node.has_parent(predicate) {
                 node = node.get_parent(predicate, self.size).unwrap();
-            } 
+            }
 
             // Children of curr node should be children of new node
             let children = match node.has_children_of(predicate) {
                 true => { node.get_children_of(predicate) }
                 false => { vec![] }
             };
-            
+
             // Create new node
             if !node.has_child(predicate) {
                 node.children.push(PNode::new(predicate.clone(), self.size));
@@ -378,7 +378,7 @@ impl PTree {
         get_subtree(id, &self.root)
     }
 
-    /// Best-effort to give the filter generator hints as to where an "else" 
+    /// Best-effort to give the filter generator hints as to where an "else"
     /// statement can go between two predicates.
     pub fn mark_mutual_exclusion(&mut self) {
         fn mark_mutual_exclusion(node: &mut PNode) {
@@ -386,10 +386,10 @@ impl PTree {
             if !node.children.is_empty() {
                 mark_mutual_exclusion(&mut node.children[0]);
             }
-            if node.children.len() <= 1 { 
+            if node.children.len() <= 1 {
                 return;
             }
-            
+
             try_reorder(&mut node.children);
 
             for idx in 1..node.children.len() {
@@ -398,7 +398,7 @@ impl PTree {
                 if node.children[idx].pred.is_excl(&node.children[idx - 1].pred) {
                     node.children[idx].if_else = true;
                 }
-                // If the result is equivalent (e.g., same CB in delivery filter) for child nodes, 
+                // If the result is equivalent (e.g., same CB in delivery filter) for child nodes,
                 // then we can safely use first match. (Similar to "early return.")
                 if node.children[idx].result_eq(&node.children[idx - 1]) {
                     node.children[idx].if_else = true;
@@ -422,7 +422,7 @@ impl PTree {
         }
         let mut id = 0;
         self.size = count_nodes(&mut self.root, &mut id);
-        
+
     }
 
     /// Removes some patterns that are covered by others
@@ -506,7 +506,7 @@ impl PTree {
     fn pprint(&self) -> String {
         fn pprint(s: &mut String, node: &PNode, prefix: String, last: bool) {
             let prefix_current = if last { "`- " } else { "|- " };
-            
+
             let s_next = format!(
                 "{}{}{}: {}\n",
                 prefix, prefix_current, node.id, node
@@ -534,7 +534,7 @@ impl PTree {
     pub fn to_filter_string(&self) -> String {
         fn to_filter_string(p: &PNode, all: &mut Vec<String>, curr: String) {
             let mut curr = curr;
-            if curr == "" { 
+            if curr == "" {
                 curr.push('(');
             } else {
                 curr.push_str(&format!("({})", p.pred));
@@ -544,7 +544,7 @@ impl PTree {
                 path_str.push(')');
                 all.push(path_str);
             } else {
-                if curr != "(" { 
+                if curr != "(" {
                     curr.push_str(" and ");
                 }
                 for child in &p.children {
@@ -601,7 +601,7 @@ impl PartialEq for PNode {
 
     fn eq(&self, other: &PNode) -> bool {
         // Same "level"
-        if matches!(self.pred, Predicate::Unary { .. })  || 
+        if matches!(self.pred, Predicate::Unary { .. })  ||
            matches!(other.pred, Predicate::Unary { .. }) {
             return true;
         }
@@ -665,21 +665,21 @@ mod tests {
     use crate::filter::*;
 
     #[test]
-    fn core_ptree_session() {        
+    fn core_ptree_session() {
         let datatype_str_conn = "cb_1(Connection)".to_string();
         let datatype_conn = DataType::new_default_connection();
         let datatype_str_session = "cb_2(Session)".to_string();
         let datatype_session = DataType::new_default_session();
-        
+
         let filter = Filter::new("tls.sni = \'abc\'").unwrap();
 
         // Add Conn and Session-layer datatypes with Session-level filter
         let mut ptree = PTree::new_empty(FilterLayer::Session);
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 0, 
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 0,
         &datatype_str_conn);
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_session, 1, 
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_session, 1,
                          &datatype_str_session);
-        
+
         let mut expected_actions = Actions::new();
         expected_actions.data |= ActionData::ConnDataTrack | ActionData::SessionTrack;
         expected_actions.terminal_actions |= ActionData::ConnDataTrack | ActionData::SessionTrack;
@@ -688,7 +688,7 @@ mod tests {
 
         // Add filter that terminates at connection layer; should be no-op
         let noop_filter = Filter::new("tls").unwrap();
-        ptree.add_filter(&noop_filter.get_patterns_flat(), &datatype_conn, 0, 
+        ptree.add_filter(&noop_filter.get_patterns_flat(), &datatype_conn, 0,
         &datatype_str_conn);
         assert!(ptree.get_subtree(3).unwrap().actions.drop());
         // println!("{}", ptree);
@@ -703,20 +703,20 @@ mod tests {
     #[test]
     fn core_ptree_proto() {
         let mut expected_actions = Actions::new();
-        
+
         let filter_conn = Filter::from_str("ipv4 and tls").unwrap();
         let datatype_str = "cb_1(Connection)".to_string();
         let datatype: DataType = DataType::new_default_connection();
-        
+
         // Connection-level datatype matching at connection level
         let mut ptree = PTree::new_empty(FilterLayer::Protocol);
-        ptree.add_filter(&filter_conn.get_patterns_flat(), &datatype, 0, 
+        ptree.add_filter(&filter_conn.get_patterns_flat(), &datatype, 0,
         &datatype_str);
         expected_actions.data |= ActionData::ConnDataTrack;
         expected_actions.terminal_actions |= ActionData::ConnDataTrack;
         // println!("{}", ptree);
         assert!(ptree.actions == expected_actions);
-        
+
         // Session-level datatype matching at session level
         let filter = Filter::from_str("ipv4 and tls.sni = \'abc\'").unwrap();
         let datatype_str = "cb_2(Session)".to_string();
@@ -734,7 +734,7 @@ mod tests {
     }
 
     #[test]
-    fn core_ptree_packet() { 
+    fn core_ptree_packet() {
         let mut expected_actions = Actions::new();
         let filter = Filter::from_str("ipv4 and tls").unwrap();
         let datatype_str = "cb_1(Connection)".to_string();
@@ -772,7 +772,7 @@ mod tests {
         let mut ptree = PTree::new_empty(FilterLayer::PacketDeliver);
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
         assert!(!ptree.get_subtree(3).unwrap().deliver.is_empty());
-        
+
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0, &datatype_str);
         let mut expected_actions = Actions::new();
@@ -788,7 +788,7 @@ mod tests {
         let filter = "ipv4 and tls";
         // For packet filter, child of `filter`
         let filter_child1 = "ipv4.addr = 1.2.0.0/16 and http";
-        
+
         // Child of child3 (added first)
         let filter_child2 = "ipv4.addr = 1.2.2.255/30";
         let filter_child3 = "ipv4.addr = 1.2.2.0/24";
@@ -796,7 +796,7 @@ mod tests {
         let filter_child4 = "ipv4.src_addr = 1.2.2.3/32";
         // Standalone filter
         let filter_child5 = "ipv4.src_addr = 1.3.3.1/32";
-        
+
         let datatype_str_conn = "cb_1(Connection)".to_string();
         let datatype_conn = DataType::new_default_connection();
         let datatype_str_session = "cb_1(Session)".to_string();
@@ -843,14 +843,14 @@ mod tests {
         let filter_child = "ipv4.src_addr = 1.3.3.1/31";
         let datatype_str_conn = "cb_1(Connection)".to_string();
         let datatype_conn = DataType::new_default_connection();
-        
+
         let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
 
         let filter = Filter::from_str(filter).unwrap();
         ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 0, &datatype_str_conn);
         let filter = Filter::from_str(filter_child).unwrap();
         ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 1, &datatype_str_conn);
-        
+
         ptree.prune_branches();
         assert!(!ptree.to_filter_string().contains("1.3.3.1/31") && ptree.size == 3); // eth, ipv4, ipvr.src
     }

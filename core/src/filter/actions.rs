@@ -7,9 +7,9 @@ pub enum ActionData {
     PacketContinue,   // Forward new packet to connection tracker
     PacketDeliver,    // Deliver packet to CB
 
-    // Connection/session actions // 
+    // Connection/session actions //
 
-    ProtoProbe,       // Probe application-layer protocol 
+    ProtoProbe,       // Probe application-layer protocol
     ProtoFilter,      // Apply protocol-level filter
 
     SessionFilter,    // Apply session-level filter
@@ -100,7 +100,7 @@ impl Actions {
     /// App-layer probing or parsing should be applied
     #[inline]
     pub fn parse_any(&self) -> bool {
-        self.data.intersects(ActionData::ProtoProbe | 
+        self.data.intersects(ActionData::ProtoProbe |
                              ActionData::ProtoFilter |
                              ActionData::SessionFilter |
                              ActionData::SessionDeliver)
@@ -123,13 +123,13 @@ impl Actions {
 
     #[inline]
     pub fn session_probe(&self) -> bool {
-        self.data.intersects(ActionData::ProtoProbe | 
+        self.data.intersects(ActionData::ProtoProbe |
                              ActionData::ProtoFilter)
     }
 
     #[inline]
     pub fn session_parse(&self) -> bool {
-        self.data.intersects(ActionData::SessionDeliver | 
+        self.data.intersects(ActionData::SessionDeliver |
                              ActionData::SessionFilter)
     }
 
@@ -155,14 +155,14 @@ impl Actions {
 
     /// After parsing
     /// If further sessions may be expected (e.g., HTTP), need to probe
-    /// and filter for them again. 
+    /// and filter for them again.
     pub fn session_set_probe(&mut self) {
         self.clear_mask(ActionData::SessionFilter | ActionData::SessionDeliver);
         self.data |= ActionData::ProtoProbe | ActionData::ProtoFilter;
-        /* 
+        /*
          * Note: it could be inefficient to re-apply the proto filter
          *       (protocol was already ID'd). However, this makes it easier
-         *       to ensure that correct actions are (re-)populated 
+         *       to ensure that correct actions are (re-)populated
          *       protocol filter if we already know the protocol.
          *       This also allows for extensibility to nested protocols.
          */
@@ -207,7 +207,7 @@ use proc_macro2::{Ident, Span};
 impl FromStr for ActionData {
     type Err = core::fmt::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s { 
+        match s {
             "PacketContinue" => Ok(ActionData::PacketContinue),
             "PacketDeliver" => Ok(ActionData::PacketDeliver),
             "ProtoProbe" => Ok(ActionData::ProtoProbe),
@@ -225,7 +225,7 @@ impl FromStr for ActionData {
 impl ToString for ActionData {
 
     fn to_string(&self) -> String {
-        match self{ 
+        match self{
             &ActionData::PacketContinue => "PacketContinue".into(),
             &ActionData::PacketDeliver => "PacketDeliver".into(),
             &ActionData::ProtoProbe => "ProtoProbe".into(),
@@ -258,8 +258,8 @@ impl FromStr for Actions {
             let action_str = str.replace("(T)", "");
             if let Ok(a) = ActionData::from_str(action_str.trim()) {
                 result.data |= a;
-                if terminal { 
-                    result.terminal_actions |= a; 
+                if terminal {
+                    result.terminal_actions |= a;
                 }
             } else {
                 return Result::Err(core::fmt::Error);
@@ -273,7 +273,7 @@ impl ToTokens for Actions {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let bits = syn::LitInt::new(&self.data.bits.to_string(), Span::call_site());
         let terminal_bits = syn::LitInt::new(&self.terminal_actions.bits.to_string(), Span::call_site());
-        tokens.extend( quote! { 
+        tokens.extend( quote! {
             Actions { data: ActionData::from(#bits),
                       terminal_actions: ActionData::from(#terminal_bits) } } );
     }
@@ -297,12 +297,12 @@ mod tests {
         assert!(actions.needs_conntrack());
 
         // Set, clear, and check actions by bitmask
-        let frame_mask = ActionData::PacketTrack | 
+        let frame_mask = ActionData::PacketTrack |
                                      ActionData::ConnDataTrack;
         actions.data |= frame_mask;
         assert!(actions.data.contains(frame_mask));
         actions.clear_mask(frame_mask);
-        
+
         // Clear an action (or set of actions), including some that aren't set
         actions.clear_mask(ActionData::PacketContinue | ActionData::SessionFilter);
 
@@ -315,7 +315,7 @@ mod tests {
         // Check from usize: 2 LSBs set
         let mask: usize = 3;
         let action_data = ActionData::from(mask);
-        assert!(action_data.contains(ActionData::PacketContinue) && 
+        assert!(action_data.contains(ActionData::PacketContinue) &&
                 action_data.contains(ActionData::PacketDeliver));
     }
 }

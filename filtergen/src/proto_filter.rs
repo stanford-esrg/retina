@@ -35,14 +35,14 @@ fn gen_proto_filter_util(
     statics: &mut Vec<proc_macro2::TokenStream>,
     node: &PNode,
     _filter_layer: FilterLayer,
-) 
+)
 {
-    let mut first_unary = true; 
+    let mut first_unary = true;
     for child in node.children.iter()
-                             .filter(|n| 
-                                      n.pred.on_packet() || n.pred.on_proto()) 
+                             .filter(|n|
+                                      n.pred.on_packet() || n.pred.on_proto())
     {
-        match &child.pred { 
+        match &child.pred {
             Predicate::Unary { protocol } => {
                 if child.pred.on_packet() {
                     ConnDataFilter::add_unary_pred(
@@ -56,7 +56,7 @@ fn gen_proto_filter_util(
                     );
                     first_unary = false;
                 } else if child.pred.on_proto() {
-                    ConnDataFilter::add_service_pred(code, statics, child, protocol, 
+                    ConnDataFilter::add_service_pred(code, statics, child, protocol,
                                                      FilterLayer::Protocol, &gen_proto_filter_util);
                 }
             }
@@ -77,7 +77,7 @@ fn gen_proto_filter_util(
                     value,
                     FilterLayer::Protocol,
                     &gen_proto_filter_util
-                ); 
+                );
             }
         }
     }

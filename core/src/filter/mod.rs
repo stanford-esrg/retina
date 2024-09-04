@@ -38,13 +38,13 @@ pub type ProtoFilterFn<T> = fn(&ConnData, &T) -> Actions;
 pub type SessionFilterFn<T> = fn(&Session, &ConnData, &T) -> Actions;
 
 // Subscription deliver functions
-// \note Rust won't enforce trait bounds on type alias, 
+// \note Rust won't enforce trait bounds on type alias,
 //       but T should implement Tracked.
 pub type PacketDeliverFn<T> = fn(&Mbuf, &ConnData, &T);
 pub type ConnDeliverFn<T> = fn(&ConnData, &T);
 
 pub struct FilterFactory<T>
-where 
+where
     T: Trackable
 {
     pub filter_str: String,
@@ -75,8 +75,8 @@ where
             packet_filter,
             proto_filter,
             session_filter,
-            packet_deliver, 
-            conn_deliver, 
+            packet_deliver,
+            conn_deliver,
         }
     }
 }

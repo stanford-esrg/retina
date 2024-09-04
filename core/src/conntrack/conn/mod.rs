@@ -51,8 +51,8 @@ where
     /// `initial_timeout` and a maximum out-or-order tolerance of `max_ooo`. This means that there
     /// can be at most `max_ooo` packets buffered out of sequence before Retina chooses to discard
     /// the connection.
-    pub(super) fn new_tcp(ctxt: L4Context, 
-                          initial_timeout: usize, 
+    pub(super) fn new_tcp(ctxt: L4Context,
+                          initial_timeout: usize,
                           max_ooo: usize,
                           pkt_actions: Actions) -> Result<Self> {
         let five_tuple = FiveTuple::from_ctxt(ctxt);
@@ -72,7 +72,7 @@ where
     /// Creates a new UDP connection from `ctxt` with an initial inactivity window of
     /// `initial_timeout`.
     #[allow(clippy::unnecessary_wraps)]
-    pub(super) fn new_udp(ctxt: L4Context, 
+    pub(super) fn new_udp(ctxt: L4Context,
                           initial_timeout: usize,
                           actions: Actions) -> Result<Self> {
         let five_tuple = FiveTuple::from_ctxt(ctxt);

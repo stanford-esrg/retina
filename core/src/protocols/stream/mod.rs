@@ -304,7 +304,7 @@ impl ConnParser {
         let mut out = hashset! {};
 
         for s in IMPLEMENTED_PROTOCOLS {
-            if filter_str.contains(s) { 
+            if filter_str.contains(s) {
                 out.insert(s);
             }
         }

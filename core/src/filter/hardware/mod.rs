@@ -43,7 +43,7 @@ impl<'a> HardwareFilter<'a> {
             .collect::<Vec<_>>();
 
         // Prune some redundant patterns.
-        // \note This does not do the parent-child sorting of the SW filter; 
+        // \note This does not do the parent-child sorting of the SW filter;
         // this seems to be ok for Retina's current scale
         // (applying NIC rules is fast and we're not hitting NIC limits)
         let mut hw_ptree = FlatPTree::new(&hw_patterns);

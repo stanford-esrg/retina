@@ -7,10 +7,10 @@ use crate::*;
 // To add a datatype, add it to the following map
 // This is read by the filtergen crate.
 lazy_static! {
-    pub static ref DATATYPES: HashMap<&'static str, DataType> = 
-    { 
+    pub static ref DATATYPES: HashMap<&'static str, DataType> =
+    {
         HashMap::from([
-            ( 
+            (
                 "Connection",
                 { DataType::new(Level::Connection, false, true, Connection::stream_protocols()) }
             ),

@@ -31,10 +31,10 @@ impl TrackedDataBuilder {
 
     pub(crate) fn build(&mut self, subscribed_data: &SubscriptionConfig) {
         for spec in &subscribed_data.subscriptions {
-            let name = &spec.datatype_str; 
+            let name = &spec.datatype_str;
             let type_name = Ident::new(name, Span::call_site());
             let field_name = Ident::new(&name.to_lowercase(), Span::call_site());
-            
+
             self.stream_protocols.extend(ConnParser::requires_parsing(&spec.filter));
             if self.datatypes.contains(name) {
                 continue;
@@ -42,24 +42,24 @@ impl TrackedDataBuilder {
             self.datatypes.insert(name.clone());
             self.stream_protocols.extend(&spec.datatype.stream_protos);
 
-            if matches!(spec.datatype.level, Level::Session) || 
+            if matches!(spec.datatype.level, Level::Session) ||
                matches!(spec.datatype.level, Level::Packet) {
                 // Data built directly from packet or session isn't tracked
                 continue;
             }
-            
+
             self.struct_def.push(
-                quote! { 
+                quote! {
                     #field_name : #type_name,
                 }
             );
-            self.new.push( 
+            self.new.push(
                 quote! { #field_name: #type_name::new(&five_tuple), }
             );
-       
+
             if spec.datatype.needs_update {
-                // TODO will a subscription ever want to be able to know if *it* is matching 
-                //              before the deliver phase? 
+                // TODO will a subscription ever want to be able to know if *it* is matching
+                //              before the deliver phase?
                 self.update.push(
                     quote! { self.#field_name.update(pdu, session_id); }
                 );
@@ -71,7 +71,7 @@ impl TrackedDataBuilder {
     pub(crate) fn print(&self) {
         println!("Tracked {{");
         for dt in &self.datatypes {
-            println!("  {},", 
+            println!("  {},",
                      dt,
             );
         }
@@ -89,15 +89,15 @@ impl TrackedDataBuilder {
             pub struct SubscribedWrapper;
             impl Subscribable for SubscribedWrapper {
                 type Tracked = TrackedWrapper;
-            } 
-        }       
+            }
+        }
     }
 
     pub(crate) fn tracked(&mut self) -> proc_macro2::TokenStream {
         let def = std::mem::take(&mut self.struct_def);
         let update = std::mem::take(&mut self.update);
         let new = std::mem::take(&mut self.new);
-        
+
         let mut conn_parsers = vec![];
         for datatype in &self.stream_protocols {
 
@@ -116,7 +116,7 @@ impl TrackedDataBuilder {
 
             impl Trackable for TrackedWrapper {
                 type Subscribed = SubscribedWrapper;
-    
+
                 fn new(five_tuple: FiveTuple) -> Self {
 
                     Self {
@@ -127,8 +127,8 @@ impl TrackedDataBuilder {
                     }
                 }
 
-                fn update(&mut self, 
-                        pdu: &L4Pdu, 
+                fn update(&mut self,
+                        pdu: &L4Pdu,
                         session_id: Option<usize>)
                 {
                     #( #update )*
@@ -145,7 +145,7 @@ impl TrackedDataBuilder {
                 fn drain_packets(&mut self) {
                     self.mbufs = vec![];
                 }
-                
+
                 fn five_tuple(&self) -> FiveTuple {
                     self.five_tuple
                 }

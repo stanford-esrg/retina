@@ -34,12 +34,12 @@ fn gen_session_filter_util(
     statics: &mut Vec<proc_macro2::TokenStream>,
     node: &PNode,
     _filter_layer: FilterLayer
-) 
+)
 {
-    let mut first_unary = true; 
+    let mut first_unary = true;
     for child in node.children.iter()
     {
-        match &child.pred { 
+        match &child.pred {
             Predicate::Unary { protocol } => {
                 if child.pred.on_packet() {
                     ConnDataFilter::add_unary_pred(
@@ -53,8 +53,8 @@ fn gen_session_filter_util(
                     );
                     first_unary = false;
                 } else if child.pred.on_proto() {
-                    SessionDataFilter::add_service_pred(code, statics, child, protocol, 
-                                                        first_unary, 
+                    SessionDataFilter::add_service_pred(code, statics, child, protocol,
+                                                        first_unary,
                                                         FilterLayer::Session,
                                                         &gen_session_filter_util);
                     first_unary = false;
@@ -71,7 +71,7 @@ fn gen_session_filter_util(
                 if child.pred.on_packet() {
                     ConnDataFilter::add_binary_pred(code, statics, child, protocol, field, op, value,
                                        FilterLayer::Session,
-                                                    &gen_session_filter_util); 
+                                                    &gen_session_filter_util);
                 } else if child.pred.on_session() {
                     add_binary_pred(code, statics, child, protocol, field, op, value);
                 } else {

@@ -15,10 +15,10 @@ pub trait Trackable {
     /// Create a new struct for tracking connection data for user delivery
     fn new(five_tuple: FiveTuple) -> Self;
 
-    /// When tracking, parsing, or buffering frames, 
+    /// When tracking, parsing, or buffering frames,
     /// update tracked data with new PDU
-    fn update(&mut self, 
-              pdu: &L4Pdu, 
+    fn update(&mut self,
+              pdu: &L4Pdu,
               session_id: Option<usize>);
 
     /// Deliver tracked five tuple (always tracked)
@@ -45,7 +45,7 @@ pub trait Trackable {
 }
 
 pub struct Subscription<S>
-where 
+where
     S: Subscribable,
 {
     packet_continue: PacketContFn,
@@ -72,7 +72,7 @@ where
             conn_deliver: factory.conn_deliver,
             #[cfg(feature = "timing")]
             timers: Timers::new(),
-        }        
+        }
     }
 
     pub fn process_packet(
@@ -89,11 +89,11 @@ where
     }
 
     // TODO: packet continue filter should ideally be built at
-    // compile-time based on what the NIC supports (what has 
+    // compile-time based on what the NIC supports (what has
     // already been filtered out in HW).
     // Ideally, NIC would `mark` mbufs as `deliver` and/or `continue`.
     /// Invokes the software packet filter.
-    /// Used for each packet to determine 
+    /// Used for each packet to determine
     /// forwarding to conn. tracker.
     pub fn continue_packet(&self, mbuf: &Mbuf) -> Actions {
         (self.packet_continue)(mbuf)
@@ -111,7 +111,7 @@ where
         (self.proto_filter)(conn, tracked)
     }
 
-    /// Invokes the application-layer session filter. 
+    /// Invokes the application-layer session filter.
     /// Delivers sessions to callbacks if applicable.
     pub fn filter_session(&self, session: &Session, conn: &ConnData, tracked: &S::Tracked) -> Actions {
         (self.session_filter)(session, conn, tracked)

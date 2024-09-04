@@ -44,7 +44,7 @@ impl SubscriptionConfig {
                                                     .map(|s| *s )
                                                     .collect();
 
-                panic!("Invalid datatype: {};\nDid you mean:\n {}", 
+                panic!("Invalid datatype: {};\nDid you mean:\n {}",
                 datatype, valid_types.join(",\n"));
             }
             subscriptions.push(
