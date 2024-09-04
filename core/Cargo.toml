@@ -55,5 +55,4 @@ regex = "1.7.3"
 [features]
 timing = []
 mlx5 = []
-no_custom = []
 default = []
