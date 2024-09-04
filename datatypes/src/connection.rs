@@ -192,6 +192,9 @@ impl Tracked for Connection {
     fn stream_protocols() -> Vec<&'static str> { vec![] }
 }
 
+/// Default value for maximum chunk capacity.
+const DEFAULT_CHUNK_CAPACITY: usize = 100;
+
 /// A uni-directional flow.
 #[derive(Debug, Clone, Serialize)]
 pub struct Flow {
@@ -219,7 +222,7 @@ pub struct Flow {
     /// TCP flows, and is set to `0` for UDP.
     pub data_start: u32,
     /// Maximum chunk capacity (the maximum number of simultaneous gaps + 1). Only applies to TCP
-    /// flows.
+    /// flows. Used to prevent resizing `chunks` vector.
     pub capacity: usize,
     /// The set of non-overlapping content intervals. Only applies to TCP flows.
     pub chunks: Vec<Chunk>,
@@ -237,8 +240,8 @@ impl Flow {
             nb_bytes: 0,
             max_simult_gaps: 0,
             data_start: 0,
-            capacity: 100, // temp hardcode for now
-            chunks: Vec::with_capacity(100),
+            capacity: DEFAULT_CHUNK_CAPACITY,
+            chunks: Vec::with_capacity(DEFAULT_CHUNK_CAPACITY),
             gaps: HashMap::new(),
         }
     }

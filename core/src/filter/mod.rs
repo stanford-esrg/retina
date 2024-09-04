@@ -173,9 +173,6 @@ pub enum FilterError {
     #[error("Invalid pattern. Contains unsupported layer encapsulation: {0}")]
     InvalidPatternLayers(FlatPattern),
 
-    #[error("Invalid pattern. Contains duplicate fields: {0}")]
-    InvalidPatternDupFields(FlatPattern),
-
     #[error("Invalid predicate type: {0}")]
     InvalidPredType(String),
 

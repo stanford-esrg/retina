@@ -82,7 +82,7 @@ where
 
         // Parsing ongoing: application-layer protocol known
         if self.actions.session_parse() {
-            self.on_parse(pdu, subscription, registry);
+            self.on_parse(pdu, subscription);
         }
     }
 
@@ -123,8 +123,7 @@ where
 
     fn on_parse(&mut self,
         pdu: &L4Pdu,
-        subscription: &Subscription<T::Subscribed>,
-        _registry: &ParserRegistry /* tmp */)
+        subscription: &Subscription<T::Subscribed>)
     {
         if let ParseResult::Done(id) = self.cdata.conn_parser.parse(pdu) {
             self.handle_session(subscription, id);

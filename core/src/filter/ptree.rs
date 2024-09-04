@@ -207,7 +207,7 @@ impl fmt::Display for PNode {
             write!(f, ")")?;
         }
         if self.if_else {
-            write!(f, " x")?; // todo better formatting
+            write!(f, " x")?;
         }
         Ok(())
     }
@@ -761,8 +761,6 @@ mod tests {
         expected_actions.data |= ActionData::PacketTrack | ActionData::ProtoFilter;
         assert!(ptree.actions == expected_actions);
     }
-
-    // \todo: asserts to check for correctness
 
     #[test]
     fn core_ptree_with_children() {

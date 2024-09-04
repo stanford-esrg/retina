@@ -26,9 +26,7 @@ impl FlatPattern {
 
     /// Returns true if self is a fully qualified FlatPattern
     pub(super) fn is_fully_qualified(&self) -> bool {
-        // temp placeholders
-        let layers = &*LAYERS;
-        let labels = &*NODE_BIMAP;
+        let (layers, labels) = (&*LAYERS, &*NODE_BIMAP);
 
         let mut ret = true;
         let mut prev_header = unwrap_or_ret_false!(labels.get_by_right(&protocol!("ethernet")));
@@ -55,11 +53,7 @@ impl FlatPattern {
             return Ok(Vec::new());
         }
 
-        // temp placeholders
-        let layers = &*LAYERS;
-        let labels = &*NODE_BIMAP;
-
-        // let (layers, labels) = &*protocols::LAYERS;
+        let (layers, labels) = (&*LAYERS, &*NODE_BIMAP);
 
         let mut node_paths: HashSet<Vec<NodeIndex>> = HashSet::new();
         let headers = self
@@ -119,13 +113,6 @@ impl FlatPattern {
             // This happens when the headers provided do not have a directed path to ethernet node
             bail!(FilterError::InvalidPatternLayers(self.to_owned()));
         }
-        for fq_pattern in fq_patterns.iter() {
-            if fq_pattern.has_duplicate_fields() {
-                // \tmp if we include this error, we aren't able to create a
-                //      filter with multiple != conditions
-                // bail!(FilterError::InvalidPatternDupFields(self.to_owned()));
-            }
-        }
         Ok(fq_patterns)
     }
 
@@ -174,9 +161,7 @@ impl LayeredPattern {
 
     /// Adds predicates on protocol header. Returns true on success
     fn add_protocol(&mut self, proto_name: ProtocolName, field_predicates: Vec<Predicate>) -> bool {
-        // temp placeholders
-        let layers = &*LAYERS;
-        let labels = &*NODE_BIMAP;
+        let (layers, labels) = (&*LAYERS, &*NODE_BIMAP);
 
         // check that there is an edge to previous protocol header
         // check that field_predicates are all binary
@@ -223,25 +208,6 @@ impl LayeredPattern {
         &self.0
     }
 
-    /// Returns true if any binary predicates have the same protocol.field pair
-    /// Does not check if the value is also identical
-    pub(super) fn has_duplicate_fields(&self) -> bool {
-        for field_preds in self.0.values() {
-            let mut set = HashSet::new();
-            for predicate in field_preds.iter() {
-                if let Predicate::Binary {
-                    protocol: _, field, ..
-                } = predicate
-                {
-                    set.insert(field);
-                }
-            }
-            if set.len() != field_preds.len() {
-                return true;
-            }
-        }
-        false
-    }
 }
 
 impl Default for LayeredPattern {
