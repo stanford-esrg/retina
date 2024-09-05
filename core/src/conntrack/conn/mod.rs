@@ -54,7 +54,8 @@ where
     pub(super) fn new_tcp(ctxt: L4Context,
                           initial_timeout: usize,
                           max_ooo: usize,
-                          pkt_actions: Actions) -> Result<Self> {
+                          pkt_actions: Actions,
+                          core_id: u32) -> Result<Self> {
         let five_tuple = FiveTuple::from_ctxt(ctxt);
         let tcp_conn = if ctxt.flags & SYN != 0 && ctxt.flags & ACK == 0 && ctxt.flags & RST == 0 {
             TcpConn::new_on_syn(ctxt, max_ooo)
@@ -65,7 +66,7 @@ where
             last_seen_ts: Instant::now(),
             inactivity_window: initial_timeout,
             l4conn: L4Conn::Tcp(tcp_conn),
-            info: ConnInfo::new(five_tuple, pkt_actions),
+            info: ConnInfo::new(five_tuple, pkt_actions, core_id),
         })
     }
 
@@ -74,14 +75,15 @@ where
     #[allow(clippy::unnecessary_wraps)]
     pub(super) fn new_udp(ctxt: L4Context,
                           initial_timeout: usize,
-                          actions: Actions) -> Result<Self> {
+                          actions: Actions,
+                          core_id: u32) -> Result<Self> {
         let five_tuple = FiveTuple::from_ctxt(ctxt);
         let udp_conn = UdpConn;
         Ok(Conn {
             last_seen_ts: Instant::now(),
             inactivity_window: initial_timeout,
             l4conn: L4Conn::Udp(udp_conn),
-            info: ConnInfo::new(five_tuple, actions),
+            info: ConnInfo::new(five_tuple, actions, core_id),
         })
     }
 

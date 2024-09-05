@@ -84,7 +84,7 @@ where
         let config = TrackerConfig::from(&self.conntrack);
         let registry = S::Tracked::parsers();
         log::debug!("{:#?}", registry);
-        let mut conn_table = ConnTracker::<S::Tracked>::new(config, registry);
+        let mut conn_table = ConnTracker::<S::Tracked>::new(config, registry, self.id.raw());
 
         while self.is_running.load(Ordering::Relaxed) {
             for rxqueue in self.rxqueues.iter() {

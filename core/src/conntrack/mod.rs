@@ -44,6 +44,8 @@ where
     table: LinkedHashMap<ConnId, Conn<T>>,
     /// Manages connection timeouts.
     timerwheel: TimerWheel,
+    /// ID of the core that the table is assigned to.
+    core_id: u32,
 }
 
 impl<T> ConnTracker<T>
@@ -51,7 +53,8 @@ where
     T: Trackable,
 {
     /// Creates a new `ConnTracker`.
-    pub(crate) fn new(config: TrackerConfig, registry: ParserRegistry) -> Self {
+    pub(crate) fn new(config: TrackerConfig, registry: ParserRegistry,
+                      core_id: u32) -> Self {
         let table = LinkedHashMap::with_capacity(config.max_connections);
         let timerwheel = TimerWheel::new(
             cmp::max(config.tcp_inactivity_timeout, config.udp_inactivity_timeout),
@@ -62,6 +65,7 @@ where
             registry,
             table,
             timerwheel,
+            core_id,
         }
     }
 
@@ -120,11 +124,13 @@ where
                             ctxt,
                             self.config.tcp_establish_timeout,
                             self.config.max_out_of_order,
-                            pkt_actions
+                            pkt_actions,
+                            self.core_id
                         ),
                         UDP_PROTOCOL => Conn::new_udp(ctxt,
                                               self.config.udp_inactivity_timeout,
-                                              pkt_actions),
+                                              pkt_actions,
+                                              self.core_id),
                         _ => Err(anyhow!("Invalid L4 Protocol")),
                     };
                     if let Ok(mut conn) = conn {

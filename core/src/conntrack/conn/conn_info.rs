@@ -29,10 +29,11 @@ impl<T> ConnInfo<T>
 where
     T: Trackable,
 {
-    pub(super) fn new(five_tuple: FiveTuple, pkt_actions: Actions) -> Self {
+    pub(super) fn new(five_tuple: FiveTuple, pkt_actions: Actions,
+                      core_id: u32) -> Self {
         ConnInfo {
             actions: pkt_actions,
-            cdata: ConnData::new(five_tuple),
+            cdata: ConnData::new(five_tuple, core_id),
             sdata: T::new(five_tuple),
         }
     }
