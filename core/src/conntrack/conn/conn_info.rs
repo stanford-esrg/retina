@@ -1,6 +1,7 @@
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
 use crate::filter::FilterResult;
+use crate::protocols::packet::udp::UDP_PROTOCOL;
 use crate::protocols::stream::{
     ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, Session,
 };
@@ -47,7 +48,7 @@ where
             ConnState::Tracking => {
                 self.on_track(pdu, subscription);
             }
-            ConnState::Remove => {
+            ConnState::Remove | ConnState::Dropped => {
                 drop(pdu);
             }
         }
@@ -69,7 +70,7 @@ where
                         self.on_parse(pdu, subscription);
                     }
                     FilterResult::NoMatch => {
-                        self.state = ConnState::Remove;
+                        self.state = self.get_drop_state();
                     }
                 }
             }
@@ -82,10 +83,10 @@ where
                         self.state = self.get_match_state(0);
                     }
                     FilterResult::MatchNonTerminal(_idx) => {
-                        self.state = ConnState::Remove;
+                        self.state = self.get_drop_state();
                     }
                     FilterResult::NoMatch => {
-                        self.state = ConnState::Remove;
+                        self.state = self.get_drop_state();
                     }
                 }
             }
@@ -108,7 +109,7 @@ where
                     }
                 } else {
                     log::error!("Done parse but no mru");
-                    self.state = ConnState::Remove;
+                    self.state = self.get_drop_state();
                 }
             }
             ParseResult::Continue(id) => {
@@ -134,10 +135,17 @@ where
 
     fn get_nomatch_state(&self, session_id: usize) -> ConnState {
         if session_id == 0 && T::Subscribed::level() == Level::Connection {
-            ConnState::Remove
+            self.get_drop_state()
         } else {
             self.cdata.conn_parser.session_nomatch_state()
         }
+    }
+
+    fn get_drop_state(&self) -> ConnState {
+        if self.cdata.five_tuple.proto == UDP_PROTOCOL {
+            return ConnState::Dropped;
+        }
+        ConnState::Remove
     }
 }
 
@@ -151,4 +159,7 @@ pub enum ConnState {
     Tracking,
     /// Connection will be removed
     Remove,
+    /// Unmatched UDP connection; waiting to be aged out by timerwheel.
+    /// Prevents dropped UDP conns from being re-inserted in table
+    Dropped,
 }

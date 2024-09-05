@@ -160,7 +160,7 @@ where
             ConnState::Tracking => {
                 self.info.sdata.on_terminate(subscription);
             }
-            ConnState::Remove => {
+            ConnState::Remove | ConnState::Dropped => {
                 // do nothing
             }
         }
