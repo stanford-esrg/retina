@@ -13,7 +13,7 @@ pub trait Trackable {
     type Subscribed: Subscribable<Tracked = Self>;
 
     /// Create a new struct for tracking connection data for user delivery
-    fn new(five_tuple: FiveTuple) -> Self;
+    fn new(five_tuple: FiveTuple, core_id: u32) -> Self;
 
     /// When tracking, parsing, or buffering frames,
     /// update tracked data with new PDU
@@ -42,6 +42,9 @@ pub trait Trackable {
     /// Parsers needed by all datatypes
     /// Parsers needed by filter are generated on program startup
     fn parsers() -> ParserRegistry;
+
+    /// Return core ID
+    fn core_id(&self) -> u32;
 }
 
 pub struct Subscription<S>

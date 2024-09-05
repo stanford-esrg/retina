@@ -146,18 +146,15 @@ pub struct ConnData {
     pub five_tuple: FiveTuple,
     /// The protocol parser associated with the connection.
     pub conn_parser: ConnParser,
-    /// Core ID of the connection table
-    pub core_id: u32,
 }
 
 impl ConnData {
     /// Create a new `ConnData` from the connection `five_tuple` and the ID of the last matched node
     /// in the filter predicate trie.
-    pub(crate) fn new(five_tuple: FiveTuple, core_id: u32) -> Self {
+    pub(crate) fn new(five_tuple: FiveTuple) -> Self {
         ConnData {
             five_tuple,
             conn_parser: ConnParser::Unknown,
-            core_id,
         }
     }
 

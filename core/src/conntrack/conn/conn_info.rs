@@ -33,8 +33,8 @@ where
                       core_id: u32) -> Self {
         ConnInfo {
             actions: pkt_actions,
-            cdata: ConnData::new(five_tuple, core_id),
-            sdata: T::new(five_tuple),
+            cdata: ConnData::new(five_tuple),
+            sdata: T::new(five_tuple, core_id),
         }
     }
 

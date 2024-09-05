@@ -109,6 +109,7 @@ impl TrackedDataBuilder {
         quote! {
             pub struct TrackedWrapper {
                 five_tuple: FiveTuple,
+                core_id: u32,
                 sessions: Vec<Session>,
                 mbufs: Vec<Mbuf>,
                 #( #def )*
@@ -117,10 +118,11 @@ impl TrackedDataBuilder {
             impl Trackable for TrackedWrapper {
                 type Subscribed = SubscribedWrapper;
 
-                fn new(five_tuple: FiveTuple) -> Self {
+                fn new(five_tuple: FiveTuple, core_id: u32) -> Self {
 
                     Self {
                         five_tuple,
+                        core_id,
                         sessions: vec![],
                         mbufs: vec![],
                         #( #new )*
@@ -156,6 +158,10 @@ impl TrackedDataBuilder {
 
                 fn track_session(&mut self, session: Session) {
                     self.sessions.push(session);
+                }
+
+                fn core_id(&self) -> u32 {
+                    self.core_id
                 }
 
                 fn parsers() -> retina_core::protocols::stream::ParserRegistry {
