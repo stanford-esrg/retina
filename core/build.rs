@@ -99,7 +99,7 @@ fn main() {
         .allowlist_type(r"(rte|eth|pcap)_.*")
         .allowlist_function(r"(_rte|rte|eth|numa|pcap)_.*")
         .allowlist_var(r"(RTE|DEV|ETH|MEMPOOL|PKT|rte)_.*")
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate_comments(false)
         .generate()
         .unwrap_or_else(|e| panic!("Failed to generate bindings: {:?}", e));

@@ -9,6 +9,8 @@ These installation instructions are for running Retina on a bare metal Ubuntu se
 | Intel Xeon Silver 4314| Ubuntu 20.04  | Mellanox ConnectX-5 100G MCX516A-CCA_Ax  |
 | AMD EPYC 7452 32-Core | Ubuntu 20.04  | Mellanox ConnectX-5 Ex Dual Port 100 GbE |
 
+We have also tested Retina in offline mode on both x86 and ARM-based [Ubuntu VMs](#testing-retina-offline-on-a-vm).
+
 Retina can run on other platforms as well, detail to come.
 
 ## Hardware Recommendations
@@ -84,6 +86,9 @@ sudo ldconfig
 ```
 More information on compiling DPDK can be found [here](https://doc.dpdk.org/guides/linux_gsg/build_dpdk.html#).
 
+#### Troubleshooting: Building DPDK 21.08 with Meson
+
+Meson >= 0.60 [may fail to build](https://github.com/spdk/spdk/issues/2214) DPDK 21.08. You can insert [the fix](https://review.spdk.io/gerrit/c/spdk/dpdk/+/10044) into DPDK or build Meson < 0.60 from [source](https://github.com/mesonbuild/meson/releases). (After downloading and extracting, run `python3 setup.py build && sudo python3 setup.py install`.) 
 
 #### (Optional) Binding network interfaces to DPDK-compatible driver
 Depending on your NIC and the associated DPDK poll mode driver (PMD), you may need to bind the device/interface to a DPDK-compatible driver in order to make it work properly. **Note**: this step does *not* need to be done for the Mellanox PMD (mlx5). Details on binding and unbinding to drivers can be found [here](https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html).
@@ -120,3 +125,35 @@ Run:
 ```sh
 sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=error ./target/release/my_app
 ```
+
+#### Troubleshooting: Bindgen
+
+Retina uses [bindgen](https://docs.rs/bindgen/latest/bindgen/) to generate bindings to DPDK functions implemented in C. As of 06/2024, we have encountered issues when using bindgen with clang/llvm >13, apparently due to introduced APIs for SIMD intrinsics.
+
+If you are using clang and building Retina fails with an error such as the below, downgrade clang/llvm to <=13.
+
+```sh
+error: invalid conversion between vector type '__m128i' (vector of 2 'long long' values) and integer type 'int' of different size
+```
+
+## Testing Retina (Offline) on a VM
+
+We have deployed Retina in offline mode (streaming pcaps) on both ARM- and x86-based Ubuntu VMs. This can be useful for getting started, development, and functional testing. 
+
+The main branch of Retina may specify "mlx5" as a default feature, as this is the recommended setup. Remove this in `core/Cargo.toml` if not present on the VM.  
+
+For an x86 architecture, no other changes are needed. 
+
+For ARM vCPU: 
+
+- When building DPDK, add a meson [build option](https://doc.dpdk.org/guides-22.03/linux_gsg/build_dpdk.html) to configure for generic or native [SoC](https://github.com/DPDK/dpdk/blob/6f716880ee53ac1e50c9c75dc749886e3257bb8f/config/arm/meson.build#L373-L414):
+
+```sh
+meson setup configure -Dplatform=generic
+```
+
+- Let `LD_LIBRARY_PATH` point to `aarch64-linux-gnu`:
+```sh
+export LD_LIBRARY_PATH=$DPDK_PATH/lib/aarch64-linux-gnu
+```
+

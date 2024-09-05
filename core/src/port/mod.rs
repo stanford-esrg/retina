@@ -33,14 +33,17 @@ pub(crate) struct PortId(pub(crate) u16);
 impl PortId {
     pub fn new_from_device(device: String) -> PortId {
         let mut port_id: u16 = 0;
-        unsafe {
+        let _device = device.clone();
+        let ret = unsafe {
             let dev_name = CString::new(device).unwrap();
-            let ret = dpdk::rte_eth_dev_get_port_by_name(dev_name.as_ptr(), &mut port_id);
-            assert_eq!(ret, 0);
+            dpdk::rte_eth_dev_get_port_by_name(dev_name.as_ptr(), &mut port_id)
+        };
+        if ret != 0 {
+            panic!("Failed to find device by name {}", _device);
         }
 
         if { unsafe { dpdk::rte_eth_dev_is_valid_port(port_id) } } == 0 {
-            panic!("ERROR: Invalid port.");
+            panic!("ERROR: Invalid port ID {}.", port_id);
         }
         PortId(port_id)
     }

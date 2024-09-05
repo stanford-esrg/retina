@@ -6,11 +6,13 @@
 
 pub mod dns;
 pub mod http;
+pub mod quic;
 pub mod tls;
 pub mod conn;
 
 use self::dns::{parser::DnsParser, Dns};
 use self::http::{parser::HttpParser, Http};
+use self::quic::{parser::QuicParser, QuicPacket};
 use self::tls::{parser::TlsParser, Tls};
 use self::conn::ConnField;
 use crate::conntrack::conn_id::FiveTuple;
@@ -184,6 +186,7 @@ pub enum SessionData {
     Tls(Box<Tls>),
     Dns(Box<Dns>),
     Http(Box<Http>),
+    Quic(Box<QuicPacket>),
     Null,
 }
 
@@ -227,6 +230,7 @@ pub enum ConnParser {
     Tls(TlsParser),
     Dns(DnsParser),
     Http(HttpParser),
+    Quic(QuicParser),
     Unknown,
 }
 
@@ -237,6 +241,7 @@ impl ConnParser {
             ConnParser::Tls(_) => ConnParser::Tls(TlsParser::default()),
             ConnParser::Dns(_) => ConnParser::Dns(DnsParser::default()),
             ConnParser::Http(_) => ConnParser::Http(HttpParser::default()),
+            ConnParser::Quic(_) => ConnParser::Quic(QuicParser::default()),
             ConnParser::Unknown => ConnParser::Unknown,
         }
     }
@@ -247,6 +252,7 @@ impl ConnParser {
             ConnParser::Tls(parser) => parser.parse(pdu),
             ConnParser::Dns(parser) => parser.parse(pdu),
             ConnParser::Http(parser) => parser.parse(pdu),
+            ConnParser::Quic(parser) => parser.parse(pdu),
             ConnParser::Unknown => ParseResult::Skipped,
         }
     }
@@ -257,6 +263,7 @@ impl ConnParser {
             ConnParser::Tls(parser) => parser.probe(pdu),
             ConnParser::Dns(parser) => parser.probe(pdu),
             ConnParser::Http(parser) => parser.probe(pdu),
+            ConnParser::Quic(parser) => parser.probe(pdu),
             ConnParser::Unknown => ProbeResult::Error,
         }
     }
@@ -268,6 +275,7 @@ impl ConnParser {
             ConnParser::Tls(parser) => parser.remove_session(session_id),
             ConnParser::Dns(parser) => parser.remove_session(session_id),
             ConnParser::Http(parser) => parser.remove_session(session_id),
+            ConnParser::Quic(parser) => parser.remove_session(session_id),
             ConnParser::Unknown => None,
         }
     }
@@ -278,6 +286,7 @@ impl ConnParser {
             ConnParser::Tls(parser) => parser.drain_sessions(),
             ConnParser::Dns(parser) => parser.drain_sessions(),
             ConnParser::Http(parser) => parser.drain_sessions(),
+            ConnParser::Quic(parser) => parser.drain_sessions(),
             ConnParser::Unknown => vec![],
         }
     }
@@ -287,6 +296,7 @@ impl ConnParser {
             ConnParser::Tls(parser) => parser.session_parsed_state(),
             ConnParser::Dns(parser) => parser.session_parsed_state(),
             ConnParser::Http(parser) => parser.session_parsed_state(),
+            ConnParser::Quic(parser) => parser.session_parsed_state(),
             ConnParser::Unknown => SessionState::Remove,
         }
     }
@@ -298,6 +308,7 @@ impl ConnParser {
             ConnParser::Tls(_parser) => Some("tls".into()),
             ConnParser::Dns(_parser) => Some("dns".into()),
             ConnParser::Http(_parser) => Some("http".into()),
+            ConnParser::Quic(_parser) => Some("quic".into()),
             ConnParser::Unknown => None,
         }
     }
