@@ -46,8 +46,6 @@ thiserror = "1.0"
 tls-parser = { git = "https://github.com/thegwan/tls-parser.git" }
 toml = "0.5.11"
 x509-parser = "0.13.2"
-rust-crypto="0.2.36"
-ring = "0.17.8"
 
 [features]
 timing = []
