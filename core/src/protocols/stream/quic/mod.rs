@@ -105,6 +105,10 @@ impl QuicPacket {
 
     /// Returns the number of bytes in the payload of the Quic packet
     pub fn payload_bytes_count(&self) -> u64 {
-        self.payload_bytes_count.unwrap_or_default()
+        if let Some(count) = self.payload_bytes_count {
+            count
+        } else {
+            0
+        }
     }
 }
