@@ -12,7 +12,7 @@ ipcrypt = "0.1.0"
 lazy_static = "1.4.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
 regex = "1.7.3"
-retina-core = { path = "../../core" }
+retina-core = { path = "../../core", features = ["mlx5"] }
 retina-filtergen = { path = "../../filtergen" }
 
 [dependencies.pnet]
