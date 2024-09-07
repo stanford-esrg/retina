@@ -52,4 +52,4 @@ ring = "0.17.8"
 [features]
 timing = []
 mlx5 = []
-default = ["mlx5"]
+default = []
