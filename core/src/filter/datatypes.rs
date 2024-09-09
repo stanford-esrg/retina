@@ -14,7 +14,7 @@ pub enum Level {
     Session,
 }
 
-// Specification for one subscription (filter, CB, datatypes)
+// Specification for one subscription (filter, CB, one or more datatypes)
 #[derive(Debug, Clone)]
 pub struct SubscriptionSpec {
     // Datatype(s) invoked in callback
@@ -23,10 +23,16 @@ pub struct SubscriptionSpec {
     pub filter: String,
     // Callback as string, used in codegen
     pub callback: String,
-    // Level of the full subscription (latest delivery of datatypes)
+    // When the full subscription is ready to be delivered
+    // Because all data must be delivered simultaneously, this is
+    // set based on latest delivery stage. Data is buffered until
+    // all datatypes are ready to be delivered.
+    // For example: a callback requesting "packets" and "connection records"
+    // is a connection-level subscription
     pub level: Level,
 }
 
+// Describes a single subscribable datatype
 #[derive(Clone, Debug)]
 pub struct DataType {
     // Indicates when delivery can start, dictates per-stage actions
@@ -85,7 +91,7 @@ impl DataType {
         Self::new(Level::Packet, false, false, vec![], "Packet")
     }
 
-    // Should this datatype be delivered if the filter matched
+    // Can this datatype be delivered if the filter matched
     pub(crate) fn should_deliver(&self, filter_layer: &FilterLayer, pred: &Predicate) -> bool {
         match self.level {
             Level::Packet => {
@@ -110,17 +116,19 @@ impl DataType {
         }
     }
 
-    // First packet in connection
-    pub(crate) fn packet_filter(&self, sub_level: &Level) -> SubscriptionAction {
-        let mut actions = SubscriptionAction::new();
+    // Actions applied for first packet in connection if filter is
+    // matching (non-terminal match) or matched (terminal match)
+    pub(crate) fn packet_filter(&self, sub_level: &Level) -> MatchingActions {
+        let mut actions = MatchingActions::new();
         // Individual datatype level
         match self.level {
             Level::Packet => {
                 actions.if_matching.data |= ActionData::PacketTrack;
-                if !matches!(sub_level, Level::Packet) {
+                if matches!(sub_level, Level::Connection | Level::Session) {
                     // Packet-level datatype to be delivered later: track packet
                     actions.if_matched.data |= ActionData::PacketTrack;
                 }
+                // Matched packet-level subscription is delivered in filter
             }
             Level::Connection => {
                 actions.if_matched.data |= ActionData::ConnDataTrack;
@@ -135,8 +143,10 @@ impl DataType {
         actions
     }
 
-    pub(crate) fn proto_filter(&self, sub_level: &Level) -> SubscriptionAction {
-        let mut actions = SubscriptionAction::new();
+    // Actions applied when the protocol is identified if filter is
+    // matching (non-terminal match) or matched (terminal match)
+    pub(crate) fn proto_filter(&self, sub_level: &Level) -> MatchingActions {
+        let mut actions = MatchingActions::new();
         match self.level {
             Level::Packet => {
                 actions.if_matching.data |= ActionData::PacketTrack;
@@ -159,7 +169,6 @@ impl DataType {
             Level::Connection => {
                 actions.if_matched.data |= ActionData::ConnDataTrack;
                 actions.if_matched.terminal_actions |= ActionData::ConnDataTrack;
-                actions.if_matching.data |= ActionData::ConnDataTrack;
             }
             Level::Session => {
                 actions.if_matched.data |= ActionData::SessionDeliver;
@@ -169,7 +178,9 @@ impl DataType {
         actions
     }
 
-    pub(crate) fn session_filter(&self, sub_level: &Level) -> SubscriptionAction {
+    // Actions applied when the session is fully parsed if filter is
+    // matching (non-terminal match) or matched (terminal match)
+    pub(crate) fn session_filter(&self, sub_level: &Level) -> MatchingActions {
         let mut if_matched = Actions::new();
         match self.level {
             Level::Packet => {
@@ -201,19 +212,23 @@ impl DataType {
                 // Session-level subscription will be delivered in session filter
             }
         }
-        SubscriptionAction {
+        MatchingActions {
             if_matched,
             if_matching: Actions::new(), // last filter applied
         }
     }
 }
 
-pub struct SubscriptionAction {
+// Helper type to track possible actions for a subscription
+#[derive(Debug, Clone)]
+pub struct MatchingActions {
+    // Actions the subscription requires on terminal match
     pub if_matched: Actions,
+    // Actions the subscription requires on non-terminal match
     pub if_matching: Actions,
 }
 
-impl SubscriptionAction {
+impl MatchingActions {
     fn new() -> Self {
         Self {
             if_matched: Actions::new(),
@@ -221,7 +236,7 @@ impl SubscriptionAction {
         }
     }
 
-    fn update(&mut self, actions: &SubscriptionAction) {
+    fn update(&mut self, actions: &MatchingActions) {
         self.if_matched.update(&actions.if_matched);
         self.if_matching.update(&actions.if_matching);
     }
@@ -237,8 +252,9 @@ impl SubscriptionSpec {
         }
     }
 
+    // Update subscription level when new datatype is added
+    // Latest delivery always takes priority
     pub fn update_level(&mut self, next_level: &Level) {
-        // Latest delivery takes priority
         if matches!(self.level, Level::Connection) ||
            matches!(next_level, Level::Connection) {
             self.level = Level::Connection;
@@ -277,6 +293,7 @@ impl SubscriptionSpec {
         spec
     }
 
+    // Format subscription as "callback(datatypes)"
     pub fn as_str(&self) -> String {
         let datatype_str: Vec<&'static str> = self.datatypes.iter()
                                                             .map(|d| d.as_str )
@@ -291,7 +308,8 @@ impl SubscriptionSpec {
             .all(|d| d.should_deliver(&filter_layer, pred))
     }
 
-    pub(crate) fn packet_continue(&self) -> SubscriptionAction {
+    // Actions for filter applied for each packet
+    pub(crate) fn packet_continue(&self) -> MatchingActions {
         let mut if_matched = Actions::new();
         let mut if_matching = Actions::new();
 
@@ -307,37 +325,41 @@ impl SubscriptionSpec {
                 if_matching.data |= ActionData::PacketContinue;
             }
         }
-        SubscriptionAction {
+        MatchingActions {
             if_matched,
             if_matching,
         }
     }
 
-    // First packet in connection
-    pub(crate) fn packet_filter(&self) -> SubscriptionAction {
-        let mut actions = SubscriptionAction::new();
+    // Actions for first packet in connection
+    pub(crate) fn packet_filter(&self) -> MatchingActions {
+        let mut actions = MatchingActions::new();
         for datatype in &self.datatypes {
             actions.update(&datatype.packet_filter(&self.level));
         }
         actions
     }
 
-    pub(crate) fn proto_filter(&self) -> SubscriptionAction {
-        let mut actions = SubscriptionAction::new();
+    // Actions for when app-layer protocol identified
+    pub(crate) fn proto_filter(&self) -> MatchingActions {
+        let mut actions = MatchingActions::new();
         for datatype in &self.datatypes {
             actions.update(&datatype.proto_filter(&self.level));
         }
         actions
     }
 
-    pub(crate) fn session_filter(&self) -> SubscriptionAction {
-        let mut actions = SubscriptionAction::new();
+    // Actions for when session fully parsed
+    pub(crate) fn session_filter(&self) -> MatchingActions {
+        let mut actions = MatchingActions::new();
         for datatype in &self.datatypes {
             actions.update(&datatype.session_filter(&self.level));
         }
         actions
     }
 
+    // Returns the actions that the subscription requires for a given filter layer
+    // if the filter has fully (terminally) matched
     pub(crate) fn with_term_filter(&self, filter_layer: FilterLayer) -> Actions {
         match filter_layer {
             FilterLayer::PacketContinue => self.packet_continue().if_matched,
@@ -351,23 +373,22 @@ impl SubscriptionSpec {
         }
     }
 
+    // Returns the actions that the subscription requires for a given filter layer
+    // if the filter has partially (non-terminally) matched
     pub(crate) fn with_nonterm_filter(&self, filter_layer: FilterLayer) -> Actions {
         let mut actions = Actions::new();
         match filter_layer {
             FilterLayer::PacketContinue => {
-                // Apply next filter
-                actions.data |= ActionData::PacketContinue;
                 actions.update(&self.packet_continue().if_matching);
+                actions.data |= ActionData::PacketContinue;
             }
             FilterLayer::Packet => {
-                // Apply next filter
-                actions.data |= ActionData::ProtoFilter;
                 actions.update(&self.packet_filter().if_matching);
+                actions.data |= ActionData::ProtoFilter;
             }
             FilterLayer::Protocol => {
-                // Apply next filter
-                actions.data |= ActionData::SessionFilter;
                 actions.update(&self.proto_filter().if_matching);
+                actions.data |= ActionData::SessionFilter;
             }
             FilterLayer::Session => {
                 actions.update(&self.session_filter().if_matching);

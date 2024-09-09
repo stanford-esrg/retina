@@ -702,7 +702,8 @@ mod tests {
 
         let mut expected_actions = Actions::new();
         expected_actions.data |= ActionData::ConnDataTrack | ActionData::SessionTrack;
-        expected_actions.terminal_actions |= ActionData::ConnDataTrack | ActionData::SessionTrack;
+        expected_actions.terminal_actions |= ActionData::ConnDataTrack;
+        println!("{:?}, {}", expected_actions, ptree);
         assert!(ptree.actions == expected_actions);
         assert!(!ptree.get_subtree(4).unwrap().deliver.is_empty());
 
