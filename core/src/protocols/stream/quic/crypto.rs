@@ -30,11 +30,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::iter::repeat;
-
-use crypto::aead::AeadDecryptor;
-use crypto::aes::KeySize;
-use crypto::aes_gcm::AesGcm;
+use aes_gcm::{
+    aead::{AeadMutInPlace, KeyInit},
+    Aes128Gcm, Nonce, Tag,
+};
 use ring::aead;
 use ring::hkdf;
 use serde::Serialize;
@@ -80,12 +79,6 @@ impl Algorithm {
             Algorithm::AES128GCM => 12,
         }
     }
-
-    pub fn get_key_len(self) -> Option<KeySize> {
-        match self {
-            Algorithm::AES128GCM => Some(KeySize::KeySize128),
-        }
-    }
 }
 
 // The Open struct gives a return value
@@ -94,9 +87,6 @@ impl Algorithm {
 #[derive(Serialize)]
 pub struct Open {
     alg: Algorithm,
-
-    #[serde(skip_serializing)]
-    key_len: Option<KeySize>,
 
     initial_key: Vec<u8>,
 
@@ -110,8 +100,6 @@ impl Open {
     pub fn new(alg: Algorithm, key: &[u8], iv: &[u8], hp_key: &[u8]) -> Result<Open, QuicError> {
         Ok(Open {
             alg,
-
-            key_len: alg.get_key_len(),
 
             initial_key: key.to_vec(),
 
@@ -129,22 +117,27 @@ impl Open {
         buf: &mut [u8],
         tag: &[u8],
     ) -> Result<Vec<u8>, QuicError> {
-        let nonce = make_nonce(&self.iv, counter);
         let mut cipher = match self.alg {
             Algorithm::AES128GCM => {
-                AesGcm::new(self.key_len.unwrap(), &self.initial_key, &nonce, ad)
+                let res = Aes128Gcm::new_from_slice(&self.initial_key);
+                if res.is_err() {
+                    return Err(QuicError::CryptoFail);
+                }
+                res.unwrap()
             }
         };
+        let rc = cipher.decrypt_in_place_detached(
+            &Nonce::clone_from_slice(&make_nonce(&self.iv, counter)),
+            ad,
+            buf,
+            &Tag::clone_from_slice(tag),
+        );
 
-        let mut out: Vec<u8> = repeat(0).take(buf.len()).collect();
-
-        let rc = cipher.decrypt(buf, &mut out, tag);
-
-        if !rc {
+        if rc.is_err() {
             return Err(QuicError::CryptoFail);
         }
 
-        Ok(out)
+        Ok(buf.to_vec())
     }
 
     pub fn new_mask(&self, sample: &[u8]) -> Result<[u8; 5], QuicError> {
