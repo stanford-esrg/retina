@@ -52,10 +52,7 @@ where
     /// # Example
     ///
     /// let mut runtime = Runtime::new(config, filter, callback)?;
-    pub fn new(
-        config: RuntimeConfig,
-        factory: fn() -> FilterFactory<S::Tracked>,
-    ) -> Result<Self> {
+    pub fn new(config: RuntimeConfig, factory: fn() -> FilterFactory<S::Tracked>) -> Result<Self> {
         let factory = factory();
         let filter_str = factory.filter_str.clone();
         let subscription = Arc::new(Subscription::new(factory));
@@ -118,11 +115,7 @@ where
                 offline: cfg.clone(),
                 conntrack: config.conntrack.clone(),
             };
-            OfflineRuntime::new(
-                offline_opts,
-                &mempools,
-                Arc::clone(&subscription),
-            )
+            OfflineRuntime::new(offline_opts, &mempools, Arc::clone(&subscription))
         });
 
         log::info!("Runtime ready.");

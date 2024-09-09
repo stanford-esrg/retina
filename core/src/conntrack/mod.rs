@@ -53,8 +53,7 @@ where
     T: Trackable,
 {
     /// Creates a new `ConnTracker`.
-    pub(crate) fn new(config: TrackerConfig, registry: ParserRegistry,
-                      core_id: u32) -> Self {
+    pub(crate) fn new(config: TrackerConfig, registry: ParserRegistry, core_id: u32) -> Self {
         let table = LinkedHashMap::with_capacity(config.max_connections);
         let timerwheel = TimerWheel::new(
             cmp::max(config.tcp_inactivity_timeout, config.udp_inactivity_timeout),
@@ -80,7 +79,7 @@ where
         &mut self,
         mbuf: Mbuf,
         ctxt: L4Context,
-        subscription: &Subscription<T::Subscribed>
+        subscription: &Subscription<T::Subscribed>,
     ) {
         let conn_id = ConnId::new(ctxt.src, ctxt.dst, ctxt.proto);
         match self.table.raw_entry_mut().from_key(&conn_id) {
@@ -125,12 +124,14 @@ where
                             self.config.tcp_establish_timeout,
                             self.config.max_out_of_order,
                             pkt_actions,
-                            self.core_id
+                            self.core_id,
                         ),
-                        UDP_PROTOCOL => Conn::new_udp(ctxt,
-                                              self.config.udp_inactivity_timeout,
-                                              pkt_actions,
-                                              self.core_id),
+                        UDP_PROTOCOL => Conn::new_udp(
+                            ctxt,
+                            self.config.udp_inactivity_timeout,
+                            pkt_actions,
+                            self.core_id,
+                        ),
                         _ => Err(anyhow!("Invalid L4 Protocol")),
                     };
                     if let Ok(mut conn) = conn {

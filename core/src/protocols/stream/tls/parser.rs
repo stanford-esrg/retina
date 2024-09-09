@@ -15,7 +15,9 @@ use super::handshake::{
 };
 use super::Tls;
 use crate::conntrack::pdu::L4Pdu;
-use crate::protocols::stream::{ConnParsable, ParseResult, ProbeResult, Session, SessionData, SessionState};
+use crate::protocols::stream::{
+    ConnParsable, ParseResult, ProbeResult, Session, SessionData, SessionState,
+};
 
 use tls_parser::*;
 

@@ -1,16 +1,16 @@
-pub mod typedefs;
 pub mod connection;
+pub mod typedefs;
 pub use connection::Connection;
 pub mod http;
 pub use http::HttpTransaction;
 pub mod packet;
-pub use packet::{ZcFrame, Payload};
+pub use packet::{Payload, ZcFrame};
 
 pub use typedefs::DATATYPES;
 
+use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
 use retina_core::protocols::stream::Session;
-use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::Mbuf;
 
 pub trait Tracked {

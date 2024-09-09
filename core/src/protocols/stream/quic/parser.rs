@@ -7,7 +7,7 @@ use crate::protocols::stream::quic::header::{
 };
 use crate::protocols::stream::quic::QuicPacket;
 use crate::protocols::stream::{
-    SessionState, ConnParsable, L4Pdu, ParseResult, ProbeResult, Session, SessionData,
+    ConnParsable, L4Pdu, ParseResult, ProbeResult, Session, SessionData, SessionState,
 };
 use std::collections::HashMap;
 

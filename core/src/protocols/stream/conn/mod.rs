@@ -2,11 +2,11 @@ pub mod layer3;
 pub mod layer4;
 
 pub use layer3::{Ipv4CData, Ipv6CData};
-pub use layer4::{UdpCData, TcpCData};
+pub use layer4::{TcpCData, UdpCData};
 
-use thiserror::Error;
-use anyhow::Result;
 use crate::protocols::stream::ConnData;
+use anyhow::Result;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub(crate) enum ConnDataError {

@@ -1,6 +1,5 @@
 pub mod actions;
-pub use actions::{Actions, ActionData};
-
+pub use actions::{ActionData, Actions};
 
 #[macro_use]
 pub mod macros;
@@ -9,11 +8,11 @@ mod hardware;
 #[allow(clippy::upper_case_acronyms)]
 mod parser;
 mod pattern;
-pub mod ptree_flat;
 pub mod ptree;
+pub mod ptree_flat;
 
 pub mod datatypes;
-pub use datatypes::{Level, DataType};
+pub use datatypes::{DataType, Level, SubscriptionSpec};
 
 use crate::filter::hardware::{flush_rules, HardwareFilter};
 use crate::filter::parser::FilterParser;
@@ -45,7 +44,7 @@ pub type ConnDeliverFn<T> = fn(&ConnData, &T);
 
 pub struct FilterFactory<T>
 where
-    T: Trackable
+    T: Trackable,
 {
     pub filter_str: String,
     pub packet_continue: PacketContFn,
@@ -58,7 +57,7 @@ where
 
 impl<T> FilterFactory<T>
 where
-    T: Trackable
+    T: Trackable,
 {
     pub fn new(
         filter_str: &str,
@@ -87,7 +86,6 @@ pub struct Filter {
 }
 
 impl Filter {
-
     pub fn new(filter_raw: &str) -> Result<Filter> {
         let raw_patterns = FilterParser::parse_filter(filter_raw)?;
 
@@ -212,6 +210,5 @@ pub enum FilterError {
         source: ipnet::PrefixLenError,
     },
 }
-
 
 // Nice-to-have: tests for filter string parsing

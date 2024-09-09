@@ -1,5 +1,5 @@
 use crate::conntrack::conn_id::FiveTuple;
-use crate::conntrack::pdu::{L4Pdu, L4Context};
+use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
 use crate::filter::*;
 use crate::memory::mbuf::Mbuf;
@@ -17,9 +17,7 @@ pub trait Trackable {
 
     /// When tracking, parsing, or buffering frames,
     /// update tracked data with new PDU
-    fn update(&mut self,
-              pdu: &L4Pdu,
-              session_id: Option<usize>);
+    fn update(&mut self, pdu: &L4Pdu, session_id: Option<usize>);
 
     /// Deliver tracked five tuple (always tracked)
     fn five_tuple(&self) -> FiveTuple;
@@ -63,7 +61,7 @@ where
 
 impl<S> Subscription<S>
 where
-    S: Subscribable
+    S: Subscribable,
 {
     pub fn new(factory: FilterFactory<S::Tracked>) -> Self {
         Subscription {
@@ -82,7 +80,7 @@ where
         &self,
         mbuf: Mbuf,
         conn_tracker: &mut ConnTracker<S::Tracked>,
-        actions: Actions
+        actions: Actions,
     ) {
         if actions.data.intersects(ActionData::PacketContinue) {
             if let Ok(ctxt) = L4Context::new(&mbuf) {
@@ -116,7 +114,12 @@ where
 
     /// Invokes the application-layer session filter.
     /// Delivers sessions to callbacks if applicable.
-    pub fn filter_session(&self, session: &Session, conn: &ConnData, tracked: &S::Tracked) -> Actions {
+    pub fn filter_session(
+        &self,
+        session: &Session,
+        conn: &ConnData,
+        tracked: &S::Tracked,
+    ) -> Actions {
         (self.session_filter)(session, conn, tracked)
     }
 

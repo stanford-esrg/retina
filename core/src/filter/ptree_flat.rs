@@ -176,7 +176,8 @@ impl FlatPTree {
         node.patterns.push(pattern_id);
         for predicate in pattern.predicates.iter() {
             if !node.has_child(predicate) {
-                node.children.push(FlatPNode::new(predicate.clone(), self.size));
+                node.children
+                    .push(FlatPNode::new(predicate.clone(), self.size));
                 self.size += 1;
 
                 if node.pred.on_packet() && predicate.on_proto() {

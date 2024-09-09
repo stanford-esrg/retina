@@ -1,8 +1,8 @@
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use crate::protocols::stream::ConnData;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
+use super::{ConnDataError, ConnField};
 use anyhow::{bail, Result};
-use super::{ConnField, ConnDataError};
 
 /// IPv4 Connection Metadata.
 #[derive(Debug)]
@@ -24,24 +24,18 @@ impl Ipv4CData {
 }
 
 impl ConnField for Ipv4CData {
-
-    fn parse_from(conn_data: &ConnData) -> Result<Self>
-    {
+    fn parse_from(conn_data: &ConnData) -> Result<Self> {
         if let SocketAddr::V4(src) = conn_data.five_tuple.orig {
             if let SocketAddr::V4(dst) = conn_data.five_tuple.resp {
-                return Ok(
-                    Self {
-                        src_addr: *src.ip(),
-                        dst_addr: *dst.ip()
-                    }
-                );
+                return Ok(Self {
+                    src_addr: *src.ip(),
+                    dst_addr: *dst.ip(),
+                });
             }
         }
         bail!(ConnDataError::InvalidProtocol)
     }
-
 }
-
 
 /// IPv6 Connection Metadata.
 #[derive(Debug)]
@@ -51,7 +45,6 @@ pub struct Ipv6CData {
 }
 
 impl Ipv6CData {
-
     #[inline]
     pub fn src_addr(&self) -> Ipv6Addr {
         self.src_addr
@@ -61,21 +54,16 @@ impl Ipv6CData {
     pub fn dst_addr(&self) -> Ipv6Addr {
         self.dst_addr
     }
-
 }
 
 impl ConnField for Ipv6CData {
-
-    fn parse_from(conn_data: &ConnData) -> Result<Self>
-    {
+    fn parse_from(conn_data: &ConnData) -> Result<Self> {
         if let SocketAddr::V6(src) = conn_data.five_tuple.orig {
             if let SocketAddr::V6(dst) = conn_data.five_tuple.resp {
-                return Ok(
-                    Self {
-                        src_addr: *src.ip(),
-                        dst_addr: *dst.ip()
-                    }
-                );
+                return Ok(Self {
+                    src_addr: *src.ip(),
+                    dst_addr: *dst.ip(),
+                });
             }
         }
         bail!(ConnDataError::InvalidProtocol)

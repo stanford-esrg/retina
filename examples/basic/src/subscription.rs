@@ -1,19 +1,19 @@
-use retina_datatypes::*;
 use lazy_static::lazy_static;
+use retina_datatypes::*;
 use std::sync::RwLock;
 
-use retina_datatypes::{HttpTransaction, Connection};
+use retina_datatypes::{Connection, HttpTransaction};
 
 use retina_filtergen::subscription;
 
-lazy_static!(
+lazy_static! {
     static ref CYCLES: RwLock<u64> = RwLock::new(0);
     static ref HTTP: RwLock<u64> = RwLock::new(0);
     static ref TCP: RwLock<u64> = RwLock::new(0);
     static ref IPDST: RwLock<u64> = RwLock::new(0);
     static ref IPSRC: RwLock<u64> = RwLock::new(0);
     static ref ETH: RwLock<u64> = RwLock::new(0);
-);
+}
 
 #[allow(dead_code)]
 fn http_cb(http: &HttpTransaction) {

@@ -51,11 +51,13 @@ where
     /// `initial_timeout` and a maximum out-or-order tolerance of `max_ooo`. This means that there
     /// can be at most `max_ooo` packets buffered out of sequence before Retina chooses to discard
     /// the connection.
-    pub(super) fn new_tcp(ctxt: L4Context,
-                          initial_timeout: usize,
-                          max_ooo: usize,
-                          pkt_actions: Actions,
-                          core_id: u32) -> Result<Self> {
+    pub(super) fn new_tcp(
+        ctxt: L4Context,
+        initial_timeout: usize,
+        max_ooo: usize,
+        pkt_actions: Actions,
+        core_id: u32,
+    ) -> Result<Self> {
         let five_tuple = FiveTuple::from_ctxt(ctxt);
         let tcp_conn = if ctxt.flags & SYN != 0 && ctxt.flags & ACK == 0 && ctxt.flags & RST == 0 {
             TcpConn::new_on_syn(ctxt, max_ooo)
@@ -73,10 +75,12 @@ where
     /// Creates a new UDP connection from `ctxt` with an initial inactivity window of
     /// `initial_timeout`.
     #[allow(clippy::unnecessary_wraps)]
-    pub(super) fn new_udp(ctxt: L4Context,
-                          initial_timeout: usize,
-                          actions: Actions,
-                          core_id: u32) -> Result<Self> {
+    pub(super) fn new_udp(
+        ctxt: L4Context,
+        initial_timeout: usize,
+        actions: Actions,
+        core_id: u32,
+    ) -> Result<Self> {
         let five_tuple = FiveTuple::from_ctxt(ctxt);
         let udp_conn = UdpConn;
         Ok(Conn {
@@ -115,8 +119,8 @@ where
     /// period prevents dropped connections from being re-inserted.
     pub(super) fn remove(&self) -> bool {
         match &self.l4conn {
-            L4Conn::Udp(_) => { false },
-            _ => { self.info.actions.drop() }
+            L4Conn::Udp(_) => false,
+            _ => self.info.actions.drop(),
         }
     }
 

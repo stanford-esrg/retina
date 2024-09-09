@@ -1,9 +1,9 @@
 use crate::conntrack::conn::conn_info::ConnInfo;
 use crate::conntrack::pdu::L4Pdu;
+use crate::filter::Actions;
 use crate::protocols::packet::tcp::{ACK, FIN, RST, SYN};
 use crate::protocols::stream::ParserRegistry;
 use crate::subscription::{Subscription, Trackable};
-use crate::filter::Actions;
 
 use anyhow::{bail, Result};
 use std::collections::VecDeque;

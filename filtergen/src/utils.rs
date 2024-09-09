@@ -1,17 +1,17 @@
 use retina_core::filter::ast::{BinOp, FieldName, ProtocolName, Value};
-use retina_core::filter::ptree::{PNode, FilterLayer};
-use retina_core::filter::datatypes::Level;
+use retina_core::filter::{Level, SubscriptionSpec};
+use retina_core::filter::ptree::{FilterLayer, PNode};
 
 use heck::CamelCase;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use regex::Regex;
-use std::sync::Mutex;
 use std::collections::HashMap;
-use super::parse::SubscriptionSpec;
+use std::sync::Mutex;
 
 lazy_static! {
-    pub(crate) static ref DELIVER: Mutex<HashMap<usize, SubscriptionSpec>> = Mutex::new(HashMap::new());
+    pub(crate) static ref DELIVER: Mutex<HashMap<usize, SubscriptionSpec>> =
+        Mutex::new(HashMap::new());
 }
 
 // TODO: give better compiler errors
@@ -288,70 +288,68 @@ fn standard_field(
     }
 }
 
-pub(crate) fn update_body(body: &mut Vec<proc_macro2::TokenStream>, node: &PNode,
-                          filter_layer: FilterLayer) {
+pub(crate) fn update_body(
+    body: &mut Vec<proc_macro2::TokenStream>,
+    node: &PNode,
+    filter_layer: FilterLayer,
+) {
     if !node.actions.drop() {
         let actions = node.actions.clone();
-        body.push(
-            quote! { result.add_actions(&#actions); }
-        );
+        body.push(quote! { result.add_actions(&#actions); });
     }
     if !node.deliver.is_empty() {
         for d in &node.deliver {
             let id = &d.id;
             {
                 let lock = DELIVER.lock().unwrap();
-                let spec = lock.get(id).unwrap_or_else(|| panic!("Cannot find ID {}", id));
+                let spec = lock
+                    .get(id)
+                    .unwrap_or_else(|| panic!("Cannot find ID {}", id));
                 let callback = Ident::new(&spec.callback, Span::call_site());
-                let tracked_str = spec.datatype_str.to_lowercase();
+                let tracked_str = spec.datatypes[0].as_str.to_lowercase();
                 let tracked_field: Ident = Ident::new(&tracked_str, Span::call_site());
-                let type_ident = Ident::new(&spec.datatype_str, Span::call_site());
-                if matches!(spec.datatype.level, Level::Session) {
+                let type_ident = Ident::new(&spec.datatypes[0].as_str, Span::call_site());
+                if matches!(spec.datatypes[0].level, Level::Session) {
                     assert!(matches!(filter_layer, FilterLayer::Session));
-                    body.push(
-                        quote! {
-                            if let Some(s) = #type_ident::from_session(session) {
-                                #callback( s );
-                            }
+                    body.push(quote! {
+                        if let Some(s) = #type_ident::from_session(session) {
+                            #callback( s );
                         }
-                    );
-                } else if matches!(spec.datatype.level, Level::Packet) {
+                    });
+                } else if matches!(spec.datatypes[0].level, Level::Packet) {
                     // Deliver packets directly
-                    if matches!(filter_layer, FilterLayer::PacketContinue) ||
-                       matches!(filter_layer, FilterLayer::PacketDeliver) {
-                        body.push(
-                            quote! {
+                    if matches!(filter_layer, FilterLayer::PacketContinue)
+                        || matches!(filter_layer, FilterLayer::PacketDeliver)
+                    {
+                        body.push(quote! {
+                            if let Some(p) = #type_ident::from_mbuf(mbuf) {
+                                #callback( p );
+                            }
+                        });
+                    } else {
+                        // Drain existing packets
+                        body.push(quote! {
+                            for mbuf in tracked.packets() {
                                 if let Some(p) = #type_ident::from_mbuf(mbuf) {
                                     #callback( p );
                                 }
                             }
-                        );
-                    } else {
-                        // Drain existing packets
-                        body.push(
-                            quote! {
-                                for mbuf in tracked.packets() {
-                                    if let Some(p) = #type_ident::from_mbuf(mbuf) {
-                                        #callback( p );
-                                    }
-                                }
-                            }
-                        );
+                        });
                     }
                 } else {
-                    body.push(
-                        quote! { #callback( &tracked.#tracked_field ); }
-                    );
+                    body.push(quote! { #callback( &tracked.#tracked_field ); });
                 }
             }
-
         }
     }
 }
 
-pub(crate) type BuildChildNodesFn = dyn Fn(&mut Vec<proc_macro2::TokenStream>,
-                                           &mut Vec<proc_macro2::TokenStream>,
-                                           &PNode, FilterLayer);
+pub(crate) type BuildChildNodesFn = dyn Fn(
+    &mut Vec<proc_macro2::TokenStream>,
+    &mut Vec<proc_macro2::TokenStream>,
+    &PNode,
+    FilterLayer,
+);
 
 // \note Because each stage's filter may be different, we default to applying an
 //       end-to-end filter at each stage. This may require, for example, re-checking
@@ -359,7 +357,6 @@ pub(crate) type BuildChildNodesFn = dyn Fn(&mut Vec<proc_macro2::TokenStream>,
 pub(crate) struct ConnDataFilter;
 
 impl ConnDataFilter {
-
     pub(crate) fn add_unary_pred(
         code: &mut Vec<proc_macro2::TokenStream>,
         statics: &mut Vec<proc_macro2::TokenStream>,
@@ -367,12 +364,13 @@ impl ConnDataFilter {
         protocol: &ProtocolName,
         first_unary: bool,
         filter_layer: FilterLayer,
-        build_child_nodes: &BuildChildNodesFn
-    )
-    {
+        build_child_nodes: &BuildChildNodesFn,
+    ) {
         let ident = Ident::new(protocol.name(), Span::call_site());
-        let ident_type = Ident::new(&(protocol.name().to_owned().to_camel_case() + "CData"),
-                                    Span::call_site());
+        let ident_type = Ident::new(
+            &(protocol.name().to_owned().to_camel_case() + "CData"),
+            Span::call_site(),
+        );
 
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
         (build_child_nodes)(&mut body, statics, node, filter_layer);
@@ -407,7 +405,7 @@ impl ConnDataFilter {
         op: &BinOp,
         value: &Value,
         filter_layer: FilterLayer,
-        build_child_nodes: &BuildChildNodesFn
+        build_child_nodes: &BuildChildNodesFn,
     ) {
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
         (build_child_nodes)(&mut body, statics, node, filter_layer);
@@ -436,7 +434,7 @@ impl ConnDataFilter {
         node: &PNode,
         protocol: &ProtocolName,
         filter_layer: FilterLayer,
-        build_child_nodes: &BuildChildNodesFn
+        build_child_nodes: &BuildChildNodesFn,
     ) {
         let service_ident = Ident::new(&protocol.name().to_camel_case(), Span::call_site());
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
@@ -456,9 +454,7 @@ impl ConnDataFilter {
                 }
             } );
         }
-
     }
-
 }
 
 pub(crate) struct SessionDataFilter;
@@ -472,9 +468,8 @@ impl SessionDataFilter {
         protocol: &ProtocolName,
         first_unary: bool,
         filter_layer: FilterLayer,
-        build_child_nodes: &BuildChildNodesFn
-    )
-    {
+        build_child_nodes: &BuildChildNodesFn,
+    ) {
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
         (build_child_nodes)(&mut body, statics, node, filter_layer);
         update_body(&mut body, node, filter_layer);

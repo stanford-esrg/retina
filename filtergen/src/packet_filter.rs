@@ -2,18 +2,16 @@ use heck::CamelCase;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 
-use retina_core::filter::ast::*;
-use retina_core::filter::ptree::{PNode, PTree, FilterLayer};
-use retina_core::protocol;
 use crate::utils::*;
-
+use retina_core::filter::ast::*;
+use retina_core::filter::ptree::{FilterLayer, PNode, PTree};
+use retina_core::protocol;
 
 pub(crate) fn gen_packet_filter(
     ptree: &PTree,
     statics: &mut Vec<proc_macro2::TokenStream>,
     filter_layer: FilterLayer,
 ) -> proc_macro2::TokenStream {
-
     let name = "ethernet";
     let outer = Ident::new(name, Span::call_site());
     let outer_type = Ident::new(&outer.to_string().to_camel_case(), Span::call_site());
@@ -25,7 +23,7 @@ pub(crate) fn gen_packet_filter(
         statics,
         &ptree.root,
         &protocol!("frame"),
-        filter_layer
+        filter_layer,
     );
 
     let mut branches = quote! {};
@@ -55,7 +53,7 @@ fn gen_packet_filter_util(
     statics: &mut Vec<proc_macro2::TokenStream>,
     node: &PNode,
     outer_protocol: &ProtocolName,
-    filter_layer: FilterLayer
+    filter_layer: FilterLayer,
 ) {
     let mut first_unary = true;
     for child in node.children.iter().filter(|n| n.pred.on_packet()) {
@@ -68,7 +66,7 @@ fn gen_packet_filter_util(
                     node.pred.get_protocol(),
                     protocol,
                     first_unary,
-                    filter_layer
+                    filter_layer,
                 );
                 first_unary = false;
             }
@@ -87,7 +85,7 @@ fn gen_packet_filter_util(
                     field,
                     op,
                     value,
-                    filter_layer
+                    filter_layer,
                 );
             }
         }
@@ -101,7 +99,7 @@ fn add_unary_pred(
     outer_protocol: &ProtocolName,
     protocol: &ProtocolName,
     first_unary: bool,
-    filter_layer: FilterLayer
+    filter_layer: FilterLayer,
 ) {
     let outer = Ident::new(outer_protocol.name(), Span::call_site());
     let ident = Ident::new(protocol.name(), Span::call_site());
@@ -136,7 +134,7 @@ fn add_binary_pred(
     field: &FieldName,
     op: &BinOp,
     value: &Value,
-    filter_layer: FilterLayer
+    filter_layer: FilterLayer,
 ) {
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
     gen_packet_filter_util(&mut body, statics, node, outer_protocol, filter_layer);

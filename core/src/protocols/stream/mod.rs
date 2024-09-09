@@ -4,27 +4,27 @@
 //! considered a "stream-level" protocol, even if it is a datagram-based protocol in the
 //! traditional-sense.
 
+pub mod conn;
 pub mod dns;
 pub mod http;
 pub mod quic;
 pub mod tls;
-pub mod conn;
 
+use self::conn::ConnField;
 use self::dns::{parser::DnsParser, Dns};
 use self::http::{parser::HttpParser, Http};
 use self::quic::{parser::QuicParser, QuicPacket};
 use self::tls::{parser::TlsParser, Tls};
-use self::conn::ConnField;
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
 
-use std::str::FromStr;
 use std::collections::HashSet;
+use std::str::FromStr;
 
 use anyhow::Result;
 use strum_macros::EnumString;
 
-pub(crate) const IMPLEMENTED_PROTOCOLS: [&str; 3] = [ "tls", "dns", "http" ];
+pub(crate) const IMPLEMENTED_PROTOCOLS: [&str; 3] = ["tls", "dns", "http"];
 
 /// Represents the result of parsing one packet as a protocol message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,19 +67,14 @@ pub(crate) enum ProbeRegistryResult {
 pub struct ParserRegistry(Vec<ConnParser>);
 
 impl ParserRegistry {
-
     // Assumes that `input` is deduplicated
     pub fn from_strings(input: Vec<&'static str>) -> ParserRegistry {
         // Deduplicate
-        let stream_protocols: HashSet<&'static str> = input
-                                                            .into_iter()
-                                                            .collect();
+        let stream_protocols: HashSet<&'static str> = input.into_iter().collect();
         let mut parsers = vec![];
         for stream_protocol in stream_protocols {
             let parser = ConnParser::from_str(stream_protocol)
-                                     .unwrap_or_else(|_|
-                                        panic!("Invalid stream protocol: {}",
-                                               stream_protocol));
+                .unwrap_or_else(|_| panic!("Invalid stream protocol: {}", stream_protocol));
             parsers.push(parser);
         }
         ParserRegistry(parsers)

@@ -1,43 +1,34 @@
-use quote::quote;
 use heck::CamelCase;
 use proc_macro2::{Ident, Span};
+use quote::quote;
 
-use retina_core::filter::ast::*;
-use retina_core::filter::ptree::{PNode, PTree, FilterLayer};
 use crate::utils::*;
+use retina_core::filter::ast::*;
+use retina_core::filter::ptree::{FilterLayer, PNode, PTree};
 
 pub(crate) fn gen_deliver_filter(
     ptree: &PTree,
     statics: &mut Vec<proc_macro2::TokenStream>,
-    filter_layer: FilterLayer
+    filter_layer: FilterLayer,
 ) -> proc_macro2::TokenStream {
-
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
 
-    gen_deliver_util(
-        &mut body,
-        statics,
-        &ptree.root,
-        filter_layer,
-    );
+    gen_deliver_util(&mut body, statics, &ptree.root, filter_layer);
 
-    let connection_deliver = quote!{
+    let connection_deliver = quote! {
         #( #body )*
     };
     connection_deliver
 }
-
 
 fn gen_deliver_util(
     code: &mut Vec<proc_macro2::TokenStream>,
     statics: &mut Vec<proc_macro2::TokenStream>,
     node: &PNode,
     filter_layer: FilterLayer,
-)
-{
+) {
     let mut first_unary = true;
-    for child in node.children.iter()
-    {
+    for child in node.children.iter() {
         match &child.pred {
             Predicate::Unary { protocol } => {
                 if child.pred.on_packet() {
@@ -48,13 +39,18 @@ fn gen_deliver_util(
                         protocol,
                         first_unary,
                         filter_layer,
-                        &gen_deliver_util
+                        &gen_deliver_util,
                     );
                     first_unary = false;
                 } else if child.pred.on_proto() {
-                    ConnDataFilter::add_service_pred(code, statics, child, protocol,
+                    ConnDataFilter::add_service_pred(
+                        code,
+                        statics,
+                        child,
+                        protocol,
                         filter_layer,
-                                                     &gen_deliver_util);
+                        &gen_deliver_util,
+                    );
                 } else {
                     panic!("Unary predicate on session filter");
                 }
@@ -75,7 +71,7 @@ fn gen_deliver_util(
                         op,
                         value,
                         filter_layer,
-                        &gen_deliver_util
+                        &gen_deliver_util,
                     );
                 } else if child.pred.on_session() {
                     add_session_pred(
@@ -86,7 +82,7 @@ fn gen_deliver_util(
                         field,
                         op,
                         value,
-                        filter_layer
+                        filter_layer,
                     );
                 } else {
                     panic!("Binary predicate on protocol filter");
@@ -117,15 +113,13 @@ pub(crate) fn add_session_pred(
     let proto_variant = Ident::new(&service.to_camel_case(), Span::call_site());
     let proto_condition = quote! { let retina_core::protocols::stream::SessionData::#proto_variant(#proto_name) = &session.data };
 
-    code.push(
-        quote! {
-            for session in tracked.sessions() {
-                if #proto_condition  {
-                    if #pred_tokenstream {
-                        #( #body )*
-                    }
+    code.push(quote! {
+        for session in tracked.sessions() {
+            if #proto_condition  {
+                if #pred_tokenstream {
+                    #( #body )*
                 }
             }
         }
-    );
+    });
 }

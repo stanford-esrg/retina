@@ -2,9 +2,9 @@ use retina_core::config::load_config;
 use retina_core::Runtime;
 
 mod subscription;
-use subscription::*;
 use clap::Parser;
 use std::path::PathBuf;
+use subscription::*;
 
 #[derive(Parser, Debug)]
 struct Args {

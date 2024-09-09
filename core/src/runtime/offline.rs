@@ -74,8 +74,8 @@ where
             /* Apply the packet filter to get actions */
             let actions = self.subscription.continue_packet(&mbuf);
             if !actions.drop() {
-                self.subscription.process_packet(mbuf,
-                                         &mut stream_table, actions);
+                self.subscription
+                    .process_packet(mbuf, &mut stream_table, actions);
             }
         }
 

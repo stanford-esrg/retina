@@ -1,26 +1,21 @@
-use serde::{Serialize, Deserialize};
-use retina_core::filter::DataType;
+use retina_core::filter::SubscriptionSpec;
 use retina_datatypes::DATATYPES;
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 
 // Specify subscription specs from a file
 #[derive(Serialize, Deserialize)]
 pub(crate) struct ConfigRaw {
-    pub(crate) subscriptions:  Vec<SubscriptionRaw>,
+    pub(crate) subscriptions: Vec<SubscriptionRaw>,
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct SubscriptionRaw {
     pub(crate) filter: String,
-    pub(crate) datatype: String,
+    #[serde_as(as = "serde_with::OneOrMany<_>")]
+    pub(crate) datatypes: Vec<String>,
     pub(crate) callback: String,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct SubscriptionSpec {
-    pub(crate) datatype: DataType,
-    pub(crate) filter: String,
-    pub(crate) callback: String,
-    pub(crate) datatype_str: String,
 }
 
 #[derive(Debug, Clone)]
@@ -31,35 +26,31 @@ pub(crate) struct SubscriptionConfig {
 impl SubscriptionConfig {
     pub(crate) fn from_file(filepath_in: &str) -> Self {
         let config_str = std::fs::read_to_string(filepath_in)
-                              .unwrap_or_else(|err| panic!("ERROR: File read failed {}: {:?}", filepath_in, err));
+            .unwrap_or_else(|err| panic!("ERROR: File read failed {}: {:?}", filepath_in, err));
 
         let config: ConfigRaw = toml::from_str(&config_str)
-                                .unwrap_or_else(
-                                    |err| panic!("ERROR: Config file invalid {}: {:?}", filepath_in, err)
-                                );
+            .unwrap_or_else(|err| panic!("ERROR: Config file invalid {}: {:?}", filepath_in, err));
 
         let mut subscriptions = vec![];
         for s in config.subscriptions {
-            let datatype = s.datatype.as_str();
-            if !DATATYPES.contains_key(datatype) {
-                let valid_types: Vec<&str> = DATATYPES.keys().copied().collect();
-
-                panic!("Invalid datatype: {};\nDid you mean:\n {}",
-                        datatype, valid_types.join(",\n"));
+            assert!(!s.datatypes.is_empty());
+            let mut spec = SubscriptionSpec::new(s.filter.clone(), s.callback.clone());
+            for datatype_str in s.datatypes {
+                Self::validate_datatype(datatype_str.as_str());
+                let datatype = DATATYPES.get(datatype_str.as_str()).unwrap().clone();
+                spec.update_level(&datatype.level);
+                spec.datatypes.push(datatype);
             }
-            subscriptions.push(
-                SubscriptionSpec {
-                    datatype: DATATYPES.get(datatype).unwrap().clone(),
-                    filter: s.filter.clone(),
-                    callback: s.callback.clone(),
-                    datatype_str: datatype.into(),
-                }
-            );
+            subscriptions.push(spec);
         }
+        Self { subscriptions }
+    }
 
-        Self {
-            subscriptions
+    fn validate_datatype(datatype: &str) {
+        if !DATATYPES.contains_key(datatype) {
+            let valid_types: Vec<&str> = DATATYPES.keys().copied().collect();
+            panic!("Invalid datatype: {};\nDid you mean:\n {}",
+                    datatype, valid_types.join(",\n"));
         }
-
     }
 }

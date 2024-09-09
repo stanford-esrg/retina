@@ -1,6 +1,6 @@
+use super::Level;
 use super::hardware;
 use super::ptree::FilterLayer;
-use super::datatypes::{Level, DataType};
 
 use std::collections::HashSet;
 use std::fmt;
@@ -128,42 +128,36 @@ impl Predicate {
 
     pub(crate) fn is_next_layer(&self, filter_layer: FilterLayer) -> bool {
         match filter_layer {
-            FilterLayer::Packet | FilterLayer::PacketContinue => {
-                !self.on_packet()
-            }
-            FilterLayer::Protocol=> {
-                self.on_session()
-            }
+            FilterLayer::Packet | FilterLayer::PacketContinue => !self.on_packet(),
+            FilterLayer::Protocol => self.on_session(),
             FilterLayer::Session | FilterLayer::ConnectionDeliver | FilterLayer::PacketDeliver => {
                 false
             }
         }
     }
 
-    pub(crate) fn is_prev_layer(&self, filter_layer: FilterLayer, datatype: &DataType) -> bool {
+    pub(crate) fn is_prev_layer(&self, filter_layer: FilterLayer, datatype_level: &Level) -> bool {
         match filter_layer {
-            FilterLayer::PacketContinue => {
-                false
-            }
+            FilterLayer::PacketContinue => false,
             FilterLayer::Packet | FilterLayer::PacketDeliver => {
                 // Packet would have already been delivered in PacketContinue
-                self.on_packet() && matches!(datatype.level, Level::Packet)
+                self.on_packet() && matches!(datatype_level, Level::Packet)
             }
-            FilterLayer::Protocol=> {
-                self.on_packet()
-            }
+            FilterLayer::Protocol => self.on_packet(),
             FilterLayer::Session => {
                 (self.on_packet() || self.on_proto()) &&  // prev filter
-                !matches!(datatype.level, Level::Session) // no delivery req'd
+                !matches!(datatype_level, Level::Session) // no delivery req'd
             }
             FilterLayer::ConnectionDeliver => {
-                !matches!(datatype.level, Level::Connection) // delivery
+                !matches!(datatype_level, Level::Connection) // delivery
             }
         }
     }
 
     pub(super) fn default_pred() -> Predicate {
-        Predicate::Unary { protocol: protocol!("ethernet") }
+        Predicate::Unary {
+            protocol: protocol!("ethernet"),
+        }
     }
 
     /// Returns `true` if predicate can be pushed down to hardware port.
@@ -174,7 +168,6 @@ impl Predicate {
     /// Returns `true` if `self` and `pred` are entirely mutually exclusive
     /// (i.e., could be correctly represented by "if `a` {} else if `b` {}"...)
     pub(super) fn is_excl(&self, pred: &Predicate) -> bool {
-
         // Unary predicates at the same layer are mutually exclusive
         // E.g.: `ipv4 | ipv6`, `tcp | udp`
         if self.is_unary() && pred.is_unary() {
@@ -191,11 +184,20 @@ impl Predicate {
             return false;
         }
 
-        if let Predicate::Binary { protocol: _proto, field: field_name,
-            op, value: val } = self {
-            if let Predicate::Binary { protocol: _peer_proto, field: peer_field_name,
-                                    op: peer_op, value: peer_val } = pred {
-
+        if let Predicate::Binary {
+            protocol: _proto,
+            field: field_name,
+            op,
+            value: val,
+        } = self
+        {
+            if let Predicate::Binary {
+                protocol: _peer_proto,
+                field: peer_field_name,
+                op: peer_op,
+                value: peer_val,
+            } = pred
+            {
                 // Different fields must be evaluated separately
                 if field_name.name() != peer_field_name.name() {
                     return false;
@@ -204,18 +206,26 @@ impl Predicate {
                 // Numeric values
                 if let Value::Int(v) = val {
                     if let Value::Int(peer_v) = peer_val {
-                        return is_excl_int(*v , *v, op, *peer_v, *peer_v, peer_op);
+                        return is_excl_int(*v, *v, op, *peer_v, *peer_v, peer_op);
                     }
-                    if let Value::IntRange { from: peer_f, to: peer_t } = peer_val {
-                        return is_excl_int(*v,  *v, op, *peer_f, *peer_t, peer_op);
+                    if let Value::IntRange {
+                        from: peer_f,
+                        to: peer_t,
+                    } = peer_val
+                    {
+                        return is_excl_int(*v, *v, op, *peer_f, *peer_t, peer_op);
                     }
                     return false;
                 }
-                if let Value::IntRange { from: f, to: t }= val {
+                if let Value::IntRange { from: f, to: t } = val {
                     if let Value::Int(peer_v) = peer_val {
                         return is_excl_int(*f, *t, op, *peer_v, *peer_v, peer_op);
                     }
-                    if let Value::IntRange { from: peer_f, to: peer_t } = peer_val {
+                    if let Value::IntRange {
+                        from: peer_f,
+                        to: peer_t,
+                    } = peer_val
+                    {
                         return is_excl_int(*f, *t, op, *peer_f, *peer_t, peer_op);
                     }
                     return false;
@@ -242,7 +252,6 @@ impl Predicate {
                     }
                     return false;
                 }
-
             }
         }
         false
@@ -260,96 +269,115 @@ impl Predicate {
         }
 
         if self.is_binary() && pred.is_binary() {
-            if let Predicate::Binary { protocol: _proto, field: field_name,
-                                        op, value: val } = self {
-                if let Predicate::Binary { protocol: _parent_proto, field: parent_field_name,
-                    op: parent_op, value: parent_val } = pred {
-
-                        // Different fields should be checked separately.
-                        if field_name.name() != parent_field_name.name() {
-                            return false;
-                        }
-
-                        // Neq: no concept of a "child"
-                        if matches!(parent_op, BinOp::Ne)  {
-                            return false;
-                        }
-                        // Except for IPs (which can have netmask),
-                        // Eq will not have a child
-                        if matches!(parent_op, BinOp::Eq) &&
-                            (!matches!(parent_val, Value::Ipv4(_)) &&
-                             !matches!(parent_val, Value::Ipv6(_))) {
-                            return false;
-                        }
-                        // != cannot be superset or subset of another operation
-                        if matches!(op, BinOp::Ne) || matches!(parent_op, BinOp::Ne) {
-                            return false;
-                        }
-                        // En refers to equality to a variant of a field; these don't have categories
-                        if matches!(op, BinOp::En) || matches!(parent_op, BinOp::En) {
-                            return false;
-                        }
-                        // Determining whether a regex is a "subset" of another is more complex than what
-                        // we want to do here.
-                        //
-                        if matches!(op, BinOp::Re) && matches!(parent_op, BinOp::Re) {
-                            return false;
-                        }
-
-                        // Greater than + less than will not 100% overlap
-                        if (matches!(op, BinOp::Ge | BinOp::Gt)) &&
-                            (matches!(parent_op, BinOp::Le | BinOp::Lt)) {
-                            return false;
-                        }
-                        if (matches!(parent_op, BinOp::Ge | BinOp::Gt)) &&
-                            (matches!(op, BinOp::Le | BinOp::Lt)) {
-                            return false;
-                        }
-
-                        // Numeric values
-                        if let Value::Int(v) = val {
-                            if let Value::Int(parent_v) = parent_val {
-                                return is_parent_int(*v , *v, op, *parent_v, *parent_v, parent_op);
-                            }
-                            if let Value::IntRange { from: parent_f, to: parent_t } = parent_val {
-                                return is_parent_int(*v,  *v, op, *parent_f, *parent_t, parent_op);
-                            }
-                            return false;
-                        }
-                        if let Value::IntRange { from: f, to: t }= val {
-                            if let Value::Int(parent_v) = parent_val {
-                                return is_parent_int(*f, *t, op, *parent_v, *parent_v, parent_op);
-                            }
-                            if let Value::IntRange { from: parent_f, to: parent_t } = parent_val {
-                                return is_parent_int(*f, *t, op, *parent_f, *parent_t, parent_op);
-                            }
-                            return false;
-                        }
-
-                        // IP address
-                        if let Value::Ipv4(net) = val {
-                            if let Value::Ipv4(parent_net) = parent_val {
-                                return is_parent_ipv4(net, op, parent_net, parent_op);
-                            }
-                            return false;
-                        }
-                        // IPv6 address
-                        if let Value::Ipv6(net) = val {
-                            if let Value::Ipv6(parent_net) = parent_val {
-                                return is_parent_ipv6(net, op, parent_net, parent_op);
-                            }
-                            return false;
-                        }
-
-                        // Text values
-                        if let Value::Text(s) = val {
-                            if let Value::Text(parent_s) = parent_val {
-                                return is_parent_text(s, op, parent_s, parent_op);
-                            }
-                            return false;
-                        }
-
+            if let Predicate::Binary {
+                protocol: _proto,
+                field: field_name,
+                op,
+                value: val,
+            } = self
+            {
+                if let Predicate::Binary {
+                    protocol: _parent_proto,
+                    field: parent_field_name,
+                    op: parent_op,
+                    value: parent_val,
+                } = pred
+                {
+                    // Different fields should be checked separately.
+                    if field_name.name() != parent_field_name.name() {
+                        return false;
                     }
+
+                    // Neq: no concept of a "child"
+                    if matches!(parent_op, BinOp::Ne) {
+                        return false;
+                    }
+                    // Except for IPs (which can have netmask),
+                    // Eq will not have a child
+                    if matches!(parent_op, BinOp::Eq)
+                        && (!matches!(parent_val, Value::Ipv4(_))
+                            && !matches!(parent_val, Value::Ipv6(_)))
+                    {
+                        return false;
+                    }
+                    // != cannot be superset or subset of another operation
+                    if matches!(op, BinOp::Ne) || matches!(parent_op, BinOp::Ne) {
+                        return false;
+                    }
+                    // En refers to equality to a variant of a field; these don't have categories
+                    if matches!(op, BinOp::En) || matches!(parent_op, BinOp::En) {
+                        return false;
+                    }
+                    // Determining whether a regex is a "subset" of another is more complex than what
+                    // we want to do here.
+                    //
+                    if matches!(op, BinOp::Re) && matches!(parent_op, BinOp::Re) {
+                        return false;
+                    }
+
+                    // Greater than + less than will not 100% overlap
+                    if (matches!(op, BinOp::Ge | BinOp::Gt))
+                        && (matches!(parent_op, BinOp::Le | BinOp::Lt))
+                    {
+                        return false;
+                    }
+                    if (matches!(parent_op, BinOp::Ge | BinOp::Gt))
+                        && (matches!(op, BinOp::Le | BinOp::Lt))
+                    {
+                        return false;
+                    }
+
+                    // Numeric values
+                    if let Value::Int(v) = val {
+                        if let Value::Int(parent_v) = parent_val {
+                            return is_parent_int(*v, *v, op, *parent_v, *parent_v, parent_op);
+                        }
+                        if let Value::IntRange {
+                            from: parent_f,
+                            to: parent_t,
+                        } = parent_val
+                        {
+                            return is_parent_int(*v, *v, op, *parent_f, *parent_t, parent_op);
+                        }
+                        return false;
+                    }
+                    if let Value::IntRange { from: f, to: t } = val {
+                        if let Value::Int(parent_v) = parent_val {
+                            return is_parent_int(*f, *t, op, *parent_v, *parent_v, parent_op);
+                        }
+                        if let Value::IntRange {
+                            from: parent_f,
+                            to: parent_t,
+                        } = parent_val
+                        {
+                            return is_parent_int(*f, *t, op, *parent_f, *parent_t, parent_op);
+                        }
+                        return false;
+                    }
+
+                    // IP address
+                    if let Value::Ipv4(net) = val {
+                        if let Value::Ipv4(parent_net) = parent_val {
+                            return is_parent_ipv4(net, op, parent_net, parent_op);
+                        }
+                        return false;
+                    }
+                    // IPv6 address
+                    if let Value::Ipv6(net) = val {
+                        if let Value::Ipv6(parent_net) = parent_val {
+                            return is_parent_ipv6(net, op, parent_net, parent_op);
+                        }
+                        return false;
+                    }
+
+                    // Text values
+                    if let Value::Text(s) = val {
+                        if let Value::Text(parent_s) = parent_val {
+                            return is_parent_text(s, op, parent_s, parent_op);
+                        }
+                        return false;
+                    }
+                }
             }
         }
 
@@ -357,71 +385,71 @@ impl Predicate {
     }
 }
 
-pub(super) fn is_excl_ipv4(ipv4: &Ipv4Net, op: &BinOp,
-                           peer_ipv4: &Ipv4Net, peer_op: &BinOp) -> bool {
-
+pub(super) fn is_excl_ipv4(
+    ipv4: &Ipv4Net,
+    op: &BinOp,
+    peer_ipv4: &Ipv4Net,
+    peer_op: &BinOp,
+) -> bool {
     match op {
         BinOp::Eq | BinOp::In => {
             match peer_op {
                 BinOp::Eq | BinOp::In => {
                     // Mutually exclusive subnets
                     return !peer_ipv4.contains(ipv4) && !ipv4.contains(peer_ipv4);
-                },
+                }
                 BinOp::Ne => {
                     // Same subnet; eq. and neq.
                     return peer_ipv4 == ipv4;
-                },
+                }
                 _ => {}
             }
-        },
-        BinOp::Ne => {
-            match peer_op {
-                BinOp::Eq | BinOp::In => {
-                    return peer_ipv4 == ipv4;
-                },
-                _ => {}
+        }
+        BinOp::Ne => match peer_op {
+            BinOp::Eq | BinOp::In => {
+                return peer_ipv4 == ipv4;
             }
+            _ => {}
         },
         _ => {}
     }
     false
 }
 
-pub(super) fn is_excl_ipv6(ipv6: &Ipv6Net, op: &BinOp,
-                           peer_ipv6: &Ipv6Net, peer_op: &BinOp) -> bool {
+pub(super) fn is_excl_ipv6(
+    ipv6: &Ipv6Net,
+    op: &BinOp,
+    peer_ipv6: &Ipv6Net,
+    peer_op: &BinOp,
+) -> bool {
     match op {
-        BinOp::Eq | BinOp::In => {
-            match peer_op {
-                BinOp::Eq | BinOp::In => {
-                    return !peer_ipv6.contains(ipv6) && !ipv6.contains(peer_ipv6);
-                },
-                BinOp::Ne => {
-                    return peer_ipv6 == ipv6;
-                },
-                _ => {}
+        BinOp::Eq | BinOp::In => match peer_op {
+            BinOp::Eq | BinOp::In => {
+                return !peer_ipv6.contains(ipv6) && !ipv6.contains(peer_ipv6);
             }
+            BinOp::Ne => {
+                return peer_ipv6 == ipv6;
+            }
+            _ => {}
         },
-        BinOp::Ne => {
-            match peer_op {
-                BinOp::Eq | BinOp::In => {
-                    return peer_ipv6 == ipv6;
-                },
-                _ => {}
+        BinOp::Ne => match peer_op {
+            BinOp::Eq | BinOp::In => {
+                return peer_ipv6 == ipv6;
             }
+            _ => {}
         },
         _ => {}
     }
     false
 }
 
-pub(super) fn is_excl_text(text: &String, op: &BinOp,
-    peer_text: &String, peer_op: &BinOp) -> bool {
-
+pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_op: &BinOp) -> bool {
     if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Eq) {
         return peer_text != text;
     }
-    if (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Eq)) ||
-       (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Ne)) {
+    if (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Eq))
+        || (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Ne))
+    {
         return peer_text == text;
     }
     if matches!(op, BinOp::Ne) || matches!(peer_op, BinOp::Ne) {
@@ -438,70 +466,83 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp,
 
     let (re, txt) = {
         match matches!(op, BinOp::Re) {
-            true => { (text, peer_text) },
-            false => { (peer_text, text) }
+            true => (text, peer_text),
+            false => (peer_text, text),
         }
     };
-    let regex = Regex::new(re).unwrap_or_else(|err| panic!("Invalid Regex string {}: {:?}", re, err));
+    let regex =
+        Regex::new(re).unwrap_or_else(|err| panic!("Invalid Regex string {}: {:?}", re, err));
     !regex.is_match(txt)
 }
 
-pub(super) fn is_parent_ipv4(child_ipv4: &Ipv4Net, child_op: &BinOp,
-                             parent_ipv4: &Ipv4Net, parent_op: &BinOp) -> bool {
-
+pub(super) fn is_parent_ipv4(
+    child_ipv4: &Ipv4Net,
+    child_op: &BinOp,
+    parent_ipv4: &Ipv4Net,
+    parent_op: &BinOp,
+) -> bool {
     match child_op {
         BinOp::Eq | BinOp::In => {
-            if matches!(parent_op, BinOp::Eq) ||
-               matches!(parent_op, BinOp::In) {
+            if matches!(parent_op, BinOp::Eq) || matches!(parent_op, BinOp::In) {
                 return parent_ipv4.contains(child_ipv4);
             }
-        },
+        }
         BinOp::Ne => {
             if matches!(parent_op, BinOp::Ne) {
                 return parent_ipv4.contains(child_ipv4);
             }
-        },
+        }
         _ => {}
     }
     false
 }
 
-pub(super) fn is_parent_ipv6(child_ipv6: &Ipv6Net, child_op: &BinOp,
-                             parent_ipv6: &Ipv6Net, parent_op: &BinOp) -> bool {
+pub(super) fn is_parent_ipv6(
+    child_ipv6: &Ipv6Net,
+    child_op: &BinOp,
+    parent_ipv6: &Ipv6Net,
+    parent_op: &BinOp,
+) -> bool {
     match child_op {
         BinOp::Eq | BinOp::In => {
             if matches!(parent_op, BinOp::Eq | BinOp::In) {
                 return parent_ipv6.contains(child_ipv6);
             }
-        },
+        }
         BinOp::Ne => {
             if matches!(parent_op, BinOp::Ne) {
                 return parent_ipv6.contains(child_ipv6);
             }
-        },
+        }
         _ => {}
     }
     false
 }
 
-pub(super) fn is_parent_text(child_text: &str, child_op: &BinOp,
-                             parent_text: &str, parent_op: &BinOp) -> bool {
-
+pub(super) fn is_parent_text(
+    child_text: &str,
+    child_op: &BinOp,
+    parent_text: &str,
+    parent_op: &BinOp,
+) -> bool {
     if !matches!(parent_op, BinOp::Re) || !matches!(child_op, BinOp::Eq) {
         // Regex overlap is out of scope
         // Regex overlap with != doesn't really make sense
         return false;
     }
     let parent = Regex::new(parent_text)
-                        .unwrap_or_else(|err|
-                            panic!("Invalid Regex string {}: {:?}", parent_text, err));
+        .unwrap_or_else(|err| panic!("Invalid Regex string {}: {:?}", parent_text, err));
     parent.is_match(child_text)
 }
 
-
-pub(super) fn is_excl_int(from: u64, to: u64, op: &BinOp,
-                          peer_from: u64, peer_to: u64, peer_op: &BinOp) -> bool
-{
+pub(super) fn is_excl_int(
+    from: u64,
+    to: u64,
+    op: &BinOp,
+    peer_from: u64,
+    peer_to: u64,
+    peer_op: &BinOp,
+) -> bool {
     match op {
         BinOp::Eq => {
             match peer_op {
@@ -521,12 +562,12 @@ pub(super) fn is_excl_int(from: u64, to: u64, op: &BinOp,
                 BinOp::Lt => return peer_from <= from,
                 _ => {}
             }
-        },
+        }
         BinOp::Ne => {
             if matches!(peer_op, BinOp::Eq) {
                 return from == peer_from;
             }
-        },
+        }
         BinOp::Ge => {
             match peer_op {
                 // E.g., `tcp.port >= 80` and `tcp.port <= 79`
@@ -536,7 +577,7 @@ pub(super) fn is_excl_int(from: u64, to: u64, op: &BinOp,
                 BinOp::Lt => return from >= peer_from,
                 _ => {}
             }
-        },
+        }
         BinOp::Le => {
             match peer_op {
                 // E.g., `tcp.port <= 80` and `tcp.port >= 81`
@@ -545,7 +586,7 @@ pub(super) fn is_excl_int(from: u64, to: u64, op: &BinOp,
                 BinOp::Gt => return from <= peer_from,
                 _ => {}
             }
-        },
+        }
         BinOp::Gt => {
             match peer_op {
                 // E.g., `tcp.port > 80` and `tcp.port <= 79`
@@ -555,7 +596,7 @@ pub(super) fn is_excl_int(from: u64, to: u64, op: &BinOp,
                 BinOp::Lt => return from > peer_from,
                 _ => {}
             }
-        },
+        }
         BinOp::Lt => {
             match peer_op {
                 // E.g., `tcp.port < 80` and `tcp.port >= 80`
@@ -565,27 +606,29 @@ pub(super) fn is_excl_int(from: u64, to: u64, op: &BinOp,
                 BinOp::Gt => return from <= peer_from + 1,
                 _ => {}
             }
+        }
+        BinOp::In => match peer_op {
+            BinOp::Eq => return peer_from < from || peer_from > to,
+            BinOp::Ge => return peer_from > to,
+            BinOp::Gt => return peer_from >= to,
+            BinOp::Le => return peer_from < from,
+            BinOp::Lt => return peer_from <= from,
+            BinOp::In => return peer_to < from || peer_from > to,
+            _ => {}
         },
-        BinOp::In => {
-            match peer_op {
-                BinOp::Eq => return peer_from < from || peer_from > to,
-                BinOp::Ge => return peer_from > to,
-                BinOp::Gt => return peer_from >= to,
-                BinOp::Le => return peer_from < from,
-                BinOp::Lt => return peer_from <= from,
-                BinOp::In => return peer_to < from || peer_from > to,
-                _ => {}
-            }
-        },
-        BinOp::Re | BinOp::En => { }
+        BinOp::Re | BinOp::En => {}
     }
     false
 }
 
-
-pub(super) fn is_parent_int(child_from: u64, child_to: u64, child_op: &BinOp,
-                            parent_from: u64, parent_to: u64, parent_op: &BinOp) -> bool
-{
+pub(super) fn is_parent_int(
+    child_from: u64,
+    child_to: u64,
+    child_op: &BinOp,
+    parent_from: u64,
+    parent_to: u64,
+    parent_op: &BinOp,
+) -> bool {
     match child_op {
         BinOp::Eq | BinOp::In => {
             // E.g., "tcp.port in [80, 100]" is a child of tcp.port >= 80
@@ -611,33 +654,33 @@ pub(super) fn is_parent_int(child_from: u64, child_to: u64, child_op: &BinOp,
             if matches!(parent_op, BinOp::In) {
                 return parent_from <= child_from && parent_to >= child_to;
             }
-        },
+        }
         BinOp::Ge => {
             // E.g., tcp.port >= 80 [child_from] is a child of tcp.port >= 70 [parent_from]
             if matches!(parent_op, BinOp::Ge | BinOp::Gt) {
                 return parent_from < child_from;
             }
-        },
+        }
         BinOp::Le => {
             // E.g., "tcp.port <= 80" [child_from] is a child of "tcp.port <= 81 [parent_from]"
             // \note Matching op and matching value is taken care of.
             if matches!(parent_op, BinOp::Le | BinOp::Lt) {
                 return parent_from > child_from;
             }
-        },
+        }
         BinOp::Gt => {
             // E.g., tcp.port > 80 [child_from] is a child of tcp.port >= 80 [parent_from]
             if matches!(parent_op, BinOp::Gt | BinOp::Ge) {
                 return parent_from <= child_from;
             }
-        },
+        }
         BinOp::Lt => {
             // E.g., tcp.port < 80 [child_from] is a child of tcp.port <= 80 [parent_from]
             if matches!(parent_op, BinOp::Le | BinOp::Lt) {
                 return parent_from >= child_from;
             }
-        },
-        _ => { }
+        }
+        _ => {}
     }
     false
 }
@@ -821,22 +864,17 @@ mod tests {
 
     #[test]
     fn core_is_parent() {
-
         let ipv4_child = Predicate::Binary {
             protocol: protocol!("ipv4"),
             field: field!("src_addr"),
             op: BinOp::Eq,
-            value: Value::Ipv4(
-                Ipv4Net::new(Ipv4Addr::new(10, 10, 0, 0), 16).unwrap()
-            ),
+            value: Value::Ipv4(Ipv4Net::new(Ipv4Addr::new(10, 10, 0, 0), 16).unwrap()),
         };
         let ipv4_parent = Predicate::Binary {
             protocol: protocol!("ipv4"),
             field: field!("src_addr"),
             op: BinOp::Eq,
-            value: Value::Ipv4(
-                Ipv4Net::new(Ipv4Addr::new(10, 0, 0, 0), 8).unwrap()
-            ),
+            value: Value::Ipv4(Ipv4Net::new(Ipv4Addr::new(10, 0, 0, 0), 8).unwrap()),
         };
         assert!(ipv4_child.is_child(&ipv4_parent));
         assert!(!ipv4_parent.is_child(&ipv4_child));
@@ -846,17 +884,13 @@ mod tests {
             protocol: protocol!("ipv4"),
             field: field!("src_addr"),
             op: BinOp::Eq,
-            value: Value::Ipv4(
-                Ipv4Net::new(Ipv4Addr::new(1, 2, 1, 1), 31).unwrap()
-            ),
+            value: Value::Ipv4(Ipv4Net::new(Ipv4Addr::new(1, 2, 1, 1), 31).unwrap()),
         };
         let ipv4_b = Predicate::Binary {
             protocol: protocol!("ipv4"),
             field: field!("src_addr"),
             op: BinOp::Eq,
-            value: Value::Ipv4(
-                Ipv4Net::new(Ipv4Addr::new(1, 2, 1, 23), 31).unwrap()
-            ),
+            value: Value::Ipv4(Ipv4Net::new(Ipv4Addr::new(1, 2, 1, 23), 31).unwrap()),
         };
         assert!(!ipv4_b.is_child(&ipv4_a));
         assert!(!ipv4_a.is_child(&ipv4_b));
@@ -909,7 +943,9 @@ mod tests {
         assert!(!tcp_in_80_100.is_child(&tcp_leq_80));
         assert!(tcp_in_80_100.is_child(&tcp_ge_70));
 
-        let http_unary = Predicate::Unary { protocol: protocol!("http") };
+        let http_unary = Predicate::Unary {
+            protocol: protocol!("http"),
+        };
         let http_get = Predicate::Binary {
             protocol: protocol!("http"),
             field: field!("method"),
@@ -993,17 +1029,13 @@ mod tests {
             protocol: protocol!("ipv4"),
             field: field!("src_addr"),
             op: BinOp::Eq,
-            value: Value::Ipv4(
-                Ipv4Net::new(Ipv4Addr::new(1, 2, 1, 1), 31).unwrap()
-            ),
+            value: Value::Ipv4(Ipv4Net::new(Ipv4Addr::new(1, 2, 1, 1), 31).unwrap()),
         };
         let ipv4_b = Predicate::Binary {
             protocol: protocol!("ipv4"),
             field: field!("src_addr"),
             op: BinOp::Eq,
-            value: Value::Ipv4(
-                Ipv4Net::new(Ipv4Addr::new(1, 2, 1, 23), 31).unwrap()
-            ),
+            value: Value::Ipv4(Ipv4Net::new(Ipv4Addr::new(1, 2, 1, 23), 31).unwrap()),
         };
         assert!(ipv4_b.is_excl(&ipv4_a));
         assert!(ipv4_a.is_excl(&ipv4_b));

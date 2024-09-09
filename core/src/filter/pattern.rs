@@ -207,7 +207,6 @@ impl LayeredPattern {
     pub(super) fn get_header_predicates(&self) -> &LinkedHashMap<ProtocolName, Vec<Predicate>> {
         &self.0
     }
-
 }
 
 impl Default for LayeredPattern {

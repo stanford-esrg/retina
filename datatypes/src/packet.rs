@@ -5,7 +5,6 @@ use retina_core::{conntrack::pdu::L4Context, Mbuf};
 pub type ZcFrame = Mbuf;
 
 impl FromMbuf for ZcFrame {
-
     fn from_mbuf(mbuf: &Mbuf) -> Option<&Self> {
         Some(mbuf)
     }
@@ -15,7 +14,6 @@ impl FromMbuf for ZcFrame {
 pub type Payload = [u8];
 
 impl FromMbuf for Payload {
-
     fn from_mbuf(mbuf: &Mbuf) -> Option<&Self> {
         if let Ok(ctxt) = L4Context::new(mbuf) {
             let offset = ctxt.offset;
@@ -26,6 +24,4 @@ impl FromMbuf for Payload {
         }
         None
     }
-
 }
-

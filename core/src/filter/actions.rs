@@ -4,23 +4,22 @@ use bitmask_enum::bitmask;
 #[bitmask_config(vec_debug)]
 pub enum ActionData {
     // Packet actions //
-    PacketContinue,   // Forward new packet to connection tracker
-    PacketDeliver,    // Deliver packet to CB
+    PacketContinue, // Forward new packet to connection tracker
+    PacketDeliver,  // Deliver packet to CB
 
     // Connection/session actions //
+    ProtoProbe,  // Probe application-layer protocol
+    ProtoFilter, // Apply protocol-level filter
 
-    ProtoProbe,       // Probe application-layer protocol
-    ProtoFilter,      // Apply protocol-level filter
+    SessionFilter,  // Apply session-level filter
+    SessionDeliver, // Deliver session when parsed
+    SessionTrack,   // Store session in sdata; deliver conn. at termination
 
-    SessionFilter,    // Apply session-level filter
-    SessionDeliver,   // Deliver session when parsed
-    SessionTrack,     // Store session in sdata; deliver conn. at termination
+    ConnDataTrack, // Track connection metadata
+    PacketTrack,   // Buffer frames for future possible delivery
 
-    ConnDataTrack,    // Track connection metadata
-    PacketTrack,      // Buffer frames for future possible delivery
-
-    // \note Session and packet delivery happen within filters.
-    // \note This assumes that each callback has exactly one "layer"
+                   // \note Session and packet delivery happen within filters.
+                   // \note This assumes that each callback has exactly one "layer"
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -43,12 +42,11 @@ impl Default for Actions {
 }
 
 impl Actions {
-
     /// Create an empty Actions bitmask
     pub fn new() -> Self {
         Self {
             data: ActionData::none(),
-            terminal_actions: ActionData::none()
+            terminal_actions: ActionData::none(),
         }
     }
 
@@ -91,25 +89,23 @@ impl Actions {
     /// Conn tracker must deliver PDU to tracked data
     #[inline]
     pub fn track_pdu(&self) -> bool {
-        self.data.intersects(
-            ActionData::ConnDataTrack
-        )
+        self.data.intersects(ActionData::ConnDataTrack)
     }
 
     #[inline]
     pub fn buffer_frame(&self) -> bool {
-        self.data.intersects(
-            ActionData::PacketTrack
-        )
+        self.data.intersects(ActionData::PacketTrack)
     }
 
     /// App-layer probing or parsing should be applied
     #[inline]
     pub fn parse_any(&self) -> bool {
-        self.data.intersects(ActionData::ProtoProbe |
-                             ActionData::ProtoFilter |
-                             ActionData::SessionFilter |
-                             ActionData::SessionDeliver)
+        self.data.intersects(
+            ActionData::ProtoProbe
+                | ActionData::ProtoFilter
+                | ActionData::SessionFilter
+                | ActionData::SessionDeliver,
+        )
     }
 
     #[inline]
@@ -129,14 +125,14 @@ impl Actions {
 
     #[inline]
     pub fn session_probe(&self) -> bool {
-        self.data.intersects(ActionData::ProtoProbe |
-                             ActionData::ProtoFilter)
+        self.data
+            .intersects(ActionData::ProtoProbe | ActionData::ProtoFilter)
     }
 
     #[inline]
     pub fn session_parse(&self) -> bool {
-        self.data.intersects(ActionData::SessionDeliver |
-                             ActionData::SessionFilter)
+        self.data
+            .intersects(ActionData::SessionDeliver | ActionData::SessionFilter)
     }
 
     #[inline]
@@ -148,7 +144,6 @@ impl Actions {
     pub fn packet_deliver(&self) -> bool {
         self.data.intersects(ActionData::PacketDeliver)
     }
-
 
     /// After parsing a session, the framework must decide whether to continue
     /// probing for sessions depending on the protocol
@@ -201,14 +196,11 @@ impl Actions {
         self.data &= mask.not();
         self.terminal_actions &= mask.not();
     }
-
 }
 
-
-
-use std::str::FromStr;
-use quote::{ToTokens, quote};
 use proc_macro2::{Ident, Span};
+use quote::{quote, ToTokens};
+use std::str::FromStr;
 
 #[allow(clippy::to_string_trait_impl)]
 impl FromStr for ActionData {
@@ -224,16 +216,15 @@ impl FromStr for ActionData {
             "SessionTrack" => Ok(ActionData::SessionTrack),
             "ConnDataTrack" => Ok(ActionData::ConnDataTrack),
             "PacketTrack" => Ok(ActionData::PacketTrack),
-            _ => Result::Err(core::fmt::Error)
+            _ => Result::Err(core::fmt::Error),
         }
     }
 }
 
 #[allow(clippy::to_string_trait_impl)]
 impl ToString for ActionData {
-
     fn to_string(&self) -> String {
-        match *self{
+        match *self {
             ActionData::PacketContinue => "PacketContinue".into(),
             ActionData::PacketDeliver => "PacketDeliver".into(),
             ActionData::ProtoProbe => "ProtoProbe".into(),
@@ -243,7 +234,9 @@ impl ToString for ActionData {
             ActionData::SessionTrack => "SessionTrack".into(),
             ActionData::ConnDataTrack => "ConnDataTrack".into(),
             ActionData::PacketTrack => "PacketTrack".into(),
-            _ => { panic!("Unknown ActionData"); }
+            _ => {
+                panic!("Unknown ActionData");
+            }
         }
     }
 }
@@ -252,7 +245,7 @@ impl ToTokens for ActionData {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let name_ident = Ident::new(&self.to_string(), Span::call_site());
         let enum_ident = Ident::new("ActionData", Span::call_site());
-        tokens.extend( quote! { #enum_ident::#name_ident } );
+        tokens.extend(quote! { #enum_ident::#name_ident });
     }
 }
 
@@ -280,10 +273,11 @@ impl FromStr for Actions {
 impl ToTokens for Actions {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let bits = syn::LitInt::new(&self.data.bits.to_string(), Span::call_site());
-        let terminal_bits = syn::LitInt::new(&self.terminal_actions.bits.to_string(), Span::call_site());
-        tokens.extend( quote! {
-            Actions { data: ActionData::from(#bits),
-                      terminal_actions: ActionData::from(#terminal_bits) } } );
+        let terminal_bits =
+            syn::LitInt::new(&self.terminal_actions.bits.to_string(), Span::call_site());
+        tokens.extend(quote! {
+        Actions { data: ActionData::from(#bits),
+                  terminal_actions: ActionData::from(#terminal_bits) } });
     }
 }
 
@@ -305,8 +299,7 @@ mod tests {
         assert!(actions.needs_conntrack());
 
         // Set, clear, and check actions by bitmask
-        let frame_mask = ActionData::PacketTrack |
-                                     ActionData::ConnDataTrack;
+        let frame_mask = ActionData::PacketTrack | ActionData::ConnDataTrack;
         actions.data |= frame_mask;
         assert!(actions.data.contains(frame_mask));
         actions.clear_mask(frame_mask);
@@ -323,7 +316,9 @@ mod tests {
         // Check from usize: 2 LSBs set
         let mask: usize = 3;
         let action_data = ActionData::from(mask);
-        assert!(action_data.contains(ActionData::PacketContinue) &&
-                action_data.contains(ActionData::PacketDeliver));
+        assert!(
+            action_data.contains(ActionData::PacketContinue)
+                && action_data.contains(ActionData::PacketDeliver)
+        );
     }
 }

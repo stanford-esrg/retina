@@ -1,7 +1,7 @@
 subscriptions = [
-    { filter = "http.user_agent ~ 'Mozilla.*'", datatype = "ZcFrame", callback = "packet_cb" },
-    { filter = "ipv4 and tcp", datatype = "Connection", callback = "conn_cb" },
-    { filter = "http.user_agent ~ 'Mozilla.*'", datatype = "HttpTransaction", callback = "http_cb" },
-    { filter = "tls", datatype = "ZcFrame", callback = "packet_cb" },
-    { filter = "udp.port != 80 and udp.port != 90", datatype = "ZcFrame", callback = "packet_cb" },
+    { filter = "http.user_agent ~ 'Mozilla.*'", datatypes = "ZcFrame", callback = "packet_cb" },
+    { filter = "ipv4 and tcp", datatypes = "Connection", callback = "conn_cb" },
+    { filter = "http.user_agent ~ 'Mozilla.*'", datatypes = "HttpTransaction", callback = "http_cb" },
+    { filter = "tls", datatypes = "ZcFrame", callback = "packet_cb" },
+    { filter = "udp.port != 80 and udp.port != 90", datatypes = "ZcFrame", callback = "packet_cb" },
     ]

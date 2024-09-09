@@ -7,7 +7,9 @@
 use super::transaction::{HttpRequest, HttpResponse};
 use super::Http;
 use crate::conntrack::pdu::L4Pdu;
-use crate::protocols::stream::{ConnParsable, ParseResult, ProbeResult, Session, SessionData, SessionState};
+use crate::protocols::stream::{
+    ConnParsable, ParseResult, ProbeResult, Session, SessionData, SessionState,
+};
 
 use httparse::{Request, EMPTY_HEADER};
 use std::collections::HashMap;
@@ -142,5 +144,4 @@ impl ConnParsable for HttpParser {
     fn session_parsed_state(&self) -> SessionState {
         SessionState::Parsing
     }
-
 }
