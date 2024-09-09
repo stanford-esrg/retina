@@ -199,6 +199,7 @@ impl QuicPacket {
         mut offset: usize,
         dir: bool,
     ) -> Result<(QuicPacket, usize), QuicError> {
+        let mut offset = 0;
         let packet_header_byte = QuicPacket::access_data(data, offset, offset + 1)?[0];
         offset += 1;
         // Check the fixed bit

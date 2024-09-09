@@ -45,3 +45,24 @@ impl LongHeaderPacketType {
         }
     }
 }
+
+// Long Header Packet Types from RFC 9000 Table 5
+#[derive(Debug, Clone, Serialize, Copy)]
+pub enum LongHeaderPacketType {
+    Initial,
+    ZeroRTT,
+    Handshake,
+    Retry,
+}
+
+impl LongHeaderPacketType {
+    pub fn from_u8(value: u8) -> Result<LongHeaderPacketType, QuicError> {
+        match value {
+            0x00 => Ok(LongHeaderPacketType::Initial),
+            0x01 => Ok(LongHeaderPacketType::ZeroRTT),
+            0x02 => Ok(LongHeaderPacketType::Handshake),
+            0x03 => Ok(LongHeaderPacketType::Retry),
+            _ => Err(QuicError::UnknowLongHeaderPacketType),
+        }
+    }
+}
