@@ -48,7 +48,7 @@ impl Timers {
                 .lock()
                 .unwrap()
                 .record(value, sample)
-                .unwrap_or_else(|_| panic!("Failed to record {} in {}", value, which));
+                .unwrap_or_else(|err| panic!("Failed to record {} in {}: {:?}", value, which, err));
         } else {
             log::error!("No cycle timer found for: {}", which);
         }

@@ -25,7 +25,7 @@ use crate::data::*;
 
 fn get_hw_filter(packet_continue: &PTree) -> String {
     let ret = packet_continue.to_filter_string();
-    let _flat_ptree = Filter::new(&ret).unwrap_or_else(|_| panic!("Invalid HW filter {}", &ret));
+    let _flat_ptree = Filter::new(&ret).unwrap_or_else(|err| panic!("Invalid HW filter {}: {:?}", &ret, err));
     ret
 }
 
@@ -37,7 +37,7 @@ fn filter_subtree(input: &SubscriptionConfig,
     for i in 0..input.subscriptions.len() {
         let spec = &input.subscriptions[i];
         let filter = Filter::new(&spec.filter)
-                     .unwrap_or_else(|_| panic!("Failed to parse filter {}", spec.filter));
+                     .unwrap_or_else(|err| panic!("Failed to parse filter {}: {:?}", spec.filter, err));
 
         let patterns = filter.get_patterns_flat();
         ptree.add_filter(

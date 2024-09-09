@@ -31,11 +31,11 @@ pub(crate) struct SubscriptionConfig {
 impl SubscriptionConfig {
     pub(crate) fn from_file(filepath_in: &str) -> Self {
         let config_str = std::fs::read_to_string(filepath_in)
-                              .unwrap_or_else(|_| panic!("ERROR: File read failed {}", filepath_in));
+                              .unwrap_or_else(|err| panic!("ERROR: File read failed {}: {:?}", filepath_in, err));
 
         let config: ConfigRaw = toml::from_str(&config_str)
                                 .unwrap_or_else(
-                                    |_| panic!("ERROR: Config file invalid {}", filepath_in)
+                                    |err| panic!("ERROR: Config file invalid {}: {:?}", filepath_in, err)
                                 );
 
         let mut subscriptions = vec![];

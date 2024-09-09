@@ -442,7 +442,7 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp,
             false => { (peer_text, text) }
         }
     };
-    let regex = Regex::new(re).unwrap_or_else(|_| panic!("Invalid Regex string {} ", re));
+    let regex = Regex::new(re).unwrap_or_else(|err| panic!("Invalid Regex string {}: {:?}", re, err));
     !regex.is_match(txt)
 }
 
@@ -493,8 +493,8 @@ pub(super) fn is_parent_text(child_text: &str, child_op: &BinOp,
         return false;
     }
     let parent = Regex::new(parent_text)
-                        .unwrap_or_else(|_|
-                            panic!("Invalid Regex string {} ", parent_text));
+                        .unwrap_or_else(|err|
+                            panic!("Invalid Regex string {}: {:?}", parent_text, err));
     parent.is_match(child_text)
 }
 
