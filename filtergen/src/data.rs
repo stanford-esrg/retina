@@ -44,6 +44,7 @@ impl TrackedDataBuilder {
                 self.stream_protocols.extend(&datatype.stream_protos);
                 if matches!(datatype.level, Level::Session)
                     || matches!(datatype.level, Level::Packet)
+                    || SPECIAL_DATATYPES.contains_key(name)
                 {
                     // Data built directly from packet or session isn't tracked
                     continue;

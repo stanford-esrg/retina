@@ -14,6 +14,7 @@ lazy_static! {
                     Level::Connection,
                     false,
                     true,
+                    false,
                     Connection::stream_protocols(),
                     "Connection",
                 )
@@ -23,21 +24,25 @@ lazy_static! {
                     Level::Session,
                     true,
                     false,
+                    false,
                     HttpTransaction::stream_protocols(),
                     "HttpTransaction",
                 )
             }),
             ("ZcFrame", {
-                DataType::new(Level::Packet, false, false, vec![], "ZcFrame")
+                DataType::new(Level::Packet, false, false, false, vec![], "ZcFrame")
             }),
             ("Payload", {
-                DataType::new(Level::Packet, false, false, vec![], "Payload")
+                DataType::new(Level::Packet, false, false, false, vec![], "Payload")
             }),
             ("PacketList", {
-                DataType::new(Level::Packet, false, false, vec![], "PacketList")
+                DataType::new(Level::Connection, false, false, true, vec![], "PacketList")
+            }),
+            ("HeaderPackets", {
+                DataType::new(Level::Session, false, false, true, vec![], "PacketList")
             }),
             ("SessionList", {
-                DataType::new(Level::Session, false, false, vec![], "SessionList")
+                DataType::new(Level::Connection, true, false, false, vec![], "SessionList")
             }),
         ])
     };
@@ -46,8 +51,13 @@ lazy_static! {
 // TODO RETHINK ORGANIZATION??
 lazy_static! {
     pub static ref SPECIAL_DATATYPES: HashMap<&'static str, &'static str> =
-        HashMap::from([("PacketList", "packets"), ("SessionList", "sessions"),]);
+        HashMap::from([
+            ("PacketList", "packets"),
+            ("SessionList", "sessions"),
+            ("HeaderPackets", "packets")
+        ]);
 }
 
 pub type PacketList = Vec<Mbuf>;
+pub type HeaderPackets = Vec<Mbuf>;
 pub type SessionList = Vec<Session>;

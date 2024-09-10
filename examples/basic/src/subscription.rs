@@ -2,8 +2,6 @@ use lazy_static::lazy_static;
 use retina_datatypes::*;
 use std::sync::RwLock;
 
-use retina_datatypes::{Connection, HttpTransaction};
-
 use retina_filtergen::subscription;
 
 lazy_static! {
@@ -16,7 +14,7 @@ lazy_static! {
 }
 
 #[allow(dead_code)]
-fn http_cb(http: &HttpTransaction, packets: &PacketList) {
+fn http_cb(http: &HttpTransaction, packets: &HeaderPackets) {
     let http = &**http;
     println!("http_cb - {:?}, {:?}", http, packets);
 }

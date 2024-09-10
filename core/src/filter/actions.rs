@@ -13,7 +13,9 @@ pub enum ActionData {
 
     SessionFilter,  // Apply session-level filter
     SessionDeliver, // Deliver session when parsed
-    SessionTrack,   // Store session in sdata; deliver conn. at termination
+    SessionTrack,   // Store session in tracked data
+                    // Deliver or use to check a filter at conn. termination
+    SessionParse,   // Parse session for datatype
 
     ConnDataTrack, // Track connection metadata
     PacketTrack,   // Buffer frames for future possible delivery
@@ -68,7 +70,7 @@ impl Actions {
 
     /// Update self to contain only actions not in `actions`
     #[inline]
-    pub fn unique(&mut self, actions: &Actions) {
+    pub fn clear_intersection(&mut self, actions: &Actions) {
         self.data &= actions.data.not();
         self.terminal_actions &= actions.data.not();
     }
@@ -104,7 +106,8 @@ impl Actions {
             ActionData::ProtoProbe
                 | ActionData::ProtoFilter
                 | ActionData::SessionFilter
-                | ActionData::SessionDeliver,
+                | ActionData::SessionDeliver
+                | ActionData::SessionParse,
         )
     }
 
@@ -132,7 +135,9 @@ impl Actions {
     #[inline]
     pub fn session_parse(&self) -> bool {
         self.data
-            .intersects(ActionData::SessionDeliver | ActionData::SessionFilter)
+            .intersects(ActionData::SessionDeliver |
+                        ActionData::SessionFilter |
+                        ActionData::SessionParse)
     }
 
     #[inline]
@@ -150,16 +155,20 @@ impl Actions {
     /// If no further parsing is required (e.g., TLS Handshake)
     #[inline]
     pub fn session_clear_parse(&mut self) {
-        self.data &= (ActionData::SessionFilter | ActionData::SessionDeliver).not();
-        self.terminal_actions &= (ActionData::SessionFilter | ActionData::SessionDeliver).not();
+        self.clear_mask(ActionData::SessionFilter |
+                        ActionData::SessionDeliver |
+                        ActionData::SessionParse);
     }
 
     /// After parsing
     /// If further sessions may be expected (e.g., HTTP), need to probe
     /// and filter for them again.
     pub fn session_set_probe(&mut self) {
-        self.clear_mask(ActionData::SessionFilter | ActionData::SessionDeliver);
-        self.data |= ActionData::ProtoProbe | ActionData::ProtoFilter;
+        self.clear_mask(ActionData::SessionFilter |
+                        ActionData::SessionDeliver |
+                        ActionData::SessionParse);
+        self.data |= ActionData::ProtoProbe |
+                     ActionData::ProtoFilter;
         /*
          * Note: it could be inefficient to re-apply the proto filter
          *       (protocol was already ID'd). However, this makes it easier
@@ -177,12 +186,6 @@ impl Actions {
     #[inline]
     pub fn connection_matched(&mut self) -> bool {
         self.terminal_actions.intersects(ActionData::ConnDataTrack)
-    }
-
-    #[inline]
-    pub fn clear_intersection(&mut self, other: &Actions) {
-        self.data &= other.data.not();
-        self.terminal_actions &= other.terminal_actions.not();
     }
 
     #[inline]
@@ -214,6 +217,7 @@ impl FromStr for ActionData {
             "SessionFilter" => Ok(ActionData::SessionFilter),
             "SessionDeliver" => Ok(ActionData::SessionDeliver),
             "SessionTrack" => Ok(ActionData::SessionTrack),
+            "SessionParse" => Ok(ActionData::SessionParse),
             "ConnDataTrack" => Ok(ActionData::ConnDataTrack),
             "PacketTrack" => Ok(ActionData::PacketTrack),
             _ => Result::Err(core::fmt::Error),
@@ -232,6 +236,7 @@ impl ToString for ActionData {
             ActionData::SessionFilter => "SessionFilter".into(),
             ActionData::SessionDeliver => "SessionDeliver".into(),
             ActionData::SessionTrack => "SessionTrack".into(),
+            ActionData::SessionParse => "SessionParse".into(),
             ActionData::ConnDataTrack => "ConnDataTrack".into(),
             ActionData::PacketTrack => "PacketTrack".into(),
             _ => {

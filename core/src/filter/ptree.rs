@@ -286,7 +286,7 @@ impl PTree {
                     as_str: subscription.as_str(),
                 });
             } else {
-                let actions = subscription.with_term_filter(self.filter_layer);
+                let actions = subscription.with_term_filter(self.filter_layer, &pred);
                 self.root.actions.push(&actions);
                 self.actions.push(&actions);
             }
@@ -362,7 +362,7 @@ impl PTree {
                 as_str: subscription.as_str(),
             });
         }
-        let actions = subscription.with_term_filter(self.filter_layer);
+        let actions = subscription.with_term_filter(self.filter_layer, &node.pred);
         if !actions.drop() {
             node.actions.push(&actions);
             self.actions.push(&actions);
@@ -457,7 +457,7 @@ impl PTree {
             // Remove redundant actions
             let mut my_actions = on_path_actions.clone();
             if !node.actions.drop() {
-                node.actions.unique(&my_actions);
+                node.actions.clear_intersection(&my_actions);
                 my_actions.push(&node.actions);
             }
             // Prune children
