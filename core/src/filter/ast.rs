@@ -136,20 +136,24 @@ impl Predicate {
         }
     }
 
-    pub(crate) fn is_prev_layer(&self, filter_layer: FilterLayer, datatype_level: &Level) -> bool {
+    pub(crate) fn is_prev_layer(&self, filter_layer: FilterLayer, subscription_level: &Level) -> bool {
         match filter_layer {
             FilterLayer::PacketContinue => false,
-            FilterLayer::Packet | FilterLayer::PacketDeliver => {
+            FilterLayer::Packet => {
                 // Packet would have already been delivered in PacketContinue
-                self.on_packet() && matches!(datatype_level, Level::Packet)
+                self.on_packet() && matches!(subscription_level, Level::Packet)
+            }
+            FilterLayer::PacketDeliver => {
+                // Packet would be delivered in session filter
+                matches!(subscription_level, Level::Session)
             }
             FilterLayer::Protocol => self.on_packet(),
             FilterLayer::Session => {
                 (self.on_packet() || self.on_proto()) &&  // prev filter
-                !matches!(datatype_level, Level::Session) // no delivery req'd
+                !matches!(subscription_level, Level::Session) // no delivery req'd
             }
             FilterLayer::ConnectionDeliver => {
-                !matches!(datatype_level, Level::Connection) // delivery
+                !matches!(subscription_level, Level::Connection) // delivery
             }
         }
     }
