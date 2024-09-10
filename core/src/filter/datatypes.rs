@@ -188,6 +188,7 @@ impl DataType {
             Level::Connection => {
                 actions.if_matched.data |= ActionData::ConnDataTrack;
                 actions.if_matched.terminal_actions |= ActionData::ConnDataTrack;
+                actions.if_matching.data |= ActionData::ConnDataTrack;
             }
             Level::Session => {
                 actions.if_matched.data |= ActionData::SessionDeliver;
@@ -440,6 +441,11 @@ mod tests {
         assert!(matches!(spec.level, Level::Connection));
 
         let matching_actions = spec.packet_filter();
+        assert!(matching_actions.if_matching.parse_any());
+        assert!(matching_actions.if_matching.track_pdu());
+        assert!(matching_actions.if_matching.buffer_frame());
+
+        let matching_actions = spec.proto_filter();
         assert!(matching_actions.if_matching.parse_any());
         assert!(matching_actions.if_matching.track_pdu());
         assert!(matching_actions.if_matching.buffer_frame());
