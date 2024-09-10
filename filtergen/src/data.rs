@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, Span};
 use retina_core::filter::{ptree::FilterLayer, SubscriptionSpec};
 use retina_core::protocols::stream::ConnParser;
-use retina_datatypes::typedefs::SPECIAL_DATATYPES;
+use retina_datatypes::typedefs::DIRECTLY_TRACKED;
 use std::collections::HashSet;
 
 use quote::quote;
@@ -44,7 +44,7 @@ impl TrackedDataBuilder {
                 self.stream_protocols.extend(&datatype.stream_protos);
                 if matches!(datatype.level, Level::Session)
                     || matches!(datatype.level, Level::Packet)
-                    || SPECIAL_DATATYPES.contains_key(name)
+                    || DIRECTLY_TRACKED.contains_key(name)
                 {
                     // Data built directly from packet or session isn't tracked
                     continue;
@@ -201,9 +201,9 @@ pub(crate) fn build_callback(
     let mut condition = quote! { };
 
     for datatype in &spec.datatypes {
-        if SPECIAL_DATATYPES.contains_key(datatype.as_str) {
+        if DIRECTLY_TRACKED.contains_key(datatype.as_str) {
             let accessor = Ident::new(
-                SPECIAL_DATATYPES.get(&datatype.as_str).unwrap(),
+                DIRECTLY_TRACKED.get(&datatype.as_str).unwrap(),
                 Span::call_site(),
             );
             params.push(quote! { tracked.#accessor() });

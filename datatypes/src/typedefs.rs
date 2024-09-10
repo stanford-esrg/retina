@@ -48,9 +48,9 @@ lazy_static! {
     };
 }
 
-// TODO RETHINK ORGANIZATION??
+// Datatypes that are directly tracked by the framework
 lazy_static! {
-    pub static ref SPECIAL_DATATYPES: HashMap<&'static str, &'static str> =
+    pub static ref DIRECTLY_TRACKED: HashMap<&'static str, &'static str> =
         HashMap::from([
             ("PacketList", "packets"),
             ("SessionList", "sessions"),

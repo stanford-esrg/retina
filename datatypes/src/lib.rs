@@ -7,7 +7,7 @@ pub mod packet;
 pub use packet::{Payload, ZcFrame};
 
 pub use typedefs::{PacketList, SessionList, HeaderPackets};
-pub use typedefs::{DATATYPES, SPECIAL_DATATYPES};
+pub use typedefs::{DATATYPES, DIRECTLY_TRACKED};
 
 use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
