@@ -15,7 +15,7 @@ lazy_static! {
                     false,
                     true,
                     Connection::stream_protocols(),
-                    "Connection"
+                    "Connection",
                 )
             }),
             ("HttpTransaction", {
@@ -24,7 +24,7 @@ lazy_static! {
                     true,
                     false,
                     HttpTransaction::stream_protocols(),
-                    "HttpTransaction"
+                    "HttpTransaction",
                 )
             }),
             ("ZcFrame", {
@@ -33,6 +33,21 @@ lazy_static! {
             ("Payload", {
                 DataType::new(Level::Packet, false, false, vec![], "Payload")
             }),
+            ("PacketList", {
+                DataType::new(Level::Packet, false, false, vec![], "PacketList")
+            }),
+            ("SessionList", {
+                DataType::new(Level::Session, false, false, vec![], "SessionList")
+            }),
         ])
     };
 }
+
+// TODO RETHINK ORGANIZATION??
+lazy_static! {
+    pub static ref SPECIAL_DATATYPES: HashMap<&'static str, &'static str> =
+        HashMap::from([("PacketList", "packets"), ("SessionList", "sessions"),]);
+}
+
+pub type PacketList = Vec<Mbuf>;
+pub type SessionList = Vec<Session>;

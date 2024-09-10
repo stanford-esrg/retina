@@ -1,7 +1,7 @@
 use super::actions::*;
 use super::ast::*;
-use super::{Level, SubscriptionSpec};
 use super::pattern::{FlatPattern, LayeredPattern};
+use super::{Level, SubscriptionSpec};
 
 use std::cmp::{Ordering, PartialOrd};
 use std::collections::HashSet;
@@ -862,5 +862,24 @@ mod tests {
         ptree.prune_branches();
         assert!(!ptree.to_filter_string().contains("1.3.3.1/31") && ptree.size == 3);
         // eth, ipv4, ipvr.src
+    }
+
+    #[test]
+    fn multi_ptree() {
+        let filter = "ipv4 and http";
+        let mut spec = SubscriptionSpec::new(String::from(filter), String::from("callback"));
+        spec.add_datatype(DataType::new_default_connection());
+        spec.add_datatype(DataType::new_default_session());
+
+        let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
+        let filter = Filter::new(filter).unwrap();
+        ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        ptree.collapse();
+        assert!(ptree.size == 4);
+
+        let mut ptree = PTree::new_empty(FilterLayer::Packet);
+        ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        ptree.collapse();
+        assert!(ptree.actions.data.contains(ActionData::ConnDataTrack));
     }
 }

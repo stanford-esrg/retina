@@ -1,7 +1,8 @@
 use retina_core::filter::ast::{BinOp, FieldName, ProtocolName, Value};
-use retina_core::filter::{Level, SubscriptionSpec};
 use retina_core::filter::ptree::{FilterLayer, PNode};
+use retina_core::filter::{Level, SubscriptionSpec};
 
+use crate::data::{build_callback, build_packet_callback};
 use heck::CamelCase;
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -305,39 +306,11 @@ pub(crate) fn update_body(
                 let spec = lock
                     .get(id)
                     .unwrap_or_else(|| panic!("Cannot find ID {}", id));
-                let callback = Ident::new(&spec.callback, Span::call_site());
-                let tracked_str = spec.datatypes[0].as_str.to_lowercase();
-                let tracked_field: Ident = Ident::new(&tracked_str, Span::call_site());
-                let type_ident = Ident::new(&spec.datatypes[0].as_str, Span::call_site());
-                if matches!(spec.datatypes[0].level, Level::Session) {
-                    assert!(matches!(filter_layer, FilterLayer::Session));
-                    body.push(quote! {
-                        if let Some(s) = #type_ident::from_session(session) {
-                            #callback( s );
-                        }
-                    });
-                } else if matches!(spec.datatypes[0].level, Level::Packet) {
-                    // Deliver packets directly
-                    if matches!(filter_layer, FilterLayer::PacketContinue)
-                        || matches!(filter_layer, FilterLayer::PacketDeliver)
-                    {
-                        body.push(quote! {
-                            if let Some(p) = #type_ident::from_mbuf(mbuf) {
-                                #callback( p );
-                            }
-                        });
-                    } else {
-                        // Drain existing packets
-                        body.push(quote! {
-                            for mbuf in tracked.packets() {
-                                if let Some(p) = #type_ident::from_mbuf(mbuf) {
-                                    #callback( p );
-                                }
-                            }
-                        });
-                    }
+
+                if matches!(spec.level, Level::Packet) {
+                    body.push(build_packet_callback(spec, filter_layer));
                 } else {
-                    body.push(quote! { #callback( &tracked.#tracked_field ); });
+                    body.push(build_callback(spec, filter_layer));
                 }
             }
         }

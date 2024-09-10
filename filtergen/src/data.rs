@@ -1,5 +1,7 @@
 use proc_macro2::{Ident, Span};
+use retina_core::filter::{ptree::FilterLayer, SubscriptionSpec};
 use retina_core::protocols::stream::ConnParser;
+use retina_datatypes::typedefs::SPECIAL_DATATYPES;
 use std::collections::HashSet;
 
 use quote::quote;
@@ -31,36 +33,34 @@ impl TrackedDataBuilder {
 
     pub(crate) fn build(&mut self, subscribed_data: &SubscriptionConfig) {
         for spec in &subscribed_data.subscriptions {
-            let name = &spec.datatypes[0].as_str;
-            let type_name = Ident::new(name, Span::call_site());
-            let field_name = Ident::new(&name.to_lowercase(), Span::call_site());
-
             self.stream_protocols
                 .extend(ConnParser::requires_parsing(&spec.filter));
-            if self.datatypes.contains(name) {
-                continue;
-            }
-            self.datatypes.insert(name);
-            self.stream_protocols.extend(&spec.datatypes[0].stream_protos);
+            for datatype in &spec.datatypes {
+                let name = datatype.as_str;
+                if self.datatypes.contains(name) {
+                    continue;
+                }
+                self.datatypes.insert(name);
+                self.stream_protocols.extend(&datatype.stream_protos);
+                if matches!(datatype.level, Level::Session)
+                    || matches!(datatype.level, Level::Packet)
+                {
+                    // Data built directly from packet or session isn't tracked
+                    continue;
+                }
+                let type_name = Ident::new(name, Span::call_site());
+                let field_name = Ident::new(&name.to_lowercase(), Span::call_site());
 
-            if matches!(spec.datatypes[0].level, Level::Session)
-                || matches!(spec.datatypes[0].level, Level::Packet)
-            {
-                // Data built directly from packet or session isn't tracked
-                continue;
-            }
+                self.struct_def.push(quote! {
+                    #field_name : #type_name,
+                });
+                self.new
+                    .push(quote! { #field_name: #type_name::new(&five_tuple), });
 
-            self.struct_def.push(quote! {
-                #field_name : #type_name,
-            });
-            self.new
-                .push(quote! { #field_name: #type_name::new(&five_tuple), });
-
-            if spec.datatypes[0].needs_update {
-                // TODO will a subscription ever want to be able to know if *it* is matching
-                //              before the deliver phase?
-                self.update
-                    .push(quote! { self.#field_name.update(pdu, session_id); });
+                if datatype.needs_update {
+                    self.update
+                        .push(quote! { self.#field_name.update(pdu, session_id); });
+                }
             }
         }
         self.print();
@@ -160,6 +160,66 @@ impl TrackedDataBuilder {
                     retina_core::protocols::stream::ParserRegistry::from_strings(vec![ #( #conn_parsers )* ])
                 }
             }
+        }
+    }
+}
+
+pub(crate) fn build_packet_callback(
+    spec: &SubscriptionSpec,
+    filter_layer: FilterLayer,
+) -> proc_macro2::TokenStream {
+    assert!(spec.datatypes.len() == 1);
+    let callback = Ident::new(&spec.callback, Span::call_site());
+    let type_ident = Ident::new(&spec.datatypes[0].as_str, Span::call_site());
+    if matches!(filter_layer, FilterLayer::PacketContinue)
+        || matches!(filter_layer, FilterLayer::PacketDeliver)
+    {
+        return quote! {
+            if let Some(p) = #type_ident::from_mbuf(mbuf) {
+                #callback( p );
+            }
+        };
+    }
+    // Drain existing packets
+    quote! {
+        for mbuf in tracked.packets() {
+            if let Some(p) = #type_ident::from_mbuf(mbuf) {
+                #callback( p );
+            }
+        }
+    }
+}
+
+pub(crate) fn build_callback(
+    spec: &SubscriptionSpec,
+    filter_layer: FilterLayer,
+) -> proc_macro2::TokenStream {
+    let callback = Ident::new(&spec.callback, Span::call_site());
+    let mut params = vec![];
+    let mut condition = quote! { true };
+
+    for datatype in &spec.datatypes {
+        if SPECIAL_DATATYPES.contains_key(datatype.as_str) {
+            let accessor = Ident::new(
+                SPECIAL_DATATYPES.get(&datatype.as_str).unwrap(),
+                Span::call_site(),
+            );
+            params.push(quote! { tracked.#accessor() });
+            continue;
+        }
+        if matches!(spec.level, Level::Session) && matches!(filter_layer, FilterLayer::Session) {
+            let type_ident = Ident::new(&datatype.as_str, Span::call_site());
+            condition = quote! { let Some(s) = #type_ident::from_session(session) };
+            params.push(quote! { s });
+        } else {
+            let tracked_field: Ident =
+                Ident::new(&datatype.as_str.to_lowercase(), Span::call_site());
+            params.push(quote! { &tracked.#tracked_field });
+        }
+    }
+    quote! {
+        if #condition {
+            #callback(#( #params ),*);
         }
     }
 }

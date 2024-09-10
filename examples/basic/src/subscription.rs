@@ -16,14 +16,14 @@ lazy_static! {
 }
 
 #[allow(dead_code)]
-fn http_cb(http: &HttpTransaction) {
+fn http_cb(http: &HttpTransaction, packets: &PacketList) {
     let http = &**http;
-    println!("http_cb - {:?}", http);
+    println!("http_cb - {:?}, {:?}", http, packets);
 }
 
 #[allow(dead_code)]
-fn conn_cb(conn: &Connection) {
-    println!("conn_cb - {:?}", conn);
+fn conn_cb(conn: &Connection, session: &SessionList) {
+    println!("conn_cb - {:?}, {:?}", conn, session);
 }
 
 #[allow(dead_code)]

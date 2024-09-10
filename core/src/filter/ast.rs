@@ -1,6 +1,6 @@
-use super::Level;
 use super::hardware;
 use super::ptree::FilterLayer;
+use super::Level;
 
 use std::collections::HashSet;
 use std::fmt;

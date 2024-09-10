@@ -53,7 +53,7 @@ impl DataType {
         needs_parse: bool,
         needs_update: bool,
         stream_protos: Vec<&'static str>,
-        as_str: &'static str
+        as_str: &'static str,
     ) -> Self {
         if let Some(s) = stream_protos
             .iter()
@@ -69,7 +69,7 @@ impl DataType {
             needs_parse,
             needs_update,
             stream_protos,
-            as_str
+            as_str,
         }
     }
 
@@ -91,7 +91,8 @@ impl DataType {
         Self::new(Level::Packet, false, false, vec![], "Packet")
     }
 
-    // Can this datatype be delivered if the filter matched
+    // Returns whether the current filter layer is the earliest where this datatype,
+    // with this filter, can be delivered.
     pub(crate) fn should_deliver(&self, filter_layer: &FilterLayer, pred: &Predicate) -> bool {
         match self.level {
             Level::Packet => {
@@ -112,6 +113,24 @@ impl DataType {
             }
             Level::Session => {
                 matches!(filter_layer, FilterLayer::Session)
+            }
+        }
+    }
+
+    pub(crate) fn can_deliver(&self, filter_layer: &FilterLayer, pred: &Predicate) -> bool {
+        match self.level {
+            Level::Packet => {
+                match filter_layer {
+                    FilterLayer::PacketContinue => pred.on_packet(),
+                    FilterLayer::Protocol => pred.on_proto() || pred.on_packet(),
+                    _ => true,
+                }
+            },
+            Level::Connection => {
+                matches!(filter_layer, FilterLayer::ConnectionDeliver)
+            }
+            Level::Session => {
+                matches!(filter_layer, FilterLayer::Session | FilterLayer::ConnectionDeliver)
             }
         }
     }
@@ -236,9 +255,9 @@ impl MatchingActions {
         }
     }
 
-    fn update(&mut self, actions: &MatchingActions) {
-        self.if_matched.update(&actions.if_matched);
-        self.if_matching.update(&actions.if_matching);
+    fn push(&mut self, actions: &MatchingActions) {
+        self.if_matched.push(&actions.if_matched);
+        self.if_matching.push(&actions.if_matching);
     }
 }
 
@@ -254,16 +273,19 @@ impl SubscriptionSpec {
 
     // Update subscription level when new datatype is added
     // Latest delivery always takes priority
-    pub fn update_level(&mut self, next_level: &Level) {
-        if matches!(self.level, Level::Connection) ||
-           matches!(next_level, Level::Connection) {
+    fn update_level(&mut self, next_level: &Level) {
+        if matches!(self.level, Level::Connection) || matches!(next_level, Level::Connection) {
             self.level = Level::Connection;
-        }
-        if matches!(self.level, Level::Session) ||
-           matches!(next_level, Level::Session) {
+        } else if matches!(self.level, Level::Session) || matches!(next_level, Level::Session) {
             self.level = Level::Session;
+        } else {
+            self.level = Level::Packet;
         }
-        self.level = Level::Packet;
+    }
+
+    pub fn add_datatype(&mut self, datatype: DataType) {
+        self.update_level(&datatype.level);
+        self.datatypes.push(datatype);
     }
 
     // For testing only
@@ -295,17 +317,19 @@ impl SubscriptionSpec {
 
     // Format subscription as "callback(datatypes)"
     pub fn as_str(&self) -> String {
-        let datatype_str: Vec<&'static str> = self.datatypes.iter()
-                                                            .map(|d| d.as_str )
-                                                            .collect();
-        format!("{}({})", self.callback, datatype_str.join(" or ")).to_string()
+        let datatype_str: Vec<&'static str> = self.datatypes.iter().map(|d| d.as_str).collect();
+        format!("{}({})", self.callback, datatype_str.join(", ")).to_string()
     }
 
     // Should this datatype be delivered if the filter matched
     pub(crate) fn should_deliver(&self, filter_layer: FilterLayer, pred: &Predicate) -> bool {
         self.datatypes
             .iter()
-            .all(|d| d.should_deliver(&filter_layer, pred))
+            .any(|d| d.should_deliver(&filter_layer, pred))
+            && self
+                .datatypes
+                .iter()
+                .all(|d| d.can_deliver(&filter_layer, pred))
     }
 
     // Actions for filter applied for each packet
@@ -335,8 +359,9 @@ impl SubscriptionSpec {
     pub(crate) fn packet_filter(&self) -> MatchingActions {
         let mut actions = MatchingActions::new();
         for datatype in &self.datatypes {
-            actions.update(&datatype.packet_filter(&self.level));
+            actions.push(&datatype.packet_filter(&self.level));
         }
+        actions.if_matching.data |= ActionData::ProtoFilter;
         actions
     }
 
@@ -344,8 +369,9 @@ impl SubscriptionSpec {
     pub(crate) fn proto_filter(&self) -> MatchingActions {
         let mut actions = MatchingActions::new();
         for datatype in &self.datatypes {
-            actions.update(&datatype.proto_filter(&self.level));
+            actions.push(&datatype.proto_filter(&self.level));
         }
+        actions.if_matching.data |= ActionData::SessionFilter;
         actions
     }
 
@@ -353,7 +379,7 @@ impl SubscriptionSpec {
     pub(crate) fn session_filter(&self) -> MatchingActions {
         let mut actions = MatchingActions::new();
         for datatype in &self.datatypes {
-            actions.update(&datatype.session_filter(&self.level));
+            actions.push(&datatype.session_filter(&self.level));
         }
         actions
     }
@@ -379,22 +405,43 @@ impl SubscriptionSpec {
         let mut actions = Actions::new();
         match filter_layer {
             FilterLayer::PacketContinue => {
-                actions.update(&self.packet_continue().if_matching);
-                actions.data |= ActionData::PacketContinue;
+                actions.push(&self.packet_continue().if_matching);
             }
             FilterLayer::Packet => {
-                actions.update(&self.packet_filter().if_matching);
-                actions.data |= ActionData::ProtoFilter;
+                actions.push(&self.packet_filter().if_matching);
             }
             FilterLayer::Protocol => {
-                actions.update(&self.proto_filter().if_matching);
-                actions.data |= ActionData::SessionFilter;
+                actions.push(&self.proto_filter().if_matching);
             }
             FilterLayer::Session => {
-                actions.update(&self.session_filter().if_matching);
+                actions.push(&self.session_filter().if_matching);
             }
             FilterLayer::ConnectionDeliver | FilterLayer::PacketDeliver => {}
         }
         actions
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic_multispec() {
+        let datatype_packet = DataType::new_default_packet();
+        let datatype_session = DataType::new_default_session();
+        let datatype_connection = DataType::new_default_connection();
+        let mut spec = SubscriptionSpec::new(String::from(""), String::from("cb"));
+        spec.add_datatype(datatype_session);
+        assert!(matches!(spec.level, Level::Session));
+        spec.add_datatype(datatype_packet);
+        assert!(matches!(spec.level, Level::Session));
+        spec.add_datatype(datatype_connection);
+        assert!(matches!(spec.level, Level::Connection));
+
+        let matching_actions = spec.packet_filter();
+        assert!(matching_actions.if_matching.parse_any());
+        assert!(matching_actions.if_matching.track_pdu());
+        assert!(matching_actions.if_matching.buffer_frame());
     }
 }

@@ -38,8 +38,7 @@ impl SubscriptionConfig {
             for datatype_str in s.datatypes {
                 Self::validate_datatype(datatype_str.as_str());
                 let datatype = DATATYPES.get(datatype_str.as_str()).unwrap().clone();
-                spec.update_level(&datatype.level);
-                spec.datatypes.push(datatype);
+                spec.add_datatype(datatype);
             }
             subscriptions.push(spec);
         }
@@ -49,8 +48,11 @@ impl SubscriptionConfig {
     fn validate_datatype(datatype: &str) {
         if !DATATYPES.contains_key(datatype) {
             let valid_types: Vec<&str> = DATATYPES.keys().copied().collect();
-            panic!("Invalid datatype: {};\nDid you mean:\n {}",
-                    datatype, valid_types.join(",\n"));
+            panic!(
+                "Invalid datatype: {};\nDid you mean:\n {}",
+                datatype,
+                valid_types.join(",\n")
+            );
         }
     }
 }
