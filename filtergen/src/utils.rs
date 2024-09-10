@@ -293,6 +293,7 @@ pub(crate) fn update_body(
     body: &mut Vec<proc_macro2::TokenStream>,
     node: &PNode,
     filter_layer: FilterLayer,
+    session_loop: bool,
 ) {
     if !node.actions.drop() {
         let actions = node.actions.clone();
@@ -310,7 +311,7 @@ pub(crate) fn update_body(
                 if matches!(spec.level, Level::Packet) {
                     body.push(build_packet_callback(spec, filter_layer));
                 } else {
-                    body.push(build_callback(spec, filter_layer));
+                    body.push(build_callback(spec, filter_layer, session_loop));
                 }
             }
         }
@@ -347,7 +348,7 @@ impl ConnDataFilter {
 
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
         (build_child_nodes)(&mut body, statics, node, filter_layer);
-        update_body(&mut body, node, filter_layer);
+        update_body(&mut body, node, filter_layer, false);
 
         let condition = quote! {
             &retina_core::protocols::stream::ConnData::parse_to::<retina_core::protocols::stream::conn::#ident_type>(conn)
@@ -382,7 +383,7 @@ impl ConnDataFilter {
     ) {
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
         (build_child_nodes)(&mut body, statics, node, filter_layer);
-        update_body(&mut body, node, filter_layer);
+        update_body(&mut body, node, filter_layer, false);
 
         let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
         if node.if_else {
@@ -412,7 +413,7 @@ impl ConnDataFilter {
         let service_ident = Ident::new(&protocol.name().to_camel_case(), Span::call_site());
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
         (build_child_nodes)(&mut body, statics, node, filter_layer);
-        update_body(&mut body, node, filter_layer);
+        update_body(&mut body, node, filter_layer, false);
 
         if node.if_else {
             code.push( quote! {
@@ -445,7 +446,7 @@ impl SessionDataFilter {
     ) {
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
         (build_child_nodes)(&mut body, statics, node, filter_layer);
-        update_body(&mut body, node, filter_layer);
+        update_body(&mut body, node, filter_layer, false);
 
         let service = protocol.name();
         let proto_name = Ident::new(service, Span::call_site());

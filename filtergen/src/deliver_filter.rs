@@ -105,7 +105,7 @@ pub(crate) fn add_session_pred(
 ) {
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
     gen_deliver_util(&mut body, statics, node, layer);
-    update_body(&mut body, node, layer);
+    update_body(&mut body, node, layer, true);
     let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
 
     let service = protocol.name();

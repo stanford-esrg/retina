@@ -107,7 +107,7 @@ fn add_unary_pred(
 
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
     gen_packet_filter_util(&mut body, statics, node, outer_protocol, filter_layer);
-    update_body(&mut body, node, filter_layer);
+    update_body(&mut body, node, filter_layer, false);
 
     if first_unary {
         code.push(quote! {
@@ -138,7 +138,7 @@ fn add_binary_pred(
 ) {
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
     gen_packet_filter_util(&mut body, statics, node, outer_protocol, filter_layer);
-    update_body(&mut body, node, filter_layer);
+    update_body(&mut body, node, filter_layer, false);
 
     let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
     if node.if_else {

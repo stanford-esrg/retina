@@ -193,6 +193,7 @@ pub(crate) fn build_packet_callback(
 pub(crate) fn build_callback(
     spec: &SubscriptionSpec,
     filter_layer: FilterLayer,
+    session_loop: bool,
 ) -> proc_macro2::TokenStream {
     let callback = Ident::new(&spec.callback, Span::call_site());
     let mut params = vec![];
@@ -217,9 +218,16 @@ pub(crate) fn build_callback(
             params.push(quote! { &tracked.#tracked_field });
         }
     }
+
+    let break_early = match session_loop {
+        true => quote! { break; } ,
+        false => quote! { },
+    };
+
     quote! {
         #condition {
             #callback(#( #params ),*);
+            #break_early
         }
     }
 }

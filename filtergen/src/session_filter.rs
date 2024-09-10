@@ -101,7 +101,7 @@ pub(crate) fn add_binary_pred(
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
     gen_session_filter_util(&mut body, statics, node, FilterLayer::Session);
     let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);
-    update_body(&mut body, node, FilterLayer::Session);
+    update_body(&mut body, node, FilterLayer::Session, false);
 
     if node.if_else {
         code.push(quote! {
