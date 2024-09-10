@@ -171,6 +171,7 @@ impl DataType {
                 actions.if_matching.data |= ActionData::PacketTrack;
                 match sub_level {
                     Level::Packet => {
+                        // Deliver all packets in connection
                         actions.if_matched.data |= ActionData::PacketDeliver;
                         actions.if_matched.terminal_actions |= ActionData::PacketDeliver;
                     }
@@ -449,5 +450,11 @@ mod tests {
         assert!(matching_actions.if_matching.parse_any());
         assert!(matching_actions.if_matching.track_pdu());
         assert!(matching_actions.if_matching.buffer_frame());
+
+        let mut spec = SubscriptionSpec::new(String::from(""), String::from("cb"));
+        spec.add_datatype(DataType::new_default_packet());
+        assert!(spec.session_filter().if_matched.packet_deliver());
+        assert!(spec.proto_filter().if_matched.packet_deliver());
+        assert!(spec.proto_filter().if_matching.buffer_frame());
     }
 }

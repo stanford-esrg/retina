@@ -361,8 +361,9 @@ impl PTree {
                 id: filter_id,
                 as_str: subscription.as_str(),
             });
-        } else {
-            let actions = subscription.with_term_filter(self.filter_layer);
+        }
+        let actions = subscription.with_term_filter(self.filter_layer);
+        if !actions.drop() {
             node.actions.push(&actions);
             self.actions.push(&actions);
         }
