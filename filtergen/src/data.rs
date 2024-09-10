@@ -196,7 +196,7 @@ pub(crate) fn build_callback(
 ) -> proc_macro2::TokenStream {
     let callback = Ident::new(&spec.callback, Span::call_site());
     let mut params = vec![];
-    let mut condition = quote! { true };
+    let mut condition = quote! { };
 
     for datatype in &spec.datatypes {
         if SPECIAL_DATATYPES.contains_key(datatype.as_str) {
@@ -209,7 +209,7 @@ pub(crate) fn build_callback(
         }
         if matches!(spec.level, Level::Session) && matches!(filter_layer, FilterLayer::Session) {
             let type_ident = Ident::new(&datatype.as_str, Span::call_site());
-            condition = quote! { let Some(s) = #type_ident::from_session(session) };
+            condition = quote! { if let Some(s) = #type_ident::from_session(session) };
             params.push(quote! { s });
         } else {
             let tracked_field: Ident =
@@ -218,7 +218,7 @@ pub(crate) fn build_callback(
         }
     }
     quote! {
-        if #condition {
+        #condition {
             #callback(#( #params ),*);
         }
     }
