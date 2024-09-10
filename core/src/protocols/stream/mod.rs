@@ -11,7 +11,7 @@ pub mod tls;
 
 use self::dns::{parser::DnsParser, Dns};
 use self::http::{parser::HttpParser, Http};
-use self::quic::{parser::QuicParser, QuicPacket};
+use self::quic::parser::QuicParser;
 use self::tls::{parser::TlsParser, Tls};
 use crate::conntrack::conn::conn_info::ConnState;
 use crate::conntrack::conn_id::FiveTuple;
@@ -22,6 +22,7 @@ use crate::subscription::*;
 use std::str::FromStr;
 
 use anyhow::{bail, Result};
+use quic::QuicConn;
 use strum_macros::EnumString;
 
 /// Represents the result of parsing one packet as a protocol message.
@@ -195,7 +196,7 @@ pub enum SessionData {
     Tls(Box<Tls>),
     Dns(Box<Dns>),
     Http(Box<Http>),
-    Quic(Box<QuicPacket>),
+    Quic(Box<QuicConn>),
     Null,
 }
 
