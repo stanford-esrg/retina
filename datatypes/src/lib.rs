@@ -5,6 +5,7 @@ pub mod http;
 pub use http::HttpTransaction;
 pub mod packet;
 pub use packet::{Payload, ZcFrame};
+pub mod static_type;
 
 pub use typedefs::{PacketList, SessionList, SessionPacketList};
 pub use typedefs::{DATATYPES, DIRECTLY_TRACKED};
@@ -13,9 +14,10 @@ use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
 use retina_core::protocols::stream::Session;
 use retina_core::Mbuf;
+use retina_core::lcore::CoreId;
 
 pub trait Tracked {
-    fn new(five_tuple: &FiveTuple) -> Self;
+    fn new(five_tuple: &FiveTuple, core_id: &CoreId) -> Self;
     fn update(&mut self, pdu: &L4Pdu, session_id: Option<usize>);
     fn stream_protocols() -> Vec<&'static str>;
     fn session_matched(&mut self, session: &Session);
@@ -28,4 +30,8 @@ pub trait FromSession {
 
 pub trait FromMbuf {
     fn from_mbuf(mbuf: &Mbuf) -> Option<&Self>;
+}
+
+pub trait StaticData {
+    fn new(five_tuple: &FiveTuple, core_id: &CoreId) -> Self;
 }

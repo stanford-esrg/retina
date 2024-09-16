@@ -3,6 +3,7 @@ use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
 use retina_core::protocols::packet::tcp::{ACK, FIN, RST, SYN};
 use retina_core::protocols::stream::Session;
+use retina_core::lcore::CoreId;
 
 use super::Tracked;
 
@@ -169,7 +170,7 @@ impl Connection {
 }
 
 impl Tracked for Connection {
-    fn new(five_tuple: &FiveTuple) -> Self {
+    fn new(five_tuple: &FiveTuple, _core_id: &CoreId) -> Self {
         let now = Instant::now();
         Self {
             five_tuple: *five_tuple,

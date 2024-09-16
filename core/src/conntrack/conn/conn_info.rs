@@ -7,6 +7,7 @@
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
 use crate::filter::Actions;
+use crate::lcore::CoreId;
 use crate::protocols::stream::{
     ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, SessionState,
 };
@@ -33,7 +34,7 @@ where
         ConnInfo {
             actions: pkt_actions,
             cdata: ConnData::new(five_tuple),
-            sdata: T::new(five_tuple, core_id),
+            sdata: T::new(&five_tuple, CoreId(core_id)),
         }
     }
 

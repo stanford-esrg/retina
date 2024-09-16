@@ -1,9 +1,9 @@
-use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
-use crate::filter::*;
+use crate::{filter::*, FiveTuple};
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::{ConnData, ParserRegistry, Session};
+use crate::lcore::CoreId;
 
 pub trait Subscribable {
     type Tracked: Trackable<Subscribed = Self>;
@@ -13,14 +13,11 @@ pub trait Trackable {
     type Subscribed: Subscribable<Tracked = Self>;
 
     /// Create a new struct for tracking connection data for user delivery
-    fn new(five_tuple: FiveTuple, core_id: u32) -> Self;
+    fn new(five_tuple: &FiveTuple, core_id: CoreId) -> Self;
 
     /// When tracking, parsing, or buffering frames,
     /// update tracked data with new PDU
     fn update(&mut self, pdu: &L4Pdu, session_id: Option<usize>);
-
-    /// Deliver tracked five tuple (always tracked)
-    fn five_tuple(&self) -> FiveTuple;
 
     /// Get a reference to all sessions that matched filter(s) in connection
     fn sessions(&self) -> &Vec<Session>;
@@ -41,8 +38,6 @@ pub trait Trackable {
     /// Parsers needed by filter are generated on program startup
     fn parsers() -> ParserRegistry;
 
-    /// Return core ID
-    fn core_id(&self) -> u32;
 }
 
 pub struct Subscription<S>

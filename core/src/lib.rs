@@ -55,7 +55,7 @@ mod dpdk;
 // However, module functions should be opaque to users, so documentation is hidden by default.
 #[doc(hidden)]
 pub mod filter;
-mod lcore;
+pub mod lcore;
 pub mod memory;
 mod port;
 pub mod protocols;

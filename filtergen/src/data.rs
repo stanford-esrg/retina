@@ -56,7 +56,7 @@ impl TrackedDataBuilder {
                     #field_name : #type_name,
                 });
                 self.new
-                    .push(quote! { #field_name: #type_name::new(&five_tuple), });
+                    .push(quote! { #field_name: #type_name::new(five_tuple, &core_id), });
 
                 if datatype.needs_update {
                     self.update
@@ -94,15 +94,13 @@ impl TrackedDataBuilder {
         let update = std::mem::take(&mut self.update);
         let new = std::mem::take(&mut self.new);
 
-        let mut conn_parsers = vec![];
+        let mut conn_parsers: Vec<proc_macro2::TokenStream> = vec![];
         for datatype in &self.stream_protocols {
             conn_parsers.push(quote! { #datatype, });
         }
 
         quote! {
             pub struct TrackedWrapper {
-                five_tuple: FiveTuple,
-                core_id: u32,
                 sessions: Vec<Session>,
                 mbufs: Vec<Mbuf>,
                 #( #def )*
@@ -111,11 +109,10 @@ impl TrackedDataBuilder {
             impl Trackable for TrackedWrapper {
                 type Subscribed = SubscribedWrapper;
 
-                fn new(five_tuple: FiveTuple, core_id: u32) -> Self {
+                fn new(five_tuple: &retina_core::conntrack::conn_id::FiveTuple,
+                       core_id: retina_core::lcore::CoreId) -> Self {
 
                     Self {
-                        five_tuple,
-                        core_id,
                         sessions: vec![],
                         mbufs: vec![],
                         #( #new )*
@@ -141,20 +138,12 @@ impl TrackedDataBuilder {
                     self.mbufs = vec![];
                 }
 
-                fn five_tuple(&self) -> FiveTuple {
-                    self.five_tuple
-                }
-
                 fn sessions(&self) -> &Vec<Session> {
                     &self.sessions
                 }
 
                 fn track_session(&mut self, session: Session) {
                     self.sessions.push(session);
-                }
-
-                fn core_id(&self) -> u32 {
-                    self.core_id
                 }
 
                 fn parsers() -> retina_core::protocols::stream::ParserRegistry {
@@ -209,14 +198,16 @@ pub(crate) fn build_callback(
             params.push(quote! { tracked.#accessor() });
             continue;
         }
-        if matches!(spec.level, Level::Session) && matches!(filter_layer, FilterLayer::Session) {
+        if matches!(datatype.level, Level::Session) && matches!(filter_layer, FilterLayer::Session) {
             let type_ident = Ident::new(&datatype.as_str, Span::call_site());
             condition = quote! { if let Some(s) = #type_ident::from_session(session) };
             params.push(quote! { s });
-        } else {
+        } else if matches!(datatype.level, Level::Static | Level::Connection) {
             let tracked_field: Ident =
                 Ident::new(&datatype.as_str.to_lowercase(), Span::call_site());
             params.push(quote! { &tracked.#tracked_field });
+        } else {
+            panic!("Packet-level datatype in non-packet subscription");
         }
     }
 

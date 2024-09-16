@@ -44,6 +44,12 @@ lazy_static! {
             ("SessionList", {
                 DataType::new(Level::Connection, true, false, false, vec![], "SessionList")
             }),
+            ("CoreId", {
+                DataType::new(Level::Static, false, false, false, vec![], "CoreId")
+            }),
+            ("FiveTuple", {
+                DataType::new(Level::Static, false, false, false, vec![], "FiveTuple")
+            }),
         ])
     };
 }

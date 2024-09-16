@@ -12,6 +12,9 @@ pub enum Level {
     // Deliver when session is parsed
     // \note Not tracked - built from session (zero-copy)
     Session,
+    // Deliver at any point in the connection
+    // \note Typically used in combination with other datatype(s)
+    Static,
 }
 
 // Specification for one subscription (filter, CB, one or more datatypes)
@@ -71,7 +74,7 @@ impl DataType {
         }
 
         // Packet-level subscriptions are incompatible with stateful operations
-        if matches!(level, Level::Packet) {
+        if matches!(level, Level::Packet) || matches!(level, Level::Static) {
             assert!(!needs_parse && !needs_update && !track_packets);
         }
 
@@ -126,6 +129,11 @@ impl DataType {
             Level::Session => {
                 matches!(filter_layer, FilterLayer::Session)
             }
+            Level::Static => {
+                // No single stage at which static data "should" be delivered;
+                // and a full subscription cannot be Static
+                false
+            }
         }
     }
 
@@ -143,6 +151,9 @@ impl DataType {
             }
             Level::Session => {
                 matches!(filter_layer, FilterLayer::Session | FilterLayer::ConnectionDeliver)
+            }
+            Level::Static => {
+                true
             }
         }
     }
@@ -301,8 +312,10 @@ impl SubscriptionSpec {
             self.level = Level::Connection;
         } else if matches!(self.level, Level::Session) || matches!(next_level, Level::Session) {
             self.level = Level::Session;
-        } else {
+        } else if matches!(self.level, Level::Packet) || matches!(next_level, Level::Packet) {
             self.level = Level::Packet;
+        } else {
+            panic!("Cannot have static-only datatype");
         }
     }
 
@@ -345,6 +358,7 @@ impl SubscriptionSpec {
     }
 
     // Should this datatype be delivered if the filter matched
+    // This should return true for the first filter at which all datatypes can be delivered
     pub(crate) fn should_deliver(&self, filter_layer: FilterLayer, pred: &Predicate) -> bool {
         self.datatypes
             .iter()
