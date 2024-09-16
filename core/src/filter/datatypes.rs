@@ -43,7 +43,8 @@ pub struct DataType {
     // Datatype requires parsing app-level data
     pub needs_parse: bool,
     // Datatype requires invoking `update` method
-    pub needs_update: bool,
+    pub needs_update: bool,             // Before reassembly
+    pub needs_update_reassembled: bool, // After reassembly
     // Datatype requires tracking packet data
     pub track_packets: bool,
     // Application-layer protocols required
@@ -57,6 +58,7 @@ impl DataType {
         level: Level,
         needs_parse: bool,
         needs_update: bool,
+        needs_update_reassembled: bool,
         track_packets: bool,
         stream_protos: Vec<&'static str>,
         as_str: &'static str,
@@ -81,6 +83,7 @@ impl DataType {
             level,
             needs_parse,
             needs_update,
+            needs_update_reassembled,
             track_packets,
             stream_protos,
             as_str,
@@ -90,19 +93,27 @@ impl DataType {
     // For testing only
     #[allow(dead_code)]
     pub(crate) fn new_default_connection() -> Self {
-        Self::new(Level::Connection, false, true, false, vec![], "Connection")
+        Self::new(
+            Level::Connection,
+            false,
+            true,
+            false,
+            false,
+            vec![],
+            "Connection",
+        )
     }
 
     // For testing only
     #[allow(dead_code)]
     pub(crate) fn new_default_session() -> Self {
-        Self::new(Level::Session, true, false, false, vec![], "Session")
+        Self::new(Level::Session, true, false, false, false, vec![], "Session")
     }
 
     // For testing only
     #[allow(dead_code)]
     pub(crate) fn new_default_packet() -> Self {
-        Self::new(Level::Packet, false, false, false, vec![], "Packet")
+        Self::new(Level::Packet, false, false, false, false, vec![], "Packet")
     }
 
     // Returns whether the current filter layer is the earliest where this datatype,
@@ -159,9 +170,14 @@ impl DataType {
     // Helper
     fn needs_update(&self, actions: &mut MatchingActions) {
         if self.needs_update {
-            actions.if_matched.data |= ActionData::ConnDataTrack;
-            actions.if_matched.terminal_actions |= ActionData::ConnDataTrack;
-            actions.if_matching.data |= ActionData::ConnDataTrack;
+            actions.if_matched.data |= ActionData::UpdatePDU;
+            actions.if_matched.terminal_actions |= ActionData::UpdatePDU;
+            actions.if_matching.data |= ActionData::UpdatePDU;
+        }
+        if self.needs_update_reassembled {
+            actions.if_matched.data |= ActionData::ReassembledUpdatePDU;
+            actions.if_matched.terminal_actions |= ActionData::ReassembledUpdatePDU;
+            actions.if_matching.data |= ActionData::ReassembledUpdatePDU;
         }
     }
 
@@ -226,9 +242,11 @@ impl DataType {
             actions.if_matched.data |= ActionData::SessionDeliver;
             actions.if_matched.terminal_actions |= ActionData::SessionDeliver;
         } else if self.needs_parse {
-            // Connection-level subscription needs parse
-            actions.if_matched.data |= ActionData::SessionParse;
-            actions.if_matched.terminal_actions |= ActionData::SessionParse;
+            assert!(matches!(self.level, Level::Connection));
+            // Connection-level subscription that requires parsing
+            // must track the session.
+            actions.if_matched.data |= ActionData::SessionTrack;
+            actions.if_matched.terminal_actions |= ActionData::SessionTrack;
         }
 
         // Can deliver session when parsed
@@ -470,11 +488,12 @@ mod tests {
 
         let matching_actions = spec.packet_filter();
         assert!(matching_actions.if_matching.parse_any());
-        assert!(matching_actions.if_matching.track_pdu());
+        assert!(matching_actions.if_matching.update_pdu(false));
+        assert!(!matching_actions.if_matching.update_pdu(true));
 
         let matching_actions = spec.proto_filter();
         assert!(matching_actions.if_matching.parse_any());
-        assert!(matching_actions.if_matching.track_pdu());
+        assert!(matching_actions.if_matching.update_pdu(false));
 
         let mut spec = SubscriptionSpec::new(String::from(""), String::from("cb"));
         spec.add_datatype(DataType::new_default_packet());

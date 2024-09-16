@@ -18,7 +18,7 @@ use retina_core::Mbuf;
 
 pub trait Tracked {
     fn new(five_tuple: &FiveTuple, core_id: &CoreId) -> Self;
-    fn update(&mut self, pdu: &L4Pdu, session_id: Option<usize>);
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool);
     fn stream_protocols() -> Vec<&'static str>;
     fn session_matched(&mut self, session: &Session);
 }

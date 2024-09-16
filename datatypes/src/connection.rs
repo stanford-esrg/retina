@@ -184,7 +184,7 @@ impl Tracked for Connection {
         }
     }
 
-    fn update(&mut self, pdu: &L4Pdu, _session_id: Option<usize>) {
+    fn update(&mut self, pdu: &L4Pdu, _reassembled: bool) {
         self.update_data(pdu);
     }
 

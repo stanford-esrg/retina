@@ -702,8 +702,8 @@ mod tests {
         ptree.add_filter(&filter.get_patterns_flat(), &datatype_session, 1);
 
         let mut expected_actions = Actions::new();
-        expected_actions.data |= ActionData::ConnDataTrack | ActionData::SessionTrack;
-        expected_actions.terminal_actions |= ActionData::ConnDataTrack;
+        expected_actions.data |= ActionData::UpdatePDU | ActionData::SessionTrack;
+        expected_actions.terminal_actions |= ActionData::UpdatePDU;
         println!("{:?}, {}", expected_actions, ptree);
         assert!(ptree.actions == expected_actions);
         assert!(!ptree.get_subtree(4).unwrap().deliver.is_empty());
@@ -732,8 +732,8 @@ mod tests {
         // Connection-level datatype matching at connection level
         let mut ptree = PTree::new_empty(FilterLayer::Protocol);
         ptree.add_filter(&filter_conn.get_patterns_flat(), &datatype, 0);
-        expected_actions.data |= ActionData::ConnDataTrack;
-        expected_actions.terminal_actions |= ActionData::ConnDataTrack;
+        expected_actions.data |= ActionData::UpdatePDU;
+        expected_actions.terminal_actions |= ActionData::UpdatePDU;
         // println!("{}", ptree);
         assert!(ptree.actions == expected_actions);
 
@@ -760,7 +760,7 @@ mod tests {
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0);
 
-        expected_actions.data |= ActionData::ProtoFilter | ActionData::ConnDataTrack;
+        expected_actions.data |= ActionData::ProtoFilter | ActionData::UpdatePDU;
         // println!("{}", ptree);
         assert!(ptree.actions == expected_actions);
 
@@ -881,6 +881,6 @@ mod tests {
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
         ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
         ptree.collapse();
-        assert!(ptree.actions.data.contains(ActionData::ConnDataTrack));
+        assert!(ptree.actions.data.contains(ActionData::UpdatePDU));
     }
 }

@@ -53,12 +53,11 @@ where
             self.handle_parse(&pdu, subscription, registry);
         }
 
-        // Note: tracking must happen after parsing, as the above
-        // may update connection state.
-        if self.actions.track_pdu() {
+        // Post-reassembly `update`
+        if self.actions.update_pdu(true) {
             // Forward PDU to any subscriptions that require
-            // tracking ongoing connection data
-            self.sdata.update(&pdu, None);
+            // tracking ongoing connection data post-reassembly
+            self.sdata.update(&pdu, true);
         }
         if self.actions.packet_deliver() {
             // Delivering all remaining packets in connection
@@ -136,9 +135,9 @@ where
                     self.sdata.drain_packets();
                 }
                 self.actions.update(&actions);
-                if self.actions.session_track() {
-                    self.sdata.track_session(session);
-                }
+            }
+            if self.actions.session_track() {
+                self.sdata.track_session(session);
             }
         } else {
             log::error!("Done parsing but no session found");
@@ -152,9 +151,8 @@ where
                 // Done parsing: we expect no more sessions for this connection.
                 self.actions.session_clear_parse();
             }
-            _ => {
-                // SessionFilter and SessionParse are always terminal actions at the
-                // connection filtering stage. By default, they will be preserved.
+            SessionState::Parsing => {
+                // SessionFilter, Track, and Delivery will be terminal actions if needed.
             }
         }
     }
@@ -165,14 +163,10 @@ where
             for session in self.cdata.conn_parser.drain_sessions() {
                 if self.actions.apply_session_filter() {
                     let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
-                    if self.actions.buffer_frame() != actions.buffer_frame() && !actions.drop() {
-                        // No longer need tracked packets; delete to save memory
-                        self.sdata.drain_packets();
-                    }
                     self.actions.update(&actions);
-                    if self.actions.session_track() {
-                        self.sdata.track_session(session);
-                    }
+                }
+                if self.actions.session_track() {
+                    self.sdata.track_session(session);
                 }
             }
         }

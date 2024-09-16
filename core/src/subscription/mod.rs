@@ -17,7 +17,7 @@ pub trait Trackable {
 
     /// When tracking, parsing, or buffering frames,
     /// update tracked data with new PDU
-    fn update(&mut self, pdu: &L4Pdu, session_id: Option<usize>);
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool);
 
     /// Get a reference to all sessions that matched filter(s) in connection
     fn sessions(&self) -> &Vec<Session>;

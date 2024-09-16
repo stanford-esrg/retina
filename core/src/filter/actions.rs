@@ -15,13 +15,13 @@ pub enum ActionData {
     SessionDeliver, // Deliver session when parsed
     SessionTrack,   // Store session in tracked data
     // Deliver or use to check a filter at conn. termination
-    SessionParse, // Parse session for datatype
 
-    ConnDataTrack, // Track connection metadata
-    PacketTrack,   // Buffer frames for future possible delivery
+    UpdatePDU,            // `Update` method should be invoked pre-reassembly
+    ReassembledUpdatePDU, // `Update` method should be invoked post-reassembly
+    PacketTrack,          // Buffer frames for future possible delivery
 
-                   // \note Session and packet delivery happen within filters.
-                   // \note This assumes that each callback has exactly one "layer"
+                          // \note Session and packet delivery happen within filters.
+                          // \note This assumes that each callback has exactly one "layer"
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -90,8 +90,11 @@ impl Actions {
 
     /// Conn tracker must deliver PDU to tracked data
     #[inline]
-    pub fn track_pdu(&self) -> bool {
-        self.data.intersects(ActionData::ConnDataTrack)
+    pub fn update_pdu(&self, reassembled: bool) -> bool {
+        match reassembled {
+            false => self.data.intersects(ActionData::UpdatePDU),
+            true => self.data.intersects(ActionData::ReassembledUpdatePDU),
+        }
     }
 
     #[inline]
@@ -107,8 +110,13 @@ impl Actions {
                 | ActionData::ProtoFilter
                 | ActionData::SessionFilter
                 | ActionData::SessionDeliver
-                | ActionData::SessionParse,
+                | ActionData::SessionTrack
         )
+    }
+
+    #[inline]
+    pub fn reassemble(&self) -> bool {
+        self.parse_any() || self.buffer_frame() || self.update_pdu(true)
     }
 
     #[inline]
@@ -135,7 +143,9 @@ impl Actions {
     #[inline]
     pub fn session_parse(&self) -> bool {
         self.data.intersects(
-            ActionData::SessionDeliver | ActionData::SessionFilter | ActionData::SessionParse,
+            ActionData::SessionDeliver |
+            ActionData::SessionFilter |
+            ActionData::SessionTrack,
         )
     }
 
@@ -151,20 +161,24 @@ impl Actions {
 
     /// After parsing a session, the framework must decide whether to continue
     /// probing for sessions depending on the protocol
-    /// If no further parsing is required (e.g., TLS Handshake)
+    /// If no further parsing is required (e.g., TLS Handshake), this method
+    /// should be invoked.
     #[inline]
     pub fn session_clear_parse(&mut self) {
         self.clear_mask(
-            ActionData::SessionFilter | ActionData::SessionDeliver | ActionData::SessionParse,
+            ActionData::SessionFilter |
+                ActionData::SessionDeliver |
+                ActionData::SessionTrack
         );
     }
 
-    /// After parsing
-    /// If further sessions may be expected (e.g., HTTP), need to probe
-    /// and filter for them again.
+    /// Some app-layer protocols revert to probing after session is parsed
+    /// (e.g., in case of encapsulation)
     pub fn session_set_probe(&mut self) {
         self.clear_mask(
-            ActionData::SessionFilter | ActionData::SessionDeliver | ActionData::SessionParse,
+            ActionData::SessionFilter |
+                ActionData::SessionDeliver |
+                ActionData::SessionTrack,
         );
         self.data |= ActionData::ProtoProbe | ActionData::ProtoFilter;
         /*
@@ -182,8 +196,9 @@ impl Actions {
     }
 
     #[inline]
-    pub fn connection_matched(&mut self) -> bool {
-        self.terminal_actions.intersects(ActionData::ConnDataTrack)
+    pub fn connection_matched(&self) -> bool {
+        self.terminal_actions
+            .intersects(ActionData::UpdatePDU | ActionData::ReassembledUpdatePDU)
     }
 
     #[inline]
@@ -215,8 +230,8 @@ impl FromStr for ActionData {
             "SessionFilter" => Ok(ActionData::SessionFilter),
             "SessionDeliver" => Ok(ActionData::SessionDeliver),
             "SessionTrack" => Ok(ActionData::SessionTrack),
-            "SessionParse" => Ok(ActionData::SessionParse),
-            "ConnDataTrack" => Ok(ActionData::ConnDataTrack),
+            "UpdatePDU" => Ok(ActionData::UpdatePDU),
+            "ReassembledUpdatePDU" => Ok(ActionData::ReassembledUpdatePDU),
             "PacketTrack" => Ok(ActionData::PacketTrack),
             _ => Result::Err(core::fmt::Error),
         }
@@ -234,12 +249,10 @@ impl ToString for ActionData {
             ActionData::SessionFilter => "SessionFilter".into(),
             ActionData::SessionDeliver => "SessionDeliver".into(),
             ActionData::SessionTrack => "SessionTrack".into(),
-            ActionData::SessionParse => "SessionParse".into(),
-            ActionData::ConnDataTrack => "ConnDataTrack".into(),
+            ActionData::UpdatePDU => "UpdatePDU".into(),
             ActionData::PacketTrack => "PacketTrack".into(),
-            _ => {
-                panic!("Unknown ActionData");
-            }
+            ActionData::ReassembledUpdatePDU => "ReassembledUpdatePDU".into(),
+            _ => panic!("Unknown ActionData"),
         }
     }
 }
@@ -302,7 +315,7 @@ mod tests {
         assert!(actions.needs_conntrack());
 
         // Set, clear, and check actions by bitmask
-        let frame_mask = ActionData::PacketTrack | ActionData::ConnDataTrack;
+        let frame_mask = ActionData::PacketTrack | ActionData::UpdatePDU;
         actions.data |= frame_mask;
         assert!(actions.data.contains(frame_mask));
         actions.clear_mask(frame_mask);

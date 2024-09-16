@@ -9,46 +9,106 @@ use crate::*;
 lazy_static! {
     pub static ref DATATYPES: HashMap<&'static str, DataType> = {
         HashMap::from([
-            ("Connection", {
-                DataType::new(
-                    Level::Connection,
-                    false,
-                    true,
-                    false,
-                    Connection::stream_protocols(),
-                    "Connection",
-                )
-            }),
-            ("HttpTransaction", {
-                DataType::new(
-                    Level::Session,
-                    true,
-                    false,
-                    false,
-                    HttpTransaction::stream_protocols(),
-                    "HttpTransaction",
-                )
-            }),
+            (
+                "Connection",
+                DataType {
+                    level: Level::Connection,
+                    needs_parse: false,
+                    needs_update: true,
+                    needs_update_reassembled: false,
+                    track_packets: false,
+                    stream_protos: HttpTransaction::stream_protocols(),
+                    as_str: "Connection",
+                },
+            ),
+            (
+                "HttpTransaction",
+                DataType {
+                    level: Level::Session,
+                    needs_parse: true,
+                    needs_update: false,
+                    needs_update_reassembled: false,
+                    track_packets: false,
+                    stream_protos: HttpTransaction::stream_protocols(),
+                    as_str: "HttpTransaction",
+                },
+            ),
             ("ZcFrame", {
-                DataType::new(Level::Packet, false, false, false, vec![], "ZcFrame")
+                DataType {
+                    level: Level::Packet,
+                    needs_parse: false,
+                    needs_update: false,
+                    needs_update_reassembled: false,
+                    track_packets: false,
+                    stream_protos: vec![],
+                    as_str: "ZcFrame",
+                }
             }),
             ("Payload", {
-                DataType::new(Level::Packet, false, false, false, vec![], "Payload")
+                DataType {
+                    level: Level::Packet,
+                    needs_parse: false,
+                    needs_update: false,
+                    needs_update_reassembled: false,
+                    track_packets: false,
+                    stream_protos: vec![],
+                    as_str: "Payload",
+                }
             }),
             ("PacketList", {
-                DataType::new(Level::Connection, false, false, true, vec![], "PacketList")
+                DataType {
+                    level: Level::Connection,
+                    needs_parse: false,
+                    needs_update: false,
+                    needs_update_reassembled: false,
+                    track_packets: true,
+                    stream_protos: vec![],
+                    as_str: "PacketList",
+                }
             }),
             ("SessionPacketList", {
-                DataType::new(Level::Session, false, false, true, vec![], "PacketList")
+                DataType {
+                    level: Level::Session,
+                    needs_parse: false,
+                    needs_update: false,
+                    needs_update_reassembled: false,
+                    track_packets: true,
+                    stream_protos: vec![],
+                    as_str: "SessionPacketList",
+                }
             }),
             ("SessionList", {
-                DataType::new(Level::Connection, true, false, false, vec![], "SessionList")
+                DataType {
+                    level: Level::Connection,
+                    needs_parse: true,
+                    needs_update: false,
+                    needs_update_reassembled: false,
+                    track_packets: false,
+                    stream_protos: vec![],
+                    as_str: "SessionList",
+                }
             }),
             ("CoreId", {
-                DataType::new(Level::Static, false, false, false, vec![], "CoreId")
+                DataType {
+                    level: Level::Static,
+                    needs_parse: false,
+                    needs_update: false,
+                    needs_update_reassembled: false,
+                    track_packets: false,
+                    stream_protos: vec![],
+                    as_str: "CoreId",
+                }
             }),
             ("FiveTuple", {
-                DataType::new(Level::Static, false, false, false, vec![], "FiveTuple")
+                DataType {
+                    level: Level::Static,
+                    needs_parse: false,
+                    needs_update: false,
+                    needs_update_reassembled: false,
+                    track_packets: false,
+                    stream_protos: vec![],
+                    as_str: "FiveTuple",
+                }
             }),
         ])
     };

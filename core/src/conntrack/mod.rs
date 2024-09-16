@@ -98,6 +98,9 @@ where
                     return;
                 }
                 let pdu = L4Pdu::new(mbuf, ctxt, dir);
+                if conn.info.actions.update_pdu(false) {
+                    conn.info.sdata.update(&pdu, false);
+                }
                 conn.update(pdu, subscription, &self.registry);
                 if conn.remove() {
                     occupied.remove();

@@ -60,7 +60,7 @@ impl TrackedDataBuilder {
 
                 if datatype.needs_update {
                     self.update
-                        .push(quote! { self.#field_name.update(pdu, session_id); });
+                        .push(quote! { self.#field_name.update(pdu, reassembled); });
                 }
             }
         }
@@ -121,7 +121,7 @@ impl TrackedDataBuilder {
 
                 fn update(&mut self,
                         pdu: &L4Pdu,
-                        session_id: Option<usize>)
+                        reassembled: bool)
                 {
                     #( #update )*
                 }
