@@ -68,7 +68,7 @@ impl TrackedDataBuilder {
     }
 
     pub(crate) fn print(&self) {
-        println!("Tracked {{");
+        println!("Datatypes {{");
         for dt in &self.datatypes {
             println!("  {},", dt,);
         }
