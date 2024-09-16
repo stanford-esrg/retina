@@ -14,7 +14,7 @@ lazy_static! {
 }
 
 #[allow(dead_code)]
-fn http_cb(http: &HttpTransaction, packets: &HeaderPackets) {
+fn http_cb(http: &HttpTransaction, packets: &SessionPacketList) {
     let http = &**http;
     println!("http_cb - {:?}, {:?}", http, packets);
 }
@@ -39,5 +39,5 @@ pub(crate) fn print() {
     // println!("HTTP: {}", *HTTP.read().unwrap());
 }
 
-#[subscription("/home/trossman/retina/examples/basic/filter_out.toml")]
+#[subscription("/home/tcr6/retina/examples/basic/filter_out.toml")]
 fn test() {}

@@ -6,7 +6,7 @@ pub use http::HttpTransaction;
 pub mod packet;
 pub use packet::{Payload, ZcFrame};
 
-pub use typedefs::{PacketList, SessionList, HeaderPackets};
+pub use typedefs::{PacketList, SessionList, SessionPacketList};
 pub use typedefs::{DATATYPES, DIRECTLY_TRACKED};
 
 use retina_core::conntrack::conn_id::FiveTuple;

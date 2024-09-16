@@ -38,7 +38,7 @@ lazy_static! {
             ("PacketList", {
                 DataType::new(Level::Connection, false, false, true, vec![], "PacketList")
             }),
-            ("HeaderPackets", {
+            ("SessionPacketList", {
                 DataType::new(Level::Session, false, false, true, vec![], "PacketList")
             }),
             ("SessionList", {
@@ -54,10 +54,10 @@ lazy_static! {
         HashMap::from([
             ("PacketList", "packets"),
             ("SessionList", "sessions"),
-            ("HeaderPackets", "packets")
+            ("SessionPacketList", "packets")
         ]);
 }
 
 pub type PacketList = Vec<Mbuf>;
-pub type HeaderPackets = Vec<Mbuf>;
+pub type SessionPacketList = Vec<Mbuf>;
 pub type SessionList = Vec<Session>;
