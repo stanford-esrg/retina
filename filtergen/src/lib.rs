@@ -115,7 +115,8 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
 
         pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
 
-            fn packet_continue(mbuf: &retina_core::Mbuf) -> retina_core::filter::Actions {
+            fn packet_continue(mbuf: &retina_core::Mbuf,
+                               coreid: &retina_core::lcore::CoreId) -> retina_core::filter::Actions {
                 #packet_continue
             }
 

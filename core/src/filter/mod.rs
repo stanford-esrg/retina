@@ -18,6 +18,7 @@ use crate::filter::hardware::{flush_rules, HardwareFilter};
 use crate::filter::parser::FilterParser;
 use crate::filter::pattern::{FlatPattern, LayeredPattern};
 use crate::filter::ptree_flat::FlatPTree;
+use crate::lcore::CoreId;
 use crate::memory::mbuf::Mbuf;
 use crate::port::Port;
 use crate::protocols::stream::{ConnData, Session};
@@ -29,7 +30,7 @@ use anyhow::{bail, Result};
 use thiserror::Error;
 
 /// Filter types
-pub type PacketContFn = fn(&Mbuf) -> Actions;
+pub type PacketContFn = fn(&Mbuf, &CoreId) -> Actions;
 pub type PacketFilterFn = fn(&Mbuf) -> Actions;
 pub type ProtoFilterFn<T> = fn(&ConnData, &T) -> Actions;
 

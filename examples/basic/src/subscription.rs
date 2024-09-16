@@ -31,7 +31,7 @@ fn conn_dns_cb(conn: &Connection) {
 }
 
 #[allow(dead_code)]
-fn packet_cb(pkt: &ZcFrame) {
+fn packet_cb(pkt: &ZcFrame, _core_id: &CoreId) {
     println!("pkt - {:?}", pkt);
 }
 

@@ -91,8 +91,8 @@ where
     /// Invokes the software packet filter.
     /// Used for each packet to determine
     /// forwarding to conn. tracker.
-    pub fn continue_packet(&self, mbuf: &Mbuf) -> Actions {
-        (self.packet_continue)(mbuf)
+    pub fn continue_packet(&self, mbuf: &Mbuf, core_id: &CoreId) -> Actions {
+        (self.packet_continue)(mbuf, core_id)
     }
 
     /// Invokes the five-tuple filter.

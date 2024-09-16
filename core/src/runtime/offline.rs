@@ -20,6 +20,7 @@ where
     pub(crate) mempool_name: String,
     pub(crate) subscription: Arc<Subscription<S>>,
     pub(crate) options: OfflineOptions,
+    id: CoreId,
 }
 
 impl<S> OfflineRuntime<S>
@@ -41,6 +42,7 @@ where
             mempool_name,
             subscription,
             options,
+            id: core_id,
         }
     }
 
@@ -56,7 +58,7 @@ where
         let config = TrackerConfig::from(&self.options.conntrack);
         let registry = S::Tracked::parsers();
         log::debug!("{:#?}", registry);
-        let mut stream_table = ConnTracker::<S::Tracked>::new(config, registry, 0);
+        let mut stream_table = ConnTracker::<S::Tracked>::new(config, registry, self.id.raw());
 
         let mempool_raw = self.get_mempool_raw();
         let pcap = self.options.offline.pcap.as_str();
@@ -72,7 +74,7 @@ where
             nb_bytes += mbuf.data_len() as u64;
 
             /* Apply the packet filter to get actions */
-            let actions = self.subscription.continue_packet(&mbuf);
+            let actions = self.subscription.continue_packet(&mbuf, &self.id);
             if !actions.drop() {
                 self.subscription
                     .process_packet(mbuf, &mut stream_table, actions);

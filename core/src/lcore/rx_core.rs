@@ -102,7 +102,7 @@ where
                     nb_pkts += 1;
                     nb_bytes += mbuf.data_len() as u64;
 
-                    let actions = self.subscription.continue_packet(&mbuf);
+                    let actions = self.subscription.continue_packet(&mbuf, &self.id);
                     if !actions.drop() {
                         self.subscription
                             .process_packet(mbuf, &mut conn_table, actions);
