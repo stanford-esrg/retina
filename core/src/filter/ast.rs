@@ -136,7 +136,11 @@ impl Predicate {
         }
     }
 
-    pub(crate) fn is_prev_layer(&self, filter_layer: FilterLayer, subscription_level: &Level) -> bool {
+    pub(crate) fn is_prev_layer(
+        &self,
+        filter_layer: FilterLayer,
+        subscription_level: &Level,
+    ) -> bool {
         match filter_layer {
             FilterLayer::PacketContinue => false,
             FilterLayer::Packet => {

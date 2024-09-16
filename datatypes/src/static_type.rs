@@ -1,6 +1,6 @@
+use super::StaticData;
 use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::lcore::CoreId;
-use super::StaticData;
 
 impl StaticData for FiveTuple {
     fn new(five_tuple: &FiveTuple, _core_id: &CoreId) -> FiveTuple {

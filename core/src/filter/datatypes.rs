@@ -61,7 +61,6 @@ impl DataType {
         stream_protos: Vec<&'static str>,
         as_str: &'static str,
     ) -> Self {
-
         // Only known stream protocols are accepted
         if let Some(s) = stream_protos
             .iter()
@@ -139,22 +138,21 @@ impl DataType {
 
     pub(crate) fn can_deliver(&self, filter_layer: &FilterLayer, pred: &Predicate) -> bool {
         match self.level {
-            Level::Packet => {
-                match filter_layer {
-                    FilterLayer::PacketContinue => pred.on_packet(),
-                    FilterLayer::Protocol => pred.on_proto() || pred.on_packet(),
-                    _ => true,
-                }
+            Level::Packet => match filter_layer {
+                FilterLayer::PacketContinue => pred.on_packet(),
+                FilterLayer::Protocol => pred.on_proto() || pred.on_packet(),
+                _ => true,
             },
             Level::Connection => {
                 matches!(filter_layer, FilterLayer::ConnectionDeliver)
             }
             Level::Session => {
-                matches!(filter_layer, FilterLayer::Session | FilterLayer::ConnectionDeliver)
+                matches!(
+                    filter_layer,
+                    FilterLayer::Session | FilterLayer::ConnectionDeliver
+                )
             }
-            Level::Static => {
-                true
-            }
+            Level::Static => true,
         }
     }
 
@@ -423,8 +421,7 @@ impl SubscriptionSpec {
 
     // Returns the actions that the subscription requires for a given filter layer
     // if the filter has fully (terminally) matched
-    pub(crate) fn with_term_filter(&self, filter_layer: FilterLayer,
-                                    pred: &Predicate) -> Actions {
+    pub(crate) fn with_term_filter(&self, filter_layer: FilterLayer, pred: &Predicate) -> Actions {
         match filter_layer {
             FilterLayer::PacketContinue => self.packet_continue().if_matched,
             FilterLayer::Packet => self.packet_filter().if_matched,
@@ -436,7 +433,7 @@ impl SubscriptionSpec {
                     actions.data |= ActionData::SessionTrack;
                 }
                 actions
-            },
+            }
             FilterLayer::ConnectionDeliver | FilterLayer::PacketDeliver => {
                 // No actions
                 Actions::new()
@@ -448,21 +445,11 @@ impl SubscriptionSpec {
     // if the filter has partially (non-terminally) matched
     pub(crate) fn with_nonterm_filter(&self, filter_layer: FilterLayer) -> Actions {
         match filter_layer {
-            FilterLayer::PacketContinue => {
-                self.packet_continue().if_matching
-            }
-            FilterLayer::Packet => {
-                self.packet_filter().if_matching
-            }
-            FilterLayer::Protocol => {
-                self.proto_filter().if_matching
-            }
-            FilterLayer::Session => {
-                self.session_filter().if_matching
-            }
-            FilterLayer::ConnectionDeliver | FilterLayer::PacketDeliver => {
-                Actions::new()
-            }
+            FilterLayer::PacketContinue => self.packet_continue().if_matching,
+            FilterLayer::Packet => self.packet_filter().if_matching,
+            FilterLayer::Protocol => self.proto_filter().if_matching,
+            FilterLayer::Session => self.session_filter().if_matching,
+            FilterLayer::ConnectionDeliver | FilterLayer::PacketDeliver => Actions::new(),
         }
     }
 }

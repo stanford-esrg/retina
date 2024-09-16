@@ -12,9 +12,9 @@ pub use typedefs::{DATATYPES, DIRECTLY_TRACKED};
 
 use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
+use retina_core::lcore::CoreId;
 use retina_core::protocols::stream::Session;
 use retina_core::Mbuf;
-use retina_core::lcore::CoreId;
 
 pub trait Tracked {
     fn new(five_tuple: &FiveTuple, core_id: &CoreId) -> Self;

@@ -56,12 +56,11 @@ lazy_static! {
 
 // Datatypes that are directly tracked by the framework
 lazy_static! {
-    pub static ref DIRECTLY_TRACKED: HashMap<&'static str, &'static str> =
-        HashMap::from([
-            ("PacketList", "packets"),
-            ("SessionList", "sessions"),
-            ("SessionPacketList", "packets")
-        ]);
+    pub static ref DIRECTLY_TRACKED: HashMap<&'static str, &'static str> = HashMap::from([
+        ("PacketList", "packets"),
+        ("SessionList", "sessions"),
+        ("SessionPacketList", "packets")
+    ]);
 }
 
 pub type PacketList = Vec<Mbuf>;

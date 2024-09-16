@@ -14,8 +14,8 @@ pub enum ActionData {
     SessionFilter,  // Apply session-level filter
     SessionDeliver, // Deliver session when parsed
     SessionTrack,   // Store session in tracked data
-                    // Deliver or use to check a filter at conn. termination
-    SessionParse,   // Parse session for datatype
+    // Deliver or use to check a filter at conn. termination
+    SessionParse, // Parse session for datatype
 
     ConnDataTrack, // Track connection metadata
     PacketTrack,   // Buffer frames for future possible delivery
@@ -134,10 +134,9 @@ impl Actions {
 
     #[inline]
     pub fn session_parse(&self) -> bool {
-        self.data
-            .intersects(ActionData::SessionDeliver |
-                        ActionData::SessionFilter |
-                        ActionData::SessionParse)
+        self.data.intersects(
+            ActionData::SessionDeliver | ActionData::SessionFilter | ActionData::SessionParse,
+        )
     }
 
     #[inline]
@@ -155,20 +154,19 @@ impl Actions {
     /// If no further parsing is required (e.g., TLS Handshake)
     #[inline]
     pub fn session_clear_parse(&mut self) {
-        self.clear_mask(ActionData::SessionFilter |
-                        ActionData::SessionDeliver |
-                        ActionData::SessionParse);
+        self.clear_mask(
+            ActionData::SessionFilter | ActionData::SessionDeliver | ActionData::SessionParse,
+        );
     }
 
     /// After parsing
     /// If further sessions may be expected (e.g., HTTP), need to probe
     /// and filter for them again.
     pub fn session_set_probe(&mut self) {
-        self.clear_mask(ActionData::SessionFilter |
-                        ActionData::SessionDeliver |
-                        ActionData::SessionParse);
-        self.data |= ActionData::ProtoProbe |
-                     ActionData::ProtoFilter;
+        self.clear_mask(
+            ActionData::SessionFilter | ActionData::SessionDeliver | ActionData::SessionParse,
+        );
+        self.data |= ActionData::ProtoProbe | ActionData::ProtoFilter;
         /*
          * Note: it could be inefficient to re-apply the proto filter
          *       (protocol was already ID'd). However, this makes it easier

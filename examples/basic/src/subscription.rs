@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
+use retina_core::lcore::CoreId;
 use retina_datatypes::*;
 use std::sync::RwLock;
-use retina_core::lcore::CoreId;
 
 use retina_filtergen::subscription;
 
@@ -15,9 +15,17 @@ lazy_static! {
 }
 
 #[allow(dead_code)]
-fn http_cb(http: &HttpTransaction, packets: &SessionPacketList, five_tuple: &FiveTuple, core_id: &CoreId) {
+fn http_cb(
+    http: &HttpTransaction,
+    packets: &SessionPacketList,
+    five_tuple: &FiveTuple,
+    core_id: &CoreId,
+) {
     let http = &**http;
-    println!("http_cb - {:?}, {:?}, {:?}, {:?}", http, packets, five_tuple, core_id);
+    println!(
+        "http_cb - {:?}, {:?}, {:?}, {:?}",
+        http, packets, five_tuple, core_id
+    );
 }
 
 #[allow(dead_code)]

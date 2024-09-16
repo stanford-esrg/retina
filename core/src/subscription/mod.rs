@@ -1,9 +1,9 @@
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
-use crate::{filter::*, FiveTuple};
+use crate::lcore::CoreId;
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::{ConnData, ParserRegistry, Session};
-use crate::lcore::CoreId;
+use crate::{filter::*, FiveTuple};
 
 pub trait Subscribable {
     type Tracked: Trackable<Subscribed = Self>;
@@ -37,7 +37,6 @@ pub trait Trackable {
     /// Parsers needed by all datatypes
     /// Parsers needed by filter are generated on program startup
     fn parsers() -> ParserRegistry;
-
 }
 
 pub struct Subscription<S>

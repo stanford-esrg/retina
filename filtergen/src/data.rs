@@ -154,34 +154,42 @@ impl TrackedDataBuilder {
     }
 }
 
-
 // Build parameters for a packet-level subscription
 // Only multi-parameter packet-level subscription supported is a packet datatype + CoreId
-pub(crate) fn build_packet_params(spec: &SubscriptionSpec,
-                                  filter_layer: FilterLayer) -> Vec<proc_macro2::TokenStream> {
-
+pub(crate) fn build_packet_params(
+    spec: &SubscriptionSpec,
+    filter_layer: FilterLayer,
+) -> Vec<proc_macro2::TokenStream> {
     if spec.datatypes.len() > 1 {
         assert!(
-            spec.datatypes.len() == 2 &&
-            spec.datatypes.iter().filter(|d| d.as_str == "CoreId").count() == 1 &&
-            spec.datatypes.iter().filter(|d| matches!(d.level, Level::Packet)).count() == 1
+            spec.datatypes.len() == 2
+                && spec
+                    .datatypes
+                    .iter()
+                    .filter(|d| d.as_str == "CoreId")
+                    .count()
+                    == 1
+                && spec
+                    .datatypes
+                    .iter()
+                    .filter(|d| matches!(d.level, Level::Packet))
+                    .count()
+                    == 1
         );
     }
 
     let field_ident = Ident::new("coreid", Span::call_site());
 
-    let mut params = vec![ quote! { p } ];
+    let mut params = vec![quote! { p }];
     if spec.datatypes.len() > 1 {
-        params.push(
-            match filter_layer {
-                FilterLayer::PacketContinue => {
-                    quote! { #field_ident }
-                },
-                _ => {
-                    quote! { &tracked.#field_ident }
-                }
+        params.push(match filter_layer {
+            FilterLayer::PacketContinue => {
+                quote! { #field_ident }
             }
-        );
+            _ => {
+                quote! { &tracked.#field_ident }
+            }
+        });
     }
 
     params
@@ -192,10 +200,22 @@ pub(crate) fn build_packet_callback(
     filter_layer: FilterLayer,
 ) -> proc_macro2::TokenStream {
     // Single packet datatype OR packet datatype + Core ID
-    assert!(spec.datatypes.len() == 1 ||
-            (spec.datatypes.len() == 2 &&
-             spec.datatypes.iter().filter(|d| d.as_str == "CoreId").count() == 1 &&
-             spec.datatypes.iter().filter(|d| matches!(d.level, Level::Packet)).count() == 1));
+    assert!(
+        spec.datatypes.len() == 1
+            || (spec.datatypes.len() == 2
+                && spec
+                    .datatypes
+                    .iter()
+                    .filter(|d| d.as_str == "CoreId")
+                    .count()
+                    == 1
+                && spec
+                    .datatypes
+                    .iter()
+                    .filter(|d| matches!(d.level, Level::Packet))
+                    .count()
+                    == 1)
+    );
 
     let callback = Ident::new(&spec.callback, Span::call_site());
     let type_ident = Ident::new(&spec.datatypes[0].as_str, Span::call_site());
@@ -209,7 +229,7 @@ pub(crate) fn build_packet_callback(
                     #callback(#( #params ),*);
                 }
             }
-        },
+        }
         _ => {
             // Drain existing tracked packets
             quote! {
@@ -220,7 +240,7 @@ pub(crate) fn build_packet_callback(
                 }
             }
         }
-    }
+    };
 }
 
 pub(crate) fn build_callback(
@@ -230,7 +250,7 @@ pub(crate) fn build_callback(
 ) -> proc_macro2::TokenStream {
     let callback = Ident::new(&spec.callback, Span::call_site());
     let mut params = vec![];
-    let mut condition = quote! { };
+    let mut condition = quote! {};
 
     for datatype in &spec.datatypes {
         if DIRECTLY_TRACKED.contains_key(datatype.as_str) {
@@ -241,7 +261,8 @@ pub(crate) fn build_callback(
             params.push(quote! { tracked.#accessor() });
             continue;
         }
-        if matches!(datatype.level, Level::Session) && matches!(filter_layer, FilterLayer::Session) {
+        if matches!(datatype.level, Level::Session) && matches!(filter_layer, FilterLayer::Session)
+        {
             let type_ident = Ident::new(&datatype.as_str, Span::call_site());
             condition = quote! { if let Some(s) = #type_ident::from_session(session) };
             params.push(quote! { s });
@@ -255,8 +276,8 @@ pub(crate) fn build_callback(
     }
 
     let break_early = match session_loop {
-        true => quote! { break; } ,
-        false => quote! { },
+        true => quote! { break; },
+        false => quote! {},
     };
 
     quote! {
