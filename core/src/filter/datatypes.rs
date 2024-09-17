@@ -116,6 +116,18 @@ impl DataType {
         Self::new(Level::Packet, false, false, false, false, vec![], "Packet")
     }
 
+    pub fn new_static(as_str: &'static str) -> Self {
+        Self::new(
+            Level::Static,
+            false,
+            false,
+            false,
+            false,
+            vec![],
+            as_str,
+        )
+    }
+
     // Returns whether the current filter layer is the earliest where this datatype,
     // with this filter, can be delivered.
     pub(crate) fn should_deliver(&self, filter_layer: &FilterLayer, pred: &Predicate) -> bool {

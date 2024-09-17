@@ -77,28 +77,9 @@ lazy_static! {
                     as_str: "SessionList",
                 }
             }),
-            ("CoreId", {
-                DataType {
-                    level: Level::Static,
-                    needs_parse: false,
-                    needs_update: false,
-                    needs_update_reassembled: false,
-                    track_packets: false,
-                    stream_protos: vec![],
-                    as_str: "CoreId",
-                }
-            }),
-            ("FiveTuple", {
-                DataType {
-                    level: Level::Static,
-                    needs_parse: false,
-                    needs_update: false,
-                    needs_update_reassembled: false,
-                    track_packets: false,
-                    stream_protos: vec![],
-                    as_str: "FiveTuple",
-                }
-            }),
+            ("CoreId", { DataType::new_static("CoreId") }),
+            ("FiveTuple", { DataType::new_static("FiveTuple") }),
+            ("EtherType", { DataType::new_static("EtherType") }),
         ])
     };
 }

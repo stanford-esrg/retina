@@ -15,9 +15,9 @@ lazy_static! {
 }
 
 #[allow(dead_code)]
-fn http_cb(http: &HttpTransaction, five_tuple: &FiveTuple, core_id: &CoreId) {
+fn http_cb(http: &HttpTransaction, five_tuple: &FiveTuple, core_id: &CoreId, ethertype: &EtherType) {
     let http = &**http;
-    println!("http_cb - {:?}, {:?}, {:?}", http, five_tuple, core_id);
+    println!("http_cb - {:?}, {:?}, {:?}, {:?}", http, five_tuple, core_id, ethertype);
 }
 
 #[allow(dead_code)]

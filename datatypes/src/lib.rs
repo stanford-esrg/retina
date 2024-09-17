@@ -9,6 +9,7 @@ pub mod static_type;
 
 pub use typedefs::{PacketList, SessionList};
 pub use typedefs::{DATATYPES, DIRECTLY_TRACKED};
+pub use static_type::EtherType;
 
 use retina_core::conntrack::pdu::L4Pdu;
 use retina_core::protocols::stream::Session;
