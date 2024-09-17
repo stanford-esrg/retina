@@ -7,7 +7,7 @@ pub mod packet;
 pub use packet::{Payload, ZcFrame};
 pub mod static_type;
 
-pub use typedefs::{PacketList, SessionList, SessionPacketList};
+pub use typedefs::{PacketList, SessionList};
 pub use typedefs::{DATATYPES, DIRECTLY_TRACKED};
 
 use retina_core::conntrack::pdu::L4Pdu;

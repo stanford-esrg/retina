@@ -66,17 +66,6 @@ lazy_static! {
                     as_str: "PacketList",
                 }
             }),
-            ("SessionPacketList", {
-                DataType {
-                    level: Level::Session,
-                    needs_parse: false,
-                    needs_update: false,
-                    needs_update_reassembled: false,
-                    track_packets: true,
-                    stream_protos: vec![],
-                    as_str: "SessionPacketList",
-                }
-            }),
             ("SessionList", {
                 DataType {
                     level: Level::Connection,
@@ -119,11 +108,9 @@ lazy_static! {
     pub static ref DIRECTLY_TRACKED: HashMap<&'static str, &'static str> = HashMap::from([
         ("PacketList", "packets"),
         ("SessionList", "sessions"),
-        ("SessionPacketList", "packets"),
         ("CoreId", "core_id")
     ]);
 }
 
 pub type PacketList = Vec<Mbuf>;
-pub type SessionPacketList = Vec<Mbuf>;
 pub type SessionList = Vec<Session>;

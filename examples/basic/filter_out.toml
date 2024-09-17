@@ -3,5 +3,5 @@ subscriptions = [
     { filter = "ipv4 and http", datatypes = ["Connection", "SessionList"], callback = "conn_cb" },
     { filter = "http.user_agent ~ 'abc.*'", datatypes = ["Connection", "SessionList"], callback = "conn_cb" },
     { filter = "http.user_agent ~ 'def.*'", datatypes = ["Connection", "SessionList"], callback = "conn_cb" },
-    { filter = "http.user_agent ~ 'Mozilla.*'", datatypes = ["HttpTransaction", "SessionPacketList", "FiveTuple", "CoreId"], callback = "http_cb" },
+    { filter = "http.user_agent ~ 'Mozilla.*'", datatypes = ["HttpTransaction", "FiveTuple", "CoreId"], callback = "http_cb" },
     ]
