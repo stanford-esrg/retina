@@ -79,7 +79,7 @@ lazy_static! {
             }),
             ("CoreId", { DataType::new_static("CoreId") }),
             ("FiveTuple", { DataType::new_static("FiveTuple") }),
-            ("EtherType", { DataType::new_static("EtherType") }),
+            ("EtherTCI", { DataType::new_static("EtherTCI") }),
         ])
     };
 }

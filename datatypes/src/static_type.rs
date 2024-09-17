@@ -12,13 +12,15 @@ impl StaticData for FiveTuple {
 use retina_core::protocols::packet::{Packet, ethernet::Ethernet};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct EtherType(Option<u16>);
+pub struct EtherTCI(Option<u16>);
 
-impl StaticData for EtherType {
+impl StaticData for EtherTCI {
     fn new(first_pkt: &L4Pdu) -> Self {
         if let Ok(ethernet) = &Packet::parse_to::<Ethernet>(first_pkt.mbuf_ref()) {
-            return EtherType(Some(ethernet.ether_type()));
+            if let Some(tci) = ethernet.tci() {
+                return EtherTCI(Some(tci));
+            }
         }
-        EtherType(None)
+        EtherTCI(None)
     }
 }
