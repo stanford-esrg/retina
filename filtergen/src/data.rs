@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, Span};
-use retina_core::filter::{ptree::FilterLayer, SubscriptionSpec};
+use retina_core::filter::{ptree::FilterLayer, SubscriptionSpec, Level};
 use retina_core::protocols::stream::ConnParser;
 use retina_datatypes::typedefs::DIRECTLY_TRACKED;
 use std::collections::HashSet;
@@ -7,8 +7,6 @@ use std::collections::HashSet;
 use quote::quote;
 
 use crate::SubscriptionConfig;
-
-use retina_core::filter::Level;
 
 pub(crate) struct TrackedDataBuilder {
     update: Vec<proc_macro2::TokenStream>,
@@ -56,7 +54,7 @@ impl TrackedDataBuilder {
                     #field_name : #type_name,
                 });
                 self.new
-                    .push(quote! { #field_name: #type_name::new(five_tuple, &core_id), });
+                    .push(quote! { #field_name: #type_name::new(pdu), });
 
                 if datatype.needs_update {
                     self.update
@@ -103,18 +101,19 @@ impl TrackedDataBuilder {
             pub struct TrackedWrapper {
                 sessions: Vec<Session>,
                 mbufs: Vec<Mbuf>,
+                core_id: CoreId,
                 #( #def )*
             }
 
             impl Trackable for TrackedWrapper {
                 type Subscribed = SubscribedWrapper;
 
-                fn new(five_tuple: &retina_core::conntrack::conn_id::FiveTuple,
-                       core_id: retina_core::lcore::CoreId) -> Self {
-
+                fn new(pdu: &L4Pdu,
+                       core_id: CoreId) -> Self {
                     Self {
                         sessions: vec![],
                         mbufs: vec![],
+                        core_id,
                         #( #new )*
                     }
                 }
@@ -124,6 +123,10 @@ impl TrackedDataBuilder {
                         reassembled: bool)
                 {
                     #( #update )*
+                }
+
+                fn core_id(&self) -> &CoreId {
+                    &self.core_id
                 }
 
                 fn track_packet(&mut self, mbuf: Mbuf) {
@@ -146,8 +149,8 @@ impl TrackedDataBuilder {
                     self.sessions.push(session);
                 }
 
-                fn parsers() -> retina_core::protocols::stream::ParserRegistry {
-                    retina_core::protocols::stream::ParserRegistry::from_strings(vec![ #( #conn_parsers )* ])
+                fn parsers() -> ParserRegistry {
+                    ParserRegistry::from_strings(vec![ #( #conn_parsers )* ])
                 }
             }
         }
@@ -178,16 +181,14 @@ pub(crate) fn build_packet_params(
         );
     }
 
-    let field_ident = Ident::new("coreid", Span::call_site());
-
     let mut params = vec![quote! { p }];
     if spec.datatypes.len() > 1 {
         params.push(match filter_layer {
             FilterLayer::PacketContinue => {
-                quote! { #field_ident }
+                quote! { core_id }
             }
             _ => {
-                quote! { &tracked.#field_ident }
+                quote! { &tracked.core_id() }
             }
         });
     }

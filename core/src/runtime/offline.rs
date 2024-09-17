@@ -58,7 +58,7 @@ where
         let config = TrackerConfig::from(&self.options.conntrack);
         let registry = S::Tracked::parsers();
         log::debug!("{:#?}", registry);
-        let mut stream_table = ConnTracker::<S::Tracked>::new(config, registry, self.id.raw());
+        let mut stream_table = ConnTracker::<S::Tracked>::new(config, registry, self.id);
 
         let mempool_raw = self.get_mempool_raw();
         let pcap = self.options.offline.pcap.as_str();

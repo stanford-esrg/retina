@@ -14,6 +14,7 @@ use self::conn_id::ConnId;
 use self::pdu::{L4Context, L4Pdu};
 use self::timerwheel::TimerWheel;
 use crate::config::ConnTrackConfig;
+use crate::lcore::CoreId;
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::packet::tcp::TCP_PROTOCOL;
 use crate::protocols::packet::udp::UDP_PROTOCOL;
@@ -45,7 +46,7 @@ where
     /// Manages connection timeouts.
     timerwheel: TimerWheel,
     /// ID of the core that the table is assigned to.
-    core_id: u32,
+    core_id: CoreId,
 }
 
 impl<T> ConnTracker<T>
@@ -53,7 +54,7 @@ where
     T: Trackable,
 {
     /// Creates a new `ConnTracker`.
-    pub(crate) fn new(config: TrackerConfig, registry: ParserRegistry, core_id: u32) -> Self {
+    pub(crate) fn new(config: TrackerConfig, registry: ParserRegistry, core_id: CoreId) -> Self {
         let table = LinkedHashMap::with_capacity(config.max_connections);
         let timerwheel = TimerWheel::new(
             cmp::max(config.tcp_inactivity_timeout, config.udp_inactivity_timeout),
@@ -121,24 +122,24 @@ where
                         log::debug!("packet continue did not drop {:?}", mbuf);
                         return;
                     }
+                    let pdu = L4Pdu::new(mbuf, ctxt, true);
                     let conn = match ctxt.proto {
-                        TCP_PROTOCOL => Conn::new_tcp(
-                            ctxt,
+                        TCP_PROTOCOL => Conn::<T>::new_tcp(
                             self.config.tcp_establish_timeout,
                             self.config.max_out_of_order,
                             pkt_actions,
-                            self.core_id,
+                            &pdu,
+                            self.core_id
                         ),
-                        UDP_PROTOCOL => Conn::new_udp(
-                            ctxt,
+                        UDP_PROTOCOL => Conn::<T>::new_udp(
                             self.config.udp_inactivity_timeout,
                             pkt_actions,
-                            self.core_id,
+                            &pdu,
+                            self.core_id
                         ),
                         _ => Err(anyhow!("Invalid L4 Protocol")),
                     };
                     if let Ok(mut conn) = conn {
-                        let pdu = L4Pdu::new(mbuf, ctxt, true);
                         conn.info.consume_pdu(pdu, subscription, &self.registry);
                         if !conn.remove() {
                             self.timerwheel.insert(

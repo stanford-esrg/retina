@@ -119,7 +119,8 @@ lazy_static! {
     pub static ref DIRECTLY_TRACKED: HashMap<&'static str, &'static str> = HashMap::from([
         ("PacketList", "packets"),
         ("SessionList", "sessions"),
-        ("SessionPacketList", "packets")
+        ("SessionPacketList", "packets"),
+        ("CoreId", "core_id")
     ]);
 }
 

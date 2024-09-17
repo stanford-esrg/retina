@@ -26,7 +26,7 @@ pub struct FiveTuple {
 
 impl FiveTuple {
     /// Creates a new 5-tuple from `ctxt`.
-    pub(super) fn from_ctxt(ctxt: L4Context) -> Self {
+    pub fn from_ctxt(ctxt: L4Context) -> Self {
         FiveTuple {
             orig: ctxt.src,
             resp: ctxt.dst,

@@ -16,6 +16,7 @@ use crate::filter::Actions;
 use crate::protocols::packet::tcp::{ACK, RST, SYN};
 use crate::protocols::stream::ParserRegistry;
 use crate::subscription::{Subscription, Trackable};
+use crate::lcore::CoreId;
 
 use anyhow::{bail, Result};
 use std::time::Instant;
@@ -52,15 +53,14 @@ where
     /// can be at most `max_ooo` packets buffered out of sequence before Retina chooses to discard
     /// the connection.
     pub(super) fn new_tcp(
-        ctxt: L4Context,
         initial_timeout: usize,
         max_ooo: usize,
         pkt_actions: Actions,
-        core_id: u32,
+        pdu: &L4Pdu,
+        core_id: CoreId
     ) -> Result<Self> {
-        let five_tuple = FiveTuple::from_ctxt(ctxt);
-        let tcp_conn = if ctxt.flags & SYN != 0 && ctxt.flags & ACK == 0 && ctxt.flags & RST == 0 {
-            TcpConn::new_on_syn(ctxt, max_ooo)
+        let tcp_conn = if pdu.ctxt.flags & SYN != 0 && pdu.ctxt.flags & ACK == 0 && pdu.ctxt.flags & RST == 0 {
+            TcpConn::new_on_syn(pdu.ctxt, max_ooo)
         } else {
             bail!("Not SYN")
         };
@@ -68,7 +68,7 @@ where
             last_seen_ts: Instant::now(),
             inactivity_window: initial_timeout,
             l4conn: L4Conn::Tcp(tcp_conn),
-            info: ConnInfo::new(five_tuple, pkt_actions, core_id),
+            info: ConnInfo::new(pdu, core_id, pkt_actions),
         })
     }
 
@@ -76,18 +76,17 @@ where
     /// `initial_timeout`.
     #[allow(clippy::unnecessary_wraps)]
     pub(super) fn new_udp(
-        ctxt: L4Context,
         initial_timeout: usize,
-        actions: Actions,
-        core_id: u32,
+        pkt_actions: Actions,
+        pdu: &L4Pdu,
+        core_id: CoreId
     ) -> Result<Self> {
-        let five_tuple = FiveTuple::from_ctxt(ctxt);
         let udp_conn = UdpConn;
         Ok(Conn {
             last_seen_ts: Instant::now(),
             inactivity_window: initial_timeout,
             l4conn: L4Conn::Udp(udp_conn),
-            info: ConnInfo::new(five_tuple, actions, core_id),
+            info: ConnInfo::new(pdu, core_id, pkt_actions),
         })
     }
 

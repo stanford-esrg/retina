@@ -100,12 +100,12 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     };
 
     let tst = quote! {
-        use retina_core::conntrack::conn_id::FiveTuple;
-        use retina_core::conntrack::pdu::L4Pdu;
-        use retina_core::memory::mbuf::Mbuf;
-        use retina_core::protocols::stream::{Session, ConnData};
+        use retina_core::conntrack::{conn_id::FiveTuple, pdu::L4Pdu};
+        use retina_core::Mbuf;
+        use retina_core::lcore::CoreId;
+        use retina_core::protocols::stream::{Session, ConnData, ParserRegistry};
         use retina_core::subscription::{Subscribable, Trackable};
-        use retina_core::filter::actions::*;
+        use retina_core::filter::{FilterFactory, actions::*};
 
         #subscribable
 
@@ -113,25 +113,25 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
 
         #lazy_statics
 
-        pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
+        pub(super) fn filter() -> FilterFactory<TrackedWrapper> {
 
-            fn packet_continue(mbuf: &retina_core::Mbuf,
-                               coreid: &retina_core::lcore::CoreId) -> retina_core::filter::Actions {
+            fn packet_continue(mbuf: &Mbuf,
+                               core_id: &CoreId) -> Actions {
                 #packet_continue
             }
 
-            fn packet_filter(mbuf: &retina_core::Mbuf) -> retina_core::filter::Actions {
+            fn packet_filter(mbuf: &Mbuf) -> Actions {
                 #packet_filter
             }
 
-            fn protocol_filter(conn: &retina_core::protocols::stream::ConnData,
-                               tracked: &TrackedWrapper) -> retina_core::filter::Actions {
+            fn protocol_filter(conn: &ConnData,
+                               tracked: &TrackedWrapper) -> Actions {
                 #proto_filter
             }
 
-            fn session_filter(session: &retina_core::protocols::stream::Session,
-                              conn: &retina_core::protocols::stream::ConnData,
-                              tracked: &TrackedWrapper) -> retina_core::filter::actions::Actions
+            fn session_filter(session: &Session,
+                              conn: &ConnData,
+                              tracked: &TrackedWrapper) -> Actions
             {
                 #session_filter
             }
@@ -146,7 +146,7 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
                 #conn_deliver_filter
             }
 
-            retina_core::filter::FilterFactory::new(
+            FilterFactory::new(
                 #filter_str,
                 packet_continue,
                 packet_filter,

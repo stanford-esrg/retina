@@ -1,7 +1,6 @@
 use retina_core::conntrack::conn::tcp_conn::reassembly::wrapping_lt;
 use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
-use retina_core::lcore::CoreId;
 use retina_core::protocols::packet::tcp::{ACK, FIN, RST, SYN};
 use retina_core::protocols::stream::Session;
 
@@ -170,10 +169,11 @@ impl Connection {
 }
 
 impl Tracked for Connection {
-    fn new(five_tuple: &FiveTuple, _core_id: &CoreId) -> Self {
+    fn new(first_pkt: &L4Pdu) -> Self {
+        let five_tuple = FiveTuple::from_ctxt(first_pkt.ctxt);
         let now = Instant::now();
         Self {
-            five_tuple: *five_tuple,
+            five_tuple,
             first_seen_ts: now,
             second_seen_ts: now,
             last_seen_ts: now,

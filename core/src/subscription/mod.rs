@@ -3,7 +3,7 @@ use crate::conntrack::ConnTracker;
 use crate::lcore::CoreId;
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::{ConnData, ParserRegistry, Session};
-use crate::{filter::*, FiveTuple};
+use crate::filter::*;
 
 pub trait Subscribable {
     type Tracked: Trackable<Subscribed = Self>;
@@ -13,7 +13,7 @@ pub trait Trackable {
     type Subscribed: Subscribable<Tracked = Self>;
 
     /// Create a new struct for tracking connection data for user delivery
-    fn new(five_tuple: &FiveTuple, core_id: CoreId) -> Self;
+    fn new(first_pkt: &L4Pdu, core_id: CoreId) -> Self;
 
     /// When tracking, parsing, or buffering frames,
     /// update tracked data with new PDU
@@ -33,6 +33,9 @@ pub trait Trackable {
 
     /// Drain vector of mbufs
     fn drain_packets(&mut self);
+
+    /// Return the core ID that this tracked conn. is on
+    fn core_id(&self) -> &CoreId;
 
     /// Parsers needed by all datatypes
     /// Parsers needed by filter are generated on program startup
