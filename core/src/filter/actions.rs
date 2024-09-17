@@ -15,7 +15,6 @@ pub enum ActionData {
     SessionDeliver, // Deliver session when parsed
     SessionTrack,   // Store session in tracked data
     // Deliver or use to check a filter at conn. termination
-
     UpdatePDU,            // `Update` method should be invoked pre-reassembly
     ReassembledUpdatePDU, // `Update` method should be invoked post-reassembly
     PacketTrack,          // Buffer frames for future possible delivery
@@ -110,7 +109,7 @@ impl Actions {
                 | ActionData::ProtoFilter
                 | ActionData::SessionFilter
                 | ActionData::SessionDeliver
-                | ActionData::SessionTrack
+                | ActionData::SessionTrack,
         )
     }
 
@@ -143,9 +142,7 @@ impl Actions {
     #[inline]
     pub fn session_parse(&self) -> bool {
         self.data.intersects(
-            ActionData::SessionDeliver |
-            ActionData::SessionFilter |
-            ActionData::SessionTrack,
+            ActionData::SessionDeliver | ActionData::SessionFilter | ActionData::SessionTrack,
         )
     }
 
@@ -166,9 +163,7 @@ impl Actions {
     #[inline]
     pub fn session_clear_parse(&mut self) {
         self.clear_mask(
-            ActionData::SessionFilter |
-                ActionData::SessionDeliver |
-                ActionData::SessionTrack
+            ActionData::SessionFilter | ActionData::SessionDeliver | ActionData::SessionTrack,
         );
     }
 
@@ -176,9 +171,7 @@ impl Actions {
     /// (e.g., in case of encapsulation)
     pub fn session_set_probe(&mut self) {
         self.clear_mask(
-            ActionData::SessionFilter |
-                ActionData::SessionDeliver |
-                ActionData::SessionTrack,
+            ActionData::SessionFilter | ActionData::SessionDeliver | ActionData::SessionTrack,
         );
         self.data |= ActionData::ProtoProbe | ActionData::ProtoFilter;
         /*

@@ -100,12 +100,8 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
     };
 
     let tst = quote! {
-        use retina_core::conntrack::{conn_id::FiveTuple, pdu::L4Pdu};
-        use retina_core::Mbuf;
-        use retina_core::lcore::CoreId;
-        use retina_core::protocols::stream::{Session, ConnData, ParserRegistry};
-        use retina_core::subscription::{Subscribable, Trackable};
-        use retina_core::filter::{FilterFactory, actions::*};
+        use retina_core::filter::actions::*;
+        use retina_core::subscription::{Trackable, Subscribable};
 
         #subscribable
 
@@ -113,40 +109,43 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
 
         #lazy_statics
 
-        pub(super) fn filter() -> FilterFactory<TrackedWrapper> {
+        pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
 
-            fn packet_continue(mbuf: &Mbuf,
-                               core_id: &CoreId) -> Actions {
+            fn packet_continue(mbuf: &retina_core::Mbuf,
+                               core_id: &retina_core::CoreId) -> Actions {
                 #packet_continue
             }
 
-            fn packet_filter(mbuf: &Mbuf) -> Actions {
+            fn packet_filter(mbuf: &retina_core::Mbuf) -> Actions {
                 #packet_filter
             }
 
-            fn protocol_filter(conn: &ConnData,
+            fn protocol_filter(conn: &retina_core::protocols::ConnData,
                                tracked: &TrackedWrapper) -> Actions {
                 #proto_filter
             }
 
-            fn session_filter(session: &Session,
-                              conn: &ConnData,
+            fn session_filter(session: &retina_core::protocols::Session,
+                              conn: &retina_core::protocols::ConnData,
                               tracked: &TrackedWrapper) -> Actions
             {
                 #session_filter
             }
 
-            fn packet_deliver(mbuf: &Mbuf, conn: &ConnData, tracked: &TrackedWrapper)
+            fn packet_deliver(mbuf: &retina_core::Mbuf,
+                              conn: &retina_core::protocols::ConnData,
+                              tracked: &TrackedWrapper)
             {
                 #packet_deliver_filter
             }
 
-            fn connection_deliver(conn: &ConnData, tracked: &TrackedWrapper)
+            fn connection_deliver(conn: &retina_core::protocols::ConnData,
+                                  tracked: &TrackedWrapper)
             {
                 #conn_deliver_filter
             }
 
-            FilterFactory::new(
+            retina_core::filter::FilterFactory::new(
                 #filter_str,
                 packet_continue,
                 packet_filter,

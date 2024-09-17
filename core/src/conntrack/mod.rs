@@ -129,13 +129,13 @@ where
                             self.config.max_out_of_order,
                             pkt_actions,
                             &pdu,
-                            self.core_id
+                            self.core_id,
                         ),
                         UDP_PROTOCOL => Conn::<T>::new_udp(
                             self.config.udp_inactivity_timeout,
                             pkt_actions,
                             &pdu,
-                            self.core_id
+                            self.core_id,
                         ),
                         _ => Err(anyhow!("Invalid L4 Protocol")),
                     };

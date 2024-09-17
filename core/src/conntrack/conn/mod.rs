@@ -13,10 +13,10 @@ use self::udp_conn::UdpConn;
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::filter::Actions;
+use crate::lcore::CoreId;
 use crate::protocols::packet::tcp::{ACK, RST, SYN};
 use crate::protocols::stream::ParserRegistry;
 use crate::subscription::{Subscription, Trackable};
-use crate::lcore::CoreId;
 
 use anyhow::{bail, Result};
 use std::time::Instant;
@@ -57,9 +57,12 @@ where
         max_ooo: usize,
         pkt_actions: Actions,
         pdu: &L4Pdu,
-        core_id: CoreId
+        core_id: CoreId,
     ) -> Result<Self> {
-        let tcp_conn = if pdu.ctxt.flags & SYN != 0 && pdu.ctxt.flags & ACK == 0 && pdu.ctxt.flags & RST == 0 {
+        let tcp_conn = if pdu.ctxt.flags & SYN != 0
+            && pdu.ctxt.flags & ACK == 0
+            && pdu.ctxt.flags & RST == 0
+        {
             TcpConn::new_on_syn(pdu.ctxt, max_ooo)
         } else {
             bail!("Not SYN")
@@ -79,7 +82,7 @@ where
         initial_timeout: usize,
         pkt_actions: Actions,
         pdu: &L4Pdu,
-        core_id: CoreId
+        core_id: CoreId,
     ) -> Result<Self> {
         let udp_conn = UdpConn;
         Ok(Conn {

@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use retina_core::{CoreId, FiveTuple};
 use retina_datatypes::*;
 use std::sync::RwLock;
 
@@ -14,16 +15,9 @@ lazy_static! {
 }
 
 #[allow(dead_code)]
-fn http_cb(
-    http: &HttpTransaction,
-    five_tuple: &FiveTuple,
-    core_id: &CoreId,
-) {
+fn http_cb(http: &HttpTransaction, five_tuple: &FiveTuple, core_id: &CoreId) {
     let http = &**http;
-    println!(
-        "http_cb - {:?}, {:?}, {:?}",
-        http, five_tuple, core_id
-    );
+    println!("http_cb - {:?}, {:?}, {:?}", http, five_tuple, core_id);
 }
 
 #[allow(dead_code)]
@@ -37,7 +31,7 @@ fn conn_dns_cb(conn: &Connection) {
 }
 
 #[allow(dead_code)]
-fn packet_cb(pkt: &ZcFrame, _core_id: &CoreId) {
+fn packet_cb(pkt: &ZcFrame, _core_id: &retina_core::CoreId) {
     println!("pkt - {:?}", pkt);
 }
 

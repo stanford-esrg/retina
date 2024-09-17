@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, Span};
-use retina_core::filter::{ptree::FilterLayer, SubscriptionSpec, Level};
+use retina_core::filter::{ptree::FilterLayer, Level, SubscriptionSpec};
 use retina_core::protocols::stream::ConnParser;
 use retina_datatypes::typedefs::DIRECTLY_TRACKED;
 use std::collections::HashSet;
@@ -53,8 +53,7 @@ impl TrackedDataBuilder {
                 self.struct_def.push(quote! {
                     #field_name : #type_name,
                 });
-                self.new
-                    .push(quote! { #field_name: #type_name::new(pdu), });
+                self.new.push(quote! { #field_name: #type_name::new(pdu), });
 
                 if datatype.needs_update {
                     self.update
@@ -99,17 +98,17 @@ impl TrackedDataBuilder {
 
         quote! {
             pub struct TrackedWrapper {
-                sessions: Vec<Session>,
-                mbufs: Vec<Mbuf>,
-                core_id: CoreId,
+                sessions: Vec<retina_core::protocols::Session>,
+                mbufs: Vec<retina_core::Mbuf>,
+                core_id: retina_core::CoreId,
                 #( #def )*
             }
 
             impl Trackable for TrackedWrapper {
                 type Subscribed = SubscribedWrapper;
 
-                fn new(pdu: &L4Pdu,
-                       core_id: CoreId) -> Self {
+                fn new(pdu: &retina_core::L4Pdu,
+                       core_id: retina_core::CoreId) -> Self {
                     Self {
                         sessions: vec![],
                         mbufs: vec![],
@@ -119,21 +118,21 @@ impl TrackedDataBuilder {
                 }
 
                 fn update(&mut self,
-                        pdu: &L4Pdu,
+                        pdu: &retina_core::L4Pdu,
                         reassembled: bool)
                 {
                     #( #update )*
                 }
 
-                fn core_id(&self) -> &CoreId {
+                fn core_id(&self) -> &retina_core::CoreId {
                     &self.core_id
                 }
 
-                fn track_packet(&mut self, mbuf: Mbuf) {
+                fn track_packet(&mut self, mbuf: retina_core::Mbuf) {
                     self.mbufs.push(mbuf);
                 }
 
-                fn packets(&self) -> &Vec<Mbuf> {
+                fn packets(&self) -> &Vec<retina_core::Mbuf> {
                     &self.mbufs
                 }
 
@@ -141,16 +140,16 @@ impl TrackedDataBuilder {
                     self.mbufs = vec![];
                 }
 
-                fn sessions(&self) -> &Vec<Session> {
+                fn sessions(&self) -> &Vec<retina_core::protocols::Session> {
                     &self.sessions
                 }
 
-                fn track_session(&mut self, session: Session) {
+                fn track_session(&mut self, session: retina_core::protocols::Session) {
                     self.sessions.push(session);
                 }
 
-                fn parsers() -> ParserRegistry {
-                    ParserRegistry::from_strings(vec![ #( #conn_parsers )* ])
+                fn parsers() -> retina_core::protocols::stream::ParserRegistry {
+                    retina_core::protocols::stream::ParserRegistry::from_strings(vec![ #( #conn_parsers )* ])
                 }
             }
         }
@@ -158,20 +157,19 @@ impl TrackedDataBuilder {
 }
 
 // Build parameters for a packet-level subscription
-// Only multi-parameter packet-level subscription supported is a packet datatype + CoreId
+// Only multi-parameter packet-level subscription supported is a packet datatype + retina_core::CoreId
 pub(crate) fn build_packet_params(
     spec: &SubscriptionSpec,
     filter_layer: FilterLayer,
 ) -> Vec<proc_macro2::TokenStream> {
     if spec.datatypes.len() > 1 {
+        assert!(spec.datatypes.len() == 2);
         assert!(
-            spec.datatypes.len() == 2
-                && spec
-                    .datatypes
-                    .iter()
-                    .filter(|d| d.as_str == "CoreId")
-                    .count()
-                    == 1
+            spec.datatypes
+                .iter()
+                .filter(|d| d.as_str == "CoreId")
+                .count()
+                == 1
                 && spec
                     .datatypes
                     .iter()
@@ -200,24 +198,6 @@ pub(crate) fn build_packet_callback(
     spec: &SubscriptionSpec,
     filter_layer: FilterLayer,
 ) -> proc_macro2::TokenStream {
-    // Single packet datatype OR packet datatype + Core ID
-    assert!(
-        spec.datatypes.len() == 1
-            || (spec.datatypes.len() == 2
-                && spec
-                    .datatypes
-                    .iter()
-                    .filter(|d| d.as_str == "CoreId")
-                    .count()
-                    == 1
-                && spec
-                    .datatypes
-                    .iter()
-                    .filter(|d| matches!(d.level, Level::Packet))
-                    .count()
-                    == 1)
-    );
-
     let callback = Ident::new(&spec.callback, Span::call_site());
     let type_ident = Ident::new(&spec.datatypes[0].as_str, Span::call_site());
     let params = build_packet_params(spec, filter_layer);

@@ -64,6 +64,8 @@ pub mod subscription;
 pub mod utils;
 
 pub use self::conntrack::conn_id::{ConnId, FiveTuple};
+pub use self::conntrack::pdu::L4Pdu;
+pub use self::lcore::CoreId;
 pub use self::memory::mbuf::Mbuf;
 pub use self::runtime::Runtime;
 

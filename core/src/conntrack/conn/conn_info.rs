@@ -4,14 +4,14 @@
 // Terminate handler
 // Probe, parse, etc.
 
-use crate::lcore::CoreId;
-use crate::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
 use crate::filter::Actions;
+use crate::lcore::CoreId;
 use crate::protocols::stream::{
     ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, SessionState,
 };
 use crate::subscription::{Subscription, Trackable};
+use crate::FiveTuple;
 
 #[derive(Debug)]
 pub(crate) struct ConnInfo<T>
@@ -30,8 +30,7 @@ impl<T> ConnInfo<T>
 where
     T: Trackable,
 {
-    pub(super) fn new(pdu: &L4Pdu, core_id: CoreId,
-                      pkt_actions: Actions) -> Self {
+    pub(super) fn new(pdu: &L4Pdu, core_id: CoreId, pkt_actions: Actions) -> Self {
         let five_tuple = FiveTuple::from_ctxt(pdu.ctxt);
         ConnInfo {
             actions: pkt_actions,

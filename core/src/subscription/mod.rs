@@ -1,9 +1,9 @@
 use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::conntrack::ConnTracker;
+use crate::filter::*;
 use crate::lcore::CoreId;
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::{ConnData, ParserRegistry, Session};
-use crate::filter::*;
 
 pub trait Subscribable {
     type Tracked: Trackable<Subscribed = Self>;
