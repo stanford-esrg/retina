@@ -8,8 +8,7 @@ impl StaticData for FiveTuple {
     }
 }
 
-
-use retina_core::protocols::packet::{Packet, ethernet::Ethernet};
+use retina_core::protocols::packet::{ethernet::Ethernet, Packet};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EtherTCI(Option<u16>);

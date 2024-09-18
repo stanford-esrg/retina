@@ -19,10 +19,10 @@ pub enum ActionData {
     ReassembledUpdatePDU, // `Update` method should be invoked post-reassembly
     PacketTrack,          // Buffer frames for future possible delivery
 
-    ConnDeliver,          // Deliver connection on termination
+    ConnDeliver, // Deliver connection on termination
 
-                          // \note Session and packet delivery happen within filters.
-                          // \note This assumes that each callback has exactly one "layer"
+                 // \note Session and packet delivery happen within filters.
+                 // \note This assumes that each callback has exactly one "layer"
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -128,8 +128,8 @@ impl Actions {
     #[inline]
     pub fn apply_session_filter(&mut self) -> bool {
         // \note deliver filter is in session filter
-        self.data.intersects(ActionData::SessionFilter |
-                             ActionData::SessionDeliver)
+        self.data
+            .intersects(ActionData::SessionFilter | ActionData::SessionDeliver)
     }
 
     #[inline]
@@ -194,8 +194,7 @@ impl Actions {
 
     #[inline]
     pub fn connection_matched(&self) -> bool {
-        self.terminal_actions
-            .intersects(ActionData::ConnDeliver)
+        self.terminal_actions.intersects(ActionData::ConnDeliver)
     }
 
     #[inline]

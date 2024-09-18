@@ -1,5 +1,9 @@
 subscriptions = [
+    { filter = "ipv4 and http", datatypes = ["Connection", "HttpTransaction"], callback = "conn_cb" },
+    { filter = "http.user_agent ~ 'Mozilla.*'", datatypes = ["SessionList", "FiveTuple"], callback = "conn_list_cb" },
+    { filter = "http.user_agent ~ 'Mozilla.*'", datatypes = ["HttpTransaction", "FiveTuple", "CoreId", "EtherTCI"], callback = "http_cb" },
     { filter = "tls", datatypes = "TlsHandshake", callback = "tls_cb" },
     { filter = "dns", datatypes = "DnsTransaction", callback = "dns_cb" },
     { filter = "quic", datatypes = "QuicStream", callback = "quic_cb" },
+    { filter = "http.user_agent ~ 'Mozilla.*' and tcp.port = 80", datatypes = ["ZcFrame", "CoreId", "EtherTCI"], callback = "packet_cb" },
     ]

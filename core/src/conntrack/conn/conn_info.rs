@@ -129,6 +129,8 @@ where
 
     fn handle_session(&mut self, subscription: &Subscription<T::Subscribed>, id: usize) {
         if let Some(session) = self.cdata.conn_parser.remove_session(id) {
+            // Session matched (to be tracked) at protocol level (e.g., "tls" filter)
+            let session_track = self.actions.session_track();
             if self.actions.apply_session_filter() {
                 let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
                 if self.actions.buffer_frame() != actions.buffer_frame() && !actions.drop() {
@@ -137,7 +139,7 @@ where
                 }
                 self.actions.update(&actions);
             }
-            if self.actions.session_track() {
+            if session_track || self.actions.session_track() {
                 self.sdata.track_session(session);
             }
         } else {
@@ -163,11 +165,12 @@ where
         // Session parsing is ongoing: drain any remaining sessions
         if self.actions.session_parse() {
             for session in self.cdata.conn_parser.drain_sessions() {
+                let session_track = self.actions.session_track();
                 if self.actions.apply_session_filter() {
                     let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
                     self.actions.update(&actions);
                 }
-                if self.actions.session_track() {
+                if session_track || self.actions.session_track() {
                     self.sdata.track_session(session);
                 }
             }

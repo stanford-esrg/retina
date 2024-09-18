@@ -23,23 +23,19 @@ lazy_static! {
             ),
             (
                 "HttpTransaction",
-                DataType::new_session("HttpTransaction",
-                                      HttpTransaction::stream_protocols())
+                DataType::new_session("HttpTransaction", HttpTransaction::stream_protocols()),
             ),
             (
                 "DnsTransaction",
-                DataType::new_session("DnsTransaction",
-                                      DnsTransaction::stream_protocols())
+                DataType::new_session("DnsTransaction", DnsTransaction::stream_protocols()),
             ),
             (
                 "TlsHandshake",
-                DataType::new_session("TlsHandshake",
-                                      TlsHandshake::stream_protocols())
+                DataType::new_session("TlsHandshake", TlsHandshake::stream_protocols()),
             ),
             (
                 "QuicStream",
-                DataType::new_session("QuicStream",
-                                      QuicStream::stream_protocols())
+                DataType::new_session("QuicStream", QuicStream::stream_protocols()),
             ),
             ("ZcFrame", {
                 DataType {

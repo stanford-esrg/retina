@@ -158,37 +158,24 @@ impl TrackedDataBuilder {
 
 // Build parameters for a packet-level subscription
 // Only multi-parameter packet-level subscription supported is a packet datatype + retina_core::CoreId
-pub(crate) fn build_packet_params(
-    spec: &SubscriptionSpec,
-    filter_layer: FilterLayer,
-) -> Vec<proc_macro2::TokenStream> {
-    if spec.datatypes.len() > 1 {
-        assert!(spec.datatypes.len() == 2);
-        assert!(
-            spec.datatypes
-                .iter()
-                .filter(|d| d.as_str == "CoreId")
-                .count()
-                == 1
-                && spec
-                    .datatypes
-                    .iter()
-                    .filter(|d| matches!(d.level, Level::Packet))
-                    .count()
-                    == 1
-        );
-    }
-
+pub(crate) fn build_packet_params(spec: &SubscriptionSpec) -> Vec<proc_macro2::TokenStream> {
     let mut params = vec![quote! { p }];
-    if spec.datatypes.len() > 1 {
-        params.push(match filter_layer {
-            FilterLayer::PacketContinue => {
-                quote! { core_id }
-            }
-            _ => {
-                quote! { &tracked.core_id() }
-            }
-        });
+    for datatype in &spec.datatypes {
+        if matches!(datatype.level, Level::Packet) {
+            continue;
+        }
+
+        if DIRECTLY_TRACKED.contains_key(datatype.as_str) {
+            let accessor = Ident::new(
+                DIRECTLY_TRACKED.get(&datatype.as_str).unwrap(),
+                Span::call_site(),
+            );
+            params.push(quote! { tracked.#accessor() });
+        } else {
+            let tracked_field: Ident =
+                Ident::new(&datatype.as_str.to_lowercase(), Span::call_site());
+            params.push(quote! { &tracked.#tracked_field });
+        }
     }
 
     params
@@ -200,7 +187,7 @@ pub(crate) fn build_packet_callback(
 ) -> proc_macro2::TokenStream {
     let callback = Ident::new(&spec.callback, Span::call_site());
     let type_ident = Ident::new(&spec.datatypes[0].as_str, Span::call_site());
-    let params = build_packet_params(spec, filter_layer);
+    let params = build_packet_params(spec);
 
     return match filter_layer {
         // Deliver packet directly
@@ -251,8 +238,18 @@ pub(crate) fn build_callback(
             let tracked_field: Ident =
                 Ident::new(&datatype.as_str.to_lowercase(), Span::call_site());
             params.push(quote! { &tracked.#tracked_field });
+        } else if matches!(datatype.level, Level::Session)
+            && matches!(filter_layer, FilterLayer::ConnectionDeliver)
+        {
+            let type_ident = Ident::new(&datatype.as_str, Span::call_site());
+            condition =
+                quote! { if let Some(s) = #type_ident::from_sessionlist(tracked.sessions()) };
+            params.push(quote! { s });
         } else {
-            panic!("Packet-level datatype in non-packet subscription");
+            panic!(
+                "{:?} datatype in {:?} subscription with delivery at {:?}",
+                datatype.level, spec.level, filter_layer
+            );
         }
     }
 

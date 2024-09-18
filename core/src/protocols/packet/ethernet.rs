@@ -62,9 +62,7 @@ impl<'a> Ethernet<'a> {
                     None
                 }
             }
-            _ => {
-                None
-            }
+            _ => None,
         }
     }
 }

@@ -13,9 +13,9 @@ pub mod packet;
 pub use packet::{Payload, ZcFrame};
 pub mod static_type;
 
+pub use static_type::EtherTCI;
 pub use typedefs::{PacketList, SessionList};
 pub use typedefs::{DATATYPES, DIRECTLY_TRACKED};
-pub use static_type::EtherTCI;
 
 use retina_core::conntrack::pdu::L4Pdu;
 use retina_core::protocols::stream::Session;
@@ -32,6 +32,7 @@ pub trait Tracked {
 pub trait FromSession {
     fn stream_protocols() -> Vec<&'static str>;
     fn from_session(session: &Session) -> Option<&Self>;
+    fn from_sessionlist(sessionlist: &SessionList) -> Option<&Self>;
 }
 
 pub trait FromMbuf {

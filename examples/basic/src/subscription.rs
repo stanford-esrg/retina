@@ -15,14 +15,29 @@ lazy_static! {
 }
 
 #[allow(dead_code)]
-fn http_cb(http: &HttpTransaction, five_tuple: &FiveTuple, core_id: &CoreId, ethertype: &EtherTCI) {
+fn http_cb(
+    http: &HttpTransaction,
+    five_tuple: &FiveTuple,
+    _core_id: &CoreId,
+    _ethertype: &EtherTCI,
+) {
     let http = &**http;
-    println!("http_cb - {:?}, {:?}, {:?}, {:?}", http, five_tuple, core_id, ethertype);
+    println!("http_cb - {:?}: {:?}", five_tuple, http);
 }
 
 #[allow(dead_code)]
-fn conn_cb(conn: &Connection, session: &SessionList) {
-    println!("conn_cb - {:?}, {:?}", conn, session);
+fn conn_cb(conn: &Connection, http: &HttpTransaction) {
+    println!("conn_cb - {:?}: {:?}", conn, http);
+}
+
+#[allow(dead_code)]
+fn conn_list_cb(list: &SessionList, five_tuple: &FiveTuple) {
+    println!("conn_list_cb - {:?}: {:?}", five_tuple, list);
+}
+
+#[allow(dead_code)]
+fn conn_multi_cb(conn: &Connection, list: &SessionList, http: &HttpTransaction) {
+    println!("conn_multi_cb - {:?}, {:?}, {:?}", conn, list, http);
 }
 
 #[allow(dead_code)]
@@ -31,23 +46,23 @@ fn conn_dns_cb(conn: &Connection) {
 }
 
 #[allow(dead_code)]
-fn packet_cb(pkt: &ZcFrame, _core_id: &retina_core::CoreId) {
-    println!("pkt - {:?}", pkt.data());
+fn packet_cb(pkt: &ZcFrame, _core_id: &retina_core::CoreId, _ether_tci: &EtherTCI) {
+    println!("packet_cb - {:?}", pkt.data());
 }
 
 #[allow(dead_code)]
 fn tls_cb(tls: &TlsHandshake) {
-    println!("tls - {:?}", tls);
+    println!("tls_cb - {:?}", tls);
 }
 
 #[allow(dead_code)]
 fn dns_cb(dns: &DnsTransaction) {
-    println!("dns - {:?}", dns);
+    println!("dns_cb - {:?}", dns);
 }
 
 #[allow(dead_code)]
 fn quic_cb(quic: &QuicStream) {
-    println!("quic - {:?}", quic);
+    println!("quic_cb - {:?}", quic);
 }
 
 pub(crate) fn print() {

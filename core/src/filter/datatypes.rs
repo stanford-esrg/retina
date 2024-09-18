@@ -117,19 +117,10 @@ impl DataType {
     }
 
     pub fn new_static(as_str: &'static str) -> Self {
-        Self::new(
-            Level::Static,
-            false,
-            false,
-            false,
-            false,
-            vec![],
-            as_str,
-        )
+        Self::new(Level::Static, false, false, false, false, vec![], as_str)
     }
 
-    pub fn new_session(as_str: &'static str,
-                       stream_protos: Vec<&'static str>) -> Self {
+    pub fn new_session(as_str: &'static str, stream_protos: Vec<&'static str>) -> Self {
         Self::new(
             Level::Session,
             true,
@@ -216,13 +207,11 @@ impl DataType {
     }
 
     // Helper for proto_filter and session_filter
-    fn track_sessions(&self, actions: &mut MatchingActions,
-                      sub_level: &Level)
-    {
+    fn track_sessions(&self, actions: &mut MatchingActions, sub_level: &Level) {
         // If a connection-level subscription requests a session,
         // then the session must be tracked.
-        let mut needs_track = matches!(sub_level, Level::Connection) &&
-                                    matches!(self.level, Level::Session);
+        let mut needs_track =
+            matches!(sub_level, Level::Connection) && matches!(self.level, Level::Session);
 
         // If we parsed a session and it isn't deliverable, it should be tracked
         // Example: SessionList is a Connection-level datatype
@@ -269,7 +258,6 @@ impl DataType {
         // Session-level datatype can be delivered when session is parsed
         if matches!(self.level, Level::Session) {
             actions.if_matched.data |= ActionData::SessionDeliver;
-            actions.if_matched.terminal_actions |= ActionData::SessionDeliver;
         }
         actions
     }
@@ -293,11 +281,9 @@ impl DataType {
         self.track_sessions(&mut actions, sub_level);
         self.conn_deliver(&sub_level, &mut actions);
 
-        if matches!(self.level, Level::Session) &&
-           matches!(sub_level, Level::Session) {
+        if matches!(self.level, Level::Session) && matches!(sub_level, Level::Session) {
             // Deliver session when parsed
             actions.if_matched.data |= ActionData::SessionDeliver;
-            actions.if_matched.terminal_actions |= ActionData::SessionDeliver;
         }
 
         actions
@@ -373,6 +359,48 @@ impl SubscriptionSpec {
         } else {
             panic!("Cannot have static-only datatype");
         }
+    }
+
+    pub fn validate_spec(&self) {
+        // Basic checks
+
+        // - One packet-level datatype per subscription
+        // - Packet-level datatype only permitted with static datatype
+        if matches!(self.level, Level::Packet) {
+            if self.datatypes.len() > 1 {
+                assert!(
+                    self.datatypes
+                        .iter()
+                        .filter(|d| matches!(d.level, Level::Packet))
+                        .count()
+                        == 1
+                );
+                assert!(
+                    self.datatypes
+                        .iter()
+                        .filter(|d| matches!(d.level, Level::Static))
+                        .count()
+                        == self.datatypes.len() - 1
+                );
+            }
+        } else {
+            assert!(
+                self.datatypes
+                    .iter()
+                    .filter(|d| matches!(d.level, Level::Packet))
+                    .count()
+                    == 0
+            );
+        }
+
+        // - At most one session-level datatype per subscription
+        assert!(
+            self.datatypes
+                .iter()
+                .filter(|d| matches!(d.level, Level::Session))
+                .count()
+                <= 1
+        );
     }
 
     pub fn add_datatype(&mut self, datatype: DataType) {
