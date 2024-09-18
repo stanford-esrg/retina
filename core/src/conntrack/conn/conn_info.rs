@@ -182,11 +182,18 @@ where
         self.actions.clear();
     }
 
+    // Helper used after filter updates
+    pub(crate) fn clear_packets(&mut self) {
+        self.sdata.drain_packets();
+    }
+
     // Helper to be used after applying protocol or session filter
-    fn clear_stale_data(&mut self, new_actions: &Actions) {
-        if self.actions.buffer_frame() && !new_actions.buffer_frame() {
+    pub(crate) fn clear_stale_data(&mut self, new_actions: &Actions) {
+        if self.actions.buffer_frame() && !new_actions.buffer_frame() &&
+           !self.actions.drop() {
             // No longer need tracked packets; delete to save memory
-            self.sdata.drain_packets();
+            // Don't clear if all connection data may be about to be dropped
+            self.clear_packets();
             assert!(!new_actions.buffer_frame());
         }
         // Don't clear sessions, as SessionTrack is never

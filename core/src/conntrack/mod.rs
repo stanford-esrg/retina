@@ -104,11 +104,14 @@ where
                     conn.info.sdata.update(&pdu, false);
                 }
                 conn.update(pdu, subscription, &self.registry);
+
+                // Delete stale data for connections no longer matching
                 if conn.remove_from_table() {
                     occupied.remove();
                     return;
+                } else if conn.drop_pdu() {
+                    conn.info.clear_packets();
                 }
-
                 if conn.terminated() {
                     conn.terminate(subscription);
                     occupied.remove();
