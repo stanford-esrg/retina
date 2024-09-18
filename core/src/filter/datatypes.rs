@@ -202,6 +202,32 @@ impl DataType {
         }
     }
 
+    // Helper for proto_filter and session_filter
+    fn track_sessions(&self, actions: &mut MatchingActions,
+                      sub_level: &Level)
+    {
+        // If a connection-level subscription requests a session,
+        // then the session must be tracked.
+        let mut needs_track = matches!(sub_level, Level::Connection) &&
+                                    matches!(self.level, Level::Session);
+
+        // If we parsed a session and it isn't deliverable, it should be tracked
+        // Example: SessionList is a Connection-level datatype
+        needs_track |= self.needs_parse && !matches!(self.level, Level::Session);
+
+        // SessionList will be all Sessions that match any filter of any subscription
+        if needs_track {
+            actions.if_matched.data |= ActionData::SessionTrack;
+        }
+    }
+
+    fn conn_deliver(&self, sub_level: &Level, actions: &mut MatchingActions) {
+        if matches!(sub_level, Level::Connection) {
+            actions.if_matched.data |= ActionData::ConnDeliver;
+            actions.if_matched.terminal_actions |= ActionData::ConnDeliver;
+        }
+    }
+
     // Actions applied for first packet in connection if filter is
     // matching (non-terminal match) or matched (terminal match)
     pub(crate) fn packet_filter(&self, sub_level: &Level) -> MatchingActions {
@@ -218,10 +244,13 @@ impl DataType {
         // Connection- and session-level subscriptions depend on the actions required
         self.needs_update(&mut actions);
         self.track_packets(&mut actions);
+        self.conn_deliver(&sub_level, &mut actions);
+
         if self.needs_parse {
             actions.if_matched.data |= ActionData::ProtoProbe;
             actions.if_matched.terminal_actions |= ActionData::ProtoProbe;
-            // In if_matching case, protocol will be probed anyway due to Protocol Filter being applied.
+            // In if_matching case, protocol will be probed
+            // due to Protocol Filter being applied.
         }
 
         // Session-level datatype can be delivered when session is parsed
@@ -248,21 +277,12 @@ impl DataType {
         // Connection- and session-level subscriptions depend on the actions required
         self.needs_update(&mut actions);
         self.track_packets(&mut actions);
+        self.track_sessions(&mut actions, sub_level);
+        self.conn_deliver(&sub_level, &mut actions);
 
-        if matches!(self.level, Level::Session) {
-            // Deliver session when parsed (will implicitly parse session)
-            actions.if_matched.data |= ActionData::SessionDeliver;
-            actions.if_matched.terminal_actions |= ActionData::SessionDeliver;
-        } else if self.needs_parse {
-            assert!(matches!(self.level, Level::Connection));
-            // Connection-level subscription that requires parsing
-            // must track the session.
-            actions.if_matched.data |= ActionData::SessionTrack;
-            actions.if_matched.terminal_actions |= ActionData::SessionTrack;
-        }
-
-        // Can deliver session when parsed
-        if matches!(self.level, Level::Session) {
+        if matches!(self.level, Level::Session) &&
+           matches!(sub_level, Level::Session) {
+            // Deliver session when parsed
             actions.if_matched.data |= ActionData::SessionDeliver;
             actions.if_matched.terminal_actions |= ActionData::SessionDeliver;
         }
@@ -283,13 +303,8 @@ impl DataType {
 
         self.needs_update(&mut actions);
         self.track_packets(&mut actions);
-        if matches!(sub_level, Level::Connection) && matches!(self.level, Level::Session) {
-            actions.if_matched.data |= ActionData::SessionTrack;
-        }
-        // If we parsed a session and it isn't deliverable, it should be tracked
-        if self.needs_parse && !matches!(self.level, Level::Session) {
-            actions.if_matched.data |= ActionData::SessionTrack;
-        }
+        self.track_sessions(&mut actions, sub_level);
+        self.conn_deliver(&sub_level, &mut actions);
 
         // Session-level subscriptions will be delivered in session filter
 

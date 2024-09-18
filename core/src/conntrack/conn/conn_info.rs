@@ -146,6 +146,7 @@ where
 
         match self.cdata.conn_parser.session_parsed_state() {
             SessionState::Probing => {
+                // Re-apply the protocol filter to update actions
                 self.actions.session_set_probe();
             }
             SessionState::Remove => {

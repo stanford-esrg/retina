@@ -32,7 +32,7 @@ fn conn_dns_cb(conn: &Connection) {
 
 #[allow(dead_code)]
 fn packet_cb(pkt: &ZcFrame, _core_id: &retina_core::CoreId) {
-    println!("pkt - {:?}", pkt);
+    println!("pkt - {:?}", pkt.data());
 }
 
 pub(crate) fn print() {

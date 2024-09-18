@@ -19,6 +19,8 @@ pub enum ActionData {
     ReassembledUpdatePDU, // `Update` method should be invoked post-reassembly
     PacketTrack,          // Buffer frames for future possible delivery
 
+    ConnDeliver,          // Deliver connection on termination
+
                           // \note Session and packet delivery happen within filters.
                           // \note This assumes that each callback has exactly one "layer"
 }
@@ -191,7 +193,7 @@ impl Actions {
     #[inline]
     pub fn connection_matched(&self) -> bool {
         self.terminal_actions
-            .intersects(ActionData::UpdatePDU | ActionData::ReassembledUpdatePDU)
+            .intersects(ActionData::ConnDeliver)
     }
 
     #[inline]
@@ -226,6 +228,7 @@ impl FromStr for ActionData {
             "UpdatePDU" => Ok(ActionData::UpdatePDU),
             "ReassembledUpdatePDU" => Ok(ActionData::ReassembledUpdatePDU),
             "PacketTrack" => Ok(ActionData::PacketTrack),
+            "ConnDeliver" => Ok(ActionData::ConnDeliver),
             _ => Result::Err(core::fmt::Error),
         }
     }
@@ -243,8 +246,9 @@ impl ToString for ActionData {
             ActionData::SessionDeliver => "SessionDeliver".into(),
             ActionData::SessionTrack => "SessionTrack".into(),
             ActionData::UpdatePDU => "UpdatePDU".into(),
-            ActionData::PacketTrack => "PacketTrack".into(),
             ActionData::ReassembledUpdatePDU => "ReassembledUpdatePDU".into(),
+            ActionData::PacketTrack => "PacketTrack".into(),
+            ActionData::ConnDeliver => "ConnDeliver".into(),
             _ => panic!("Unknown ActionData"),
         }
     }
