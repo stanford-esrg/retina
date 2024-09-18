@@ -35,6 +35,16 @@ fn packet_cb(pkt: &ZcFrame, _core_id: &retina_core::CoreId) {
     println!("pkt - {:?}", pkt.data());
 }
 
+#[allow(dead_code)]
+fn tls_cb(tls: &TlsHandshake) {
+    println!("tls - {:?}", tls);
+}
+
+#[allow(dead_code)]
+fn dns_cb(dns: &DnsTransaction) {
+    println!("dns - {:?}", dns);
+}
+
 pub(crate) fn print() {
     // println!("TCP: {}", *TCP.read().unwrap());
     // println!("HTTP: {}", *HTTP.read().unwrap());

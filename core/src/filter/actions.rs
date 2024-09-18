@@ -127,7 +127,9 @@ impl Actions {
 
     #[inline]
     pub fn apply_session_filter(&mut self) -> bool {
-        self.data.contains(ActionData::SessionFilter)
+        // \note deliver filter is in session filter
+        self.data.intersects(ActionData::SessionFilter |
+                             ActionData::SessionDeliver)
     }
 
     #[inline]

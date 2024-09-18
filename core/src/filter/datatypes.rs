@@ -128,6 +128,19 @@ impl DataType {
         )
     }
 
+    pub fn new_session(as_str: &'static str,
+                       stream_protos: Vec<&'static str>) -> Self {
+        Self::new(
+            Level::Session,
+            true,
+            false,
+            false,
+            false,
+            stream_protos,
+            as_str,
+        )
+    }
+
     // Returns whether the current filter layer is the earliest where this datatype,
     // with this filter, can be delivered.
     pub(crate) fn should_deliver(&self, filter_layer: &FilterLayer, pred: &Predicate) -> bool {
