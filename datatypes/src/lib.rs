@@ -7,6 +7,8 @@ pub mod dns_transaction;
 pub use dns_transaction::DnsTransaction;
 pub mod tls_handshake;
 pub use tls_handshake::TlsHandshake;
+pub mod quic_stream;
+pub use quic_stream::QuicStream;
 pub mod packet;
 pub use packet::{Payload, ZcFrame};
 pub mod static_type;

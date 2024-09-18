@@ -1,4 +1,5 @@
 subscriptions = [
     { filter = "tls", datatypes = "TlsHandshake", callback = "tls_cb" },
     { filter = "dns", datatypes = "DnsTransaction", callback = "dns_cb" },
+    { filter = "quic", datatypes = "QuicStream", callback = "quic_cb" },
     ]

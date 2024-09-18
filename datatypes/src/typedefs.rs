@@ -36,6 +36,11 @@ lazy_static! {
                 DataType::new_session("TlsHandshake",
                                       TlsHandshake::stream_protocols())
             ),
+            (
+                "QuicStream",
+                DataType::new_session("QuicStream",
+                                      QuicStream::stream_protocols())
+            ),
             ("ZcFrame", {
                 DataType {
                     level: Level::Packet,

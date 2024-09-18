@@ -45,6 +45,11 @@ fn dns_cb(dns: &DnsTransaction) {
     println!("dns - {:?}", dns);
 }
 
+#[allow(dead_code)]
+fn quic_cb(quic: &QuicStream) {
+    println!("quic - {:?}", quic);
+}
+
 pub(crate) fn print() {
     // println!("TCP: {}", *TCP.read().unwrap());
     // println!("HTTP: {}", *HTTP.read().unwrap());
