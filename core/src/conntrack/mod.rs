@@ -86,8 +86,8 @@ where
         match self.table.raw_entry_mut().from_key(&conn_id) {
             RawEntryMut::Occupied(mut occupied) => {
                 let conn = occupied.get_mut();
-                let dir = conn.packet_dir(&ctxt);
                 conn.last_seen_ts = Instant::now();
+                let dir = conn.packet_dir(&ctxt);
                 conn.inactivity_window = match &conn.l4conn {
                     L4Conn::Tcp(_) => self.config.tcp_inactivity_timeout,
                     L4Conn::Udp(_) => self.config.udp_inactivity_timeout,

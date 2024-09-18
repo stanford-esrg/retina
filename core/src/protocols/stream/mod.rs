@@ -13,7 +13,7 @@ pub mod tls;
 use self::conn::ConnField;
 use self::dns::{parser::DnsParser, Dns};
 use self::http::{parser::HttpParser, Http};
-use self::quic::{parser::QuicParser, QuicPacket};
+use self::quic::parser::QuicParser;
 use self::tls::{parser::TlsParser, Tls};
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
@@ -22,6 +22,7 @@ use std::collections::HashSet;
 use std::str::FromStr;
 
 use anyhow::Result;
+use quic::QuicConn;
 use strum_macros::EnumString;
 
 pub(crate) const IMPLEMENTED_PROTOCOLS: [&str; 3] = ["tls", "dns", "http"];
@@ -175,13 +176,13 @@ impl ConnData {
 /// a separate crate, so items that ought to be crate-private have their documentation hidden to
 /// avoid confusing users.
 #[doc(hidden)]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum SessionData {
     // TODO: refactor to use trait objects.
     Tls(Box<Tls>),
     Dns(Box<Dns>),
     Http(Box<Http>),
-    Quic(Box<QuicPacket>),
+    Quic(Box<QuicConn>),
     Null,
 }
 
