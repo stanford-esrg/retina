@@ -92,9 +92,10 @@ where
                     L4Conn::Tcp(_) => self.config.tcp_inactivity_timeout,
                     L4Conn::Udp(_) => self.config.udp_inactivity_timeout,
                 };
-                if conn.remove() {
+                if conn.remove_from_table() {
                     log::error!("Conn in Drop state when occupied in table");
-                } else if conn.drop_pdu() {
+                }
+                if conn.drop_pdu() {
                     drop(mbuf);
                     return;
                 }
@@ -103,7 +104,7 @@ where
                     conn.info.sdata.update(&pdu, false);
                 }
                 conn.update(pdu, subscription, &self.registry);
-                if conn.remove() {
+                if conn.remove_from_table() {
                     occupied.remove();
                     return;
                 }
@@ -141,7 +142,7 @@ where
                     };
                     if let Ok(mut conn) = conn {
                         conn.info.consume_pdu(pdu, subscription, &self.registry);
-                        if !conn.remove() {
+                        if !conn.remove_from_table() {
                             self.timerwheel.insert(
                                 &conn_id,
                                 conn.last_seen_ts,

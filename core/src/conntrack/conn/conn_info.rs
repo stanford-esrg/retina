@@ -117,6 +117,7 @@ where
         }
         if self.actions.apply_proto_filter() {
             let actions = subscription.filter_protocol(&self.cdata, &self.sdata);
+            self.clear_stale_data(&actions);
             self.actions.update(&actions);
         }
     }
@@ -129,14 +130,12 @@ where
 
     fn handle_session(&mut self, subscription: &Subscription<T::Subscribed>, id: usize) {
         if let Some(session) = self.cdata.conn_parser.remove_session(id) {
-            // Session matched (to be tracked) at protocol level (e.g., "tls" filter)
+            // Check if session was matched (to be tracked) at protocol level
+            // (e.g., "tls" filter), but ensure tracking only happens once
             let session_track = self.actions.session_track();
             if self.actions.apply_session_filter() {
                 let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
-                if self.actions.buffer_frame() != actions.buffer_frame() && !actions.drop() {
-                    // No longer need tracked packets; delete to save memory
-                    self.sdata.drain_packets();
-                }
+                self.clear_stale_data(&actions);
                 self.actions.update(&actions);
             }
             if session_track || self.actions.session_track() {
@@ -181,5 +180,17 @@ where
         }
 
         self.actions.clear();
+    }
+
+    // Helper to be used after applying protocol or session filter
+    fn clear_stale_data(&mut self, new_actions: &Actions) {
+        if self.actions.buffer_frame() && !new_actions.buffer_frame() {
+            // No longer need tracked packets; delete to save memory
+            self.sdata.drain_packets();
+            assert!(!new_actions.buffer_frame());
+        }
+        // Don't clear sessions, as SessionTrack is never
+        // a terminal action at the protocol stage
+        // (should be re-calculated per session).
     }
 }
