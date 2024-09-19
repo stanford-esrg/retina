@@ -502,6 +502,36 @@ impl PTree {
         self.update_size();
     }
 
+    // Avoid re-checking packet-level conditions that, on the basis of previous
+    // filters, are guaranteed to be already met.
+    // For example, if all subscriptions filter for "tcp", then all non-tcp
+    // connections will have been filtered out at the PacketContinue layer.
+    // We only do this for packet-level conditions, as connection-level
+    // conditions are needed to extract sessions.
+    fn prune_packet_conditions(&mut self) {
+        fn prune_packet_conditions(node: &mut PNode) {
+            if !node.pred.on_packet() { return; }
+            // Only one condition
+            while node.children.len() == 1 {
+                let child = &node.children[0];
+                if child.pred.on_packet() {
+                    node.actions.push(&child.actions);
+                    node.deliver.extend(child.deliver.iter().cloned());
+                    node.children = child.children.clone();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // Don't prune from the first filter
+        if matches!(self.filter_layer, FilterLayer::PacketContinue) {
+            return;
+        }
+        prune_packet_conditions(&mut self.root);
+        self.update_size();
+    }
+
     pub fn collapse(&mut self) {
         if matches!(
             self.filter_layer,
@@ -519,6 +549,7 @@ impl PTree {
                     .insert(callbacks.iter().next().unwrap().clone());
             }
         }
+        self.prune_packet_conditions();
         self.prune_branches();
         self.sort();
         self.mark_mutual_exclusion();
@@ -804,19 +835,25 @@ mod tests {
         assert!(ptree.actions == expected_actions);
 
         // Packet ptree should exclude patterns that terminate at lower layers
-        let filter = Filter::new("ipv4.dst_addr = 1.1.1.1 or (ipv4 and tls)").unwrap();
+        let filter = Filter::new("ipv4.dst_addr = 1.1.1.1 or (ipv4 and tls) or (ipv4 and quic)").unwrap();
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
         let datatype = SubscriptionSpec::new_default_packet();
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0);
         ptree.collapse();
-        assert!(ptree.size == 3); // eth - ipv4 - tcp; ipv4.dst_addr should be prev. layer (delivered)
+        // println!("{}", ptree);
+        // ipv4.dst_addr should be prev. layer (delivered)
+        // ipv4 should be removed (single layer, already filtered by PacketContinue)
+        // Remaining: eth -> tcp, udp
+        assert!(ptree.size == 3);
         expected_actions.clear();
         expected_actions.data = ActionData::ProtoFilter | ActionData::PacketTrack;
         assert!(ptree.actions == expected_actions);
 
         let mut ptree = PTree::new_empty(FilterLayer::PacketContinue);
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0);
-        assert!(ptree.size == 4);
+        // println!("{}", ptree);
+        // Need to apply all conditions at first layer of packet filtering
+        assert!(ptree.size == 5);
     }
 
     #[test]
@@ -921,18 +958,34 @@ mod tests {
         assert!(ptree.size == 1 && !ptree.root.deliver.is_empty());
 
         // Two CBs - disambiguation needed
+        ptree.clear();
         ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
-        let mut spec =
+        let mut spec_conn =
             SubscriptionSpec::new(String::from(filter_str), String::from("callback_conn"));
-        spec.add_datatype(DataType::new_default_connection());
-        ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        spec_conn.add_datatype(DataType::new_default_connection());
+        ptree.add_filter(&filter.get_patterns_flat(), &spec_conn, 0);
 
-        ptree.collapse();
+        // eth -> ipv4 -> tcp -> http
         assert!(ptree.size == 4);
+        ptree.collapse();
+        // ipv4 and tcp are removed (would have been filtered out by prev. filters)
+        assert!(ptree.size == 2);
 
+        // Packet FilterLayer
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
         ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
         ptree.collapse();
-        assert!(ptree.actions.data.contains(ActionData::UpdatePDU));
+        // Only one path (eth -> ipv4) would have already been applied at PacketContinue
+        assert!(ptree.size == 1 &&
+                ptree.actions.data.contains(ActionData::UpdatePDU));
+
+        ptree.clear();
+
+        // Multiple paths: eth -> ipv4 -> [tcp, udp], ipv6 -> [udp]
+        ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        let filter_str = "quic";
+        let filter = Filter::new(filter_str).unwrap();
+        ptree.add_filter(&filter.get_patterns_flat(), &spec_conn, 0);
+        assert!(ptree.size == 6);
     }
 }
