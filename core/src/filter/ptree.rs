@@ -510,7 +510,9 @@ impl PTree {
     // conditions are needed to extract sessions.
     fn prune_packet_conditions(&mut self) {
         fn prune_packet_conditions(node: &mut PNode) {
-            if !node.pred.on_packet() { return; }
+            if !node.pred.on_packet() {
+                return;
+            }
             // Only one condition
             while node.children.len() == 1 {
                 let child = &node.children[0];
@@ -835,7 +837,8 @@ mod tests {
         assert!(ptree.actions == expected_actions);
 
         // Packet ptree should exclude patterns that terminate at lower layers
-        let filter = Filter::new("ipv4.dst_addr = 1.1.1.1 or (ipv4 and tls) or (ipv4 and quic)").unwrap();
+        let filter =
+            Filter::new("ipv4.dst_addr = 1.1.1.1 or (ipv4 and tls) or (ipv4 and quic)").unwrap();
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
         let datatype = SubscriptionSpec::new_default_packet();
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0);
@@ -976,8 +979,7 @@ mod tests {
         ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
         ptree.collapse();
         // Only one path (eth -> ipv4) would have already been applied at PacketContinue
-        assert!(ptree.size == 1 &&
-                ptree.actions.data.contains(ActionData::UpdatePDU));
+        assert!(ptree.size == 1 && ptree.actions.data.contains(ActionData::UpdatePDU));
 
         ptree.clear();
 
