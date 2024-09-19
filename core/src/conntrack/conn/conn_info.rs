@@ -189,8 +189,7 @@ where
 
     // Helper to be used after applying protocol or session filter
     pub(crate) fn clear_stale_data(&mut self, new_actions: &Actions) {
-        if self.actions.buffer_frame() && !new_actions.buffer_frame() &&
-           !self.actions.drop() {
+        if self.actions.buffer_frame() && !new_actions.buffer_frame() && !self.actions.drop() {
             // No longer need tracked packets; delete to save memory
             // Don't clear if all connection data may be about to be dropped
             self.clear_packets();

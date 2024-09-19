@@ -395,6 +395,29 @@ impl PTree {
         sort(&mut self.root);
     }
 
+    fn get_callbacks(&self) -> HashSet<Deliver> {
+        fn get_callbacks(node: &PNode, callbacks: &mut HashSet<Deliver>) {
+            if !node.deliver.is_empty() {
+                callbacks.extend(node.deliver.iter().cloned());
+            }
+            for child in &node.children {
+                get_callbacks(child, callbacks);
+            }
+        }
+        let mut callbacks = HashSet::new();
+        get_callbacks(&self.root, &mut callbacks);
+        callbacks
+    }
+
+    fn clear(&mut self) {
+        let pred = Predicate::Unary {
+            protocol: protocol!("ethernet"),
+        };
+        self.root = PNode::new(pred, 0);
+        self.size = 1;
+        self.actions = Actions::new();
+    }
+
     /// Best-effort to give the filter generator hints as to where an "else"
     /// statement can go between two predicates.
     fn mark_mutual_exclusion(&mut self) {
@@ -480,6 +503,22 @@ impl PTree {
     }
 
     pub fn collapse(&mut self) {
+        if matches!(
+            self.filter_layer,
+            FilterLayer::PacketDeliver | FilterLayer::ConnectionDeliver
+        ) {
+            let callbacks = self.get_callbacks();
+            // The delivery filter will only be invoked if a previous filter
+            // determined that delivery is needed at the corresponding stage.
+            // If disambiguation is not needed (i.e., only one possible delivery
+            // outcome), then no filter condition is needed.
+            if callbacks.len() == 1 {
+                self.clear();
+                self.root
+                    .deliver
+                    .insert(callbacks.iter().next().unwrap().clone());
+            }
+        }
         self.prune_branches();
         self.sort();
         self.mark_mutual_exclusion();
@@ -702,7 +741,8 @@ mod tests {
         ptree.add_filter(&filter.get_patterns_flat(), &datatype_session, 1);
 
         let mut expected_actions = Actions::new();
-        expected_actions.data |= ActionData::UpdatePDU | ActionData::SessionTrack | ActionData::ConnDeliver;
+        expected_actions.data |=
+            ActionData::UpdatePDU | ActionData::SessionTrack | ActionData::ConnDeliver;
         expected_actions.terminal_actions |= ActionData::UpdatePDU | ActionData::ConnDeliver;
         assert!(ptree.actions == expected_actions);
         assert!(!ptree.get_subtree(4).unwrap().deliver.is_empty());
@@ -866,14 +906,27 @@ mod tests {
 
     #[test]
     fn multi_ptree() {
-        let filter = "ipv4 and http";
-        let mut spec = SubscriptionSpec::new(String::from(filter), String::from("callback"));
+        let filter_str = "ipv4 and http";
+        let mut spec = SubscriptionSpec::new(String::from(filter_str), String::from("callback"));
         spec.add_datatype(DataType::new_default_connection());
         spec.add_datatype(DataType::new_default_session());
 
         let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
-        let filter = Filter::new(filter).unwrap();
+        let filter = Filter::new(filter_str).unwrap();
         ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+
+        ptree.collapse();
+
+        // One CB - no disambiguation needed in delivery filter
+        assert!(ptree.size == 1 && !ptree.root.deliver.is_empty());
+
+        // Two CBs - disambiguation needed
+        ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        let mut spec =
+            SubscriptionSpec::new(String::from(filter_str), String::from("callback_conn"));
+        spec.add_datatype(DataType::new_default_connection());
+        ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+
         ptree.collapse();
         assert!(ptree.size == 4);
 
