@@ -515,19 +515,17 @@ impl PTree {
             }
             // Tree layer is only drop/keep (i.e., one condition),
             // and condition checked at prev. layer
-            while node.children.len() == 1 &&
-                  node.children[0].pred.on_packet() {
+            while node.children.len() == 1 && node.children[0].pred.on_packet() {
                 // If the protocol needs to be extracted, can't remove node
                 // Look for unary predicate (e.g., `ipv4`) and child with
                 // binary predicate of same protocol (e.g., `ipv4.addr = ...`)
                 let child = &node.children[0];
-                if child.pred.is_unary() &&
-                    child.children.iter().any(|n|
-                            child.pred.get_protocol() == n.pred.get_protocol() &&
-                                                        n.pred.is_binary()
-                    )
+                if child.pred.is_unary()
+                    && child.children.iter().any(|n| {
+                        child.pred.get_protocol() == n.pred.get_protocol() && n.pred.is_binary()
+                    })
                 {
-                        break;
+                    break;
                 }
                 node.actions.push(&child.actions);
                 node.deliver.extend(child.deliver.iter().cloned());
@@ -991,8 +989,7 @@ mod tests {
         ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
         ptree.collapse();
         // Only one path (eth -> ipv4) would have already been applied at PacketContinue
-        assert!(ptree.size == 1 &&
-                ptree.actions.data.contains(ActionData::UpdatePDU));
+        assert!(ptree.size == 1 && ptree.actions.data.contains(ActionData::UpdatePDU));
 
         ptree.clear();
 
