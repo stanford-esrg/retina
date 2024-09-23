@@ -509,20 +509,32 @@ impl PTree {
     // We only do this for packet-level conditions, as connection-level
     // conditions are needed to extract sessions.
     fn prune_packet_conditions(&mut self) {
-        fn prune_packet_conditions(node: &mut PNode) {
+        fn prune_packet_conditions(node: &mut PNode, filter_layer: FilterLayer) {
             if !node.pred.on_packet() {
                 return;
             }
-            // Only one condition
-            while node.children.len() == 1 {
+            // Tree layer is only drop/keep (i.e., one condition),
+            // and condition checked at prev. layer
+            while node.children.len() == 1 &&
+                  node.children[0].pred.on_packet() {
+                // If the protocol needs to be extracted, can't remove node
+                // Look for unary predicate (e.g., `ipv4`) and child with
+                // binary predicate of same protocol (e.g., `ipv4.addr = ...`)
                 let child = &node.children[0];
-                if child.pred.on_packet() {
-                    node.actions.push(&child.actions);
-                    node.deliver.extend(child.deliver.iter().cloned());
-                    node.children = child.children.clone();
-                } else {
-                    break;
+                if child.pred.is_unary() &&
+                    child.children.iter().any(|n|
+                            child.pred.get_protocol() == n.pred.get_protocol() &&
+                                                        n.pred.is_binary()
+                    )
+                {
+                        break;
                 }
+                node.actions.push(&child.actions);
+                node.deliver.extend(child.deliver.iter().cloned());
+                node.children = child.children.clone();
+            }
+            for child in &mut node.children {
+                prune_packet_conditions(child, filter_layer);
             }
         }
 
@@ -530,7 +542,7 @@ impl PTree {
         if matches!(self.filter_layer, FilterLayer::PacketContinue) {
             return;
         }
-        prune_packet_conditions(&mut self.root);
+        prune_packet_conditions(&mut self.root, self.filter_layer);
         self.update_size();
     }
 
@@ -979,7 +991,8 @@ mod tests {
         ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
         ptree.collapse();
         // Only one path (eth -> ipv4) would have already been applied at PacketContinue
-        assert!(ptree.size == 1 && ptree.actions.data.contains(ActionData::UpdatePDU));
+        assert!(ptree.size == 1 &&
+                ptree.actions.data.contains(ActionData::UpdatePDU));
 
         ptree.clear();
 
