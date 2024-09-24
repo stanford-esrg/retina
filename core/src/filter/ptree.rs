@@ -785,6 +785,7 @@ impl fmt::Display for PTree {
 }
 
 // Compares the contents of the nodes, ignoring children
+// To consider children, use outcome_eq
 impl PartialEq for PNode {
     fn eq(&self, other: &PNode) -> bool {
         self.pred == other.pred && self.actions == other.actions && self.deliver == other.deliver
