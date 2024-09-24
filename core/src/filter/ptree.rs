@@ -801,6 +801,7 @@ impl PartialOrd for PNode {
 }
 
 // Used for ordering nodes by protocol and field
+// Does NOT consider contents of the node
 impl Ord for PNode {
     fn cmp(&self, other: &PNode) -> Ordering {
         if let Predicate::Binary {
