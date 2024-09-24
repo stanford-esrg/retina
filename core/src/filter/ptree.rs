@@ -26,12 +26,12 @@ pub enum FilterLayer {
 impl fmt::Display for FilterLayer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FilterLayer::PacketContinue => write!(f, "P (pass)"),
-            FilterLayer::Packet => write!(f, "P"),
-            FilterLayer::Protocol => write!(f, "C"),
+            FilterLayer::PacketContinue => write!(f, "Pkt (pass)"),
+            FilterLayer::Packet => write!(f, "Pkt"),
+            FilterLayer::Protocol => write!(f, "Proto"),
             FilterLayer::Session => write!(f, "S"),
             FilterLayer::ConnectionDeliver => write!(f, "C (D)"),
-            FilterLayer::PacketDeliver => write!(f, "P (D)"),
+            FilterLayer::PacketDeliver => write!(f, "Pkt (D)"),
         }
     }
 }
@@ -192,6 +192,55 @@ impl PNode {
         }
         None
     }
+
+    // Populates `paths` will all root-to-leaf paths originating
+    // at node `self`.
+    fn get_paths(&self, curr_path: &mut Vec<String>,
+                 paths: &mut Vec<String>) {
+        if self.children.is_empty() && !curr_path.is_empty() {
+            paths.push(format!("{}", curr_path.join(",")));
+        } else {
+            for c in &self.children {
+                curr_path.push(format!("{}", c));
+                c.get_paths(curr_path, paths);
+            }
+        }
+        curr_path.pop();
+    }
+
+    fn all_paths_eq(&self, other: &PNode) -> bool {
+        if self.children.is_empty() &&
+           other.children.is_empty() {
+            return true;
+        }
+        let mut paths = vec![];
+        let mut curr = vec![];
+        self.get_paths(&mut curr, &mut paths);
+        let mut peer_paths = vec![];
+        curr = vec![];
+        other.get_paths(&mut curr, &mut peer_paths);
+        peer_paths == paths
+    }
+
+    fn extracts_protocol(&self, filter_layer: FilterLayer) -> bool {
+        // Filters that parse raw packets are special case
+        // Need upper layers to extract inner from mbuf
+        // E.g.: need ipv4 header to parse tcp
+        if matches!(filter_layer, FilterLayer::PacketDeliver |
+                                  FilterLayer::Packet) {
+            if self.pred.is_unary() &&
+                    self.children.iter().any(|n| {
+                        n.pred.is_unary()
+                    }) {
+                return true;
+            }
+        }
+        self.pred.is_unary()
+            && self.children.iter().any(|n| {
+                self.pred.get_protocol() == n.pred.get_protocol() && n.pred.is_binary()
+            })
+    }
+
 }
 
 impl fmt::Display for PNode {
@@ -499,7 +548,6 @@ impl PTree {
         let on_path_actions = Actions::new();
         let on_path_deliver = HashSet::new();
         prune(&mut self.root, &on_path_actions, &on_path_deliver);
-        self.update_size();
     }
 
     // Avoid re-checking packet-level conditions that, on the basis of previous
@@ -513,6 +561,9 @@ impl PTree {
             if !node.pred.on_packet() {
                 return;
             }
+            for child in &mut node.children {
+                prune_packet_conditions(child, filter_layer);
+            }
             // Tree layer is only drop/keep (i.e., one condition),
             // and condition checked at prev. layer
             while node.children.len() == 1 && node.children[0].pred.on_packet() {
@@ -520,19 +571,13 @@ impl PTree {
                 // Look for unary predicate (e.g., `ipv4`) and child with
                 // binary predicate of same protocol (e.g., `ipv4.addr = ...`)
                 let child = &node.children[0];
-                if child.pred.is_unary()
-                    && child.children.iter().any(|n| {
-                        child.pred.get_protocol() == n.pred.get_protocol() && n.pred.is_binary()
-                    })
+                if child.extracts_protocol(filter_layer)
                 {
                     break;
                 }
                 node.actions.push(&child.actions);
                 node.deliver.extend(child.deliver.iter().cloned());
                 node.children = child.children.clone();
-            }
-            for child in &mut node.children {
-                prune_packet_conditions(child, filter_layer);
             }
         }
 
@@ -541,7 +586,47 @@ impl PTree {
             return;
         }
         prune_packet_conditions(&mut self.root, self.filter_layer);
-        self.update_size();
+    }
+
+    // Avoid applying conditions that (1) are not needed for filtering *out*
+    // (i.e., would have already been checked by prev layer), and (2) end in
+    // the same result.
+    // Example: two different TCP ports followed by the same predicates
+    pub(crate) fn prune_redundant_branches(&mut self) {
+
+        fn prune_redundant_branches(node: &mut PNode, filter_layer: FilterLayer) {
+            if !node.pred.is_prev_layer_pred(filter_layer) {
+                return;
+            }
+            for child in &mut node.children {
+                prune_redundant_branches(child, filter_layer);
+            }
+
+            let (must_keep, could_drop): (Vec<PNode>, Vec<PNode>) =
+                node.children.iter().cloned().partition(|child|
+                                            !child.actions.drop() ||
+                                            !child.deliver.is_empty() ||
+                                            !child.pred.is_prev_layer_pred(filter_layer) &&
+                                            !child.extracts_protocol(filter_layer));
+
+            let mut new_children = vec![];
+            for child in &could_drop {
+                if could_drop.iter().any(|c| child.all_paths_eq(c) && child != c ) {
+                    new_children.extend(child.children.clone());
+                } else {
+                    new_children.push(child.clone());
+                }
+            }
+
+            new_children.extend(must_keep);
+            new_children.sort();
+            new_children.dedup();
+            node.children = new_children;
+        }
+        if matches!(self.filter_layer, FilterLayer::PacketContinue) {
+            return;
+        }
+        prune_redundant_branches(&mut self.root, self.filter_layer);
     }
 
     pub fn collapse(&mut self) {
@@ -561,10 +646,12 @@ impl PTree {
                     .insert(callbacks.iter().next().unwrap().clone());
             }
         }
+        self.prune_redundant_branches();
         self.prune_packet_conditions();
         self.prune_branches();
         self.sort();
         self.mark_mutual_exclusion();
+        self.update_size();
     }
 
     pub fn to_flat_patterns(&self) -> Vec<FlatPattern> {
@@ -698,32 +785,9 @@ impl fmt::Display for PTree {
 
 impl PartialEq for PNode {
     fn eq(&self, other: &PNode) -> bool {
-        // Same "level"
-        if matches!(self.pred, Predicate::Unary { .. })
-            || matches!(other.pred, Predicate::Unary { .. })
-        {
-            return true;
-        }
-        // Considered "equal" if same protocol and same field
-        if let Predicate::Binary {
-            protocol: proto,
-            field: field_name,
-            op: _op,
-            value: _val,
-        } = &self.pred
-        {
-            if let Predicate::Binary {
-                protocol: peer_proto,
-                field: peer_field_name,
-                op: _peer_op,
-                value: _peer_val,
-            } = &other.pred
-            {
-                return proto == peer_proto && field_name == peer_field_name;
-            }
-        }
-
-        false
+        self.pred == other.pred &&
+               self.actions == other.actions &&
+               self.deliver == other.deliver
     }
 }
 
@@ -737,10 +801,6 @@ impl PartialOrd for PNode {
 
 impl Ord for PNode {
     fn cmp(&self, other: &PNode) -> Ordering {
-        if self == other {
-            return Ordering::Equal;
-        }
-
         if let Predicate::Binary {
             protocol: proto,
             field: field_name,
@@ -755,14 +815,15 @@ impl Ord for PNode {
                 value: _peer_val,
             } = &other.pred
             {
+                // Same protocol; sort fields
                 if proto == peer_proto {
                     return field_name.name().cmp(peer_field_name.name());
                 }
-                return proto.name().cmp(peer_proto.name());
             }
         }
 
-        Ordering::Less
+        // Sort by protocol name
+        self.pred.get_protocol().name().cmp(other.pred.get_protocol().name())
     }
 }
 
@@ -855,9 +916,9 @@ mod tests {
         ptree.collapse();
         // println!("{}", ptree);
         // ipv4.dst_addr should be prev. layer (delivered)
-        // ipv4 should be removed (single layer, already filtered by PacketContinue)
+        // ipv4 still needed for protocol extraction
         // Remaining: eth -> tcp, udp
-        assert!(ptree.size == 3);
+        assert!(ptree.size == 4);
         expected_actions.clear();
         expected_actions.data = ActionData::ProtoFilter | ActionData::PacketTrack;
         assert!(ptree.actions == expected_actions);
@@ -922,6 +983,7 @@ mod tests {
         // println!("{}", ptree);
         assert!(ptree.size == 13);
         ptree.prune_branches();
+        ptree.update_size();
         // println!("{}", ptree);
         assert!(ptree.size == 10);
 
@@ -950,6 +1012,7 @@ mod tests {
         ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 1);
 
         ptree.prune_branches();
+        ptree.update_size();
         assert!(!ptree.to_filter_string().contains("1.3.3.1/31") && ptree.size == 3);
         // eth, ipv4, ipvr.src
     }
@@ -989,6 +1052,7 @@ mod tests {
         ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
         ptree.collapse();
         // Only one path (eth -> ipv4) would have already been applied at PacketContinue
+        println!("{}", ptree);
         assert!(ptree.size == 1 && ptree.actions.data.contains(ActionData::UpdatePDU));
 
         ptree.clear();
@@ -999,5 +1063,58 @@ mod tests {
         let filter = Filter::new(filter_str).unwrap();
         ptree.add_filter(&filter.get_patterns_flat(), &spec_conn, 0);
         assert!(ptree.size == 6);
+    }
+
+    #[test]
+    fn core_ptree_prune() {
+        let filters = vec![
+            "ipv4.src_addr = 172.16.133.0 and (http)",
+            "ipv4.dst_addr = 68.64.0.0 and (http)",
+            "ipv4.src_addr = 172.16.133.0 and (quic)",
+            "ipv4.dst_addr = 68.64.0.0 and (quic)",
+            "ipv4.src_addr = 172.16.133.0 and (udp and dns)",
+            "ipv4.dst_addr = 68.64.0.0 and (udp and dns)",
+        ];
+        let mut ptree = PTree::new_empty(FilterLayer::Packet);
+        for f in &filters {
+            let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
+            spec.add_datatype(DataType::new_default_connection());
+            spec.add_datatype(DataType::new_default_session());
+            let filter = Filter::new(f).unwrap();
+            ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        }
+        assert!(ptree.size == 8);
+        ptree.collapse();
+        // IPv4 address disambiguation was removed, but `ipv4`
+        // still needed to extract protocol.
+        // eth -> ipv4 -> [tcp, udp]
+        assert!(ptree.size == 4);
+
+        let mut ptree = PTree::new_empty(FilterLayer::Protocol);
+        for f in &filters {
+            let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
+            spec.add_datatype(DataType::new_default_connection());
+            spec.add_datatype(DataType::new_default_session());
+            let filter = Filter::new(f).unwrap();
+            ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        }
+
+        // eth -> ipv4 -> [tcp -> http, udp -> [dns, quic]]
+        // IPv4 addresses can be removed; ipv4 no longer needed to extract protocol
+        ptree.collapse();
+        assert!(ptree.size == 6);
+
+        let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
+        for f in &filters {
+            let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
+            spec.add_datatype(DataType::new_default_connection());
+            spec.add_datatype(DataType::new_default_session());
+            let filter = Filter::new(f).unwrap();
+            ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        }
+
+        ptree.collapse();
+        // One subscription, no disambiguation
+        assert!(ptree.size == 1);
     }
 }

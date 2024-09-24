@@ -31,7 +31,7 @@ datatypes = [
 callback = "conn_cb"
 
 [[subscriptions]]
-filter = "ipv4.src_addr = 172.16.133.0 and (dns)"
+filter = "ipv4.src_addr = 172.16.133.0 and (udp and dns)"
 datatypes = [
     "Connection",
     "HttpTransaction",

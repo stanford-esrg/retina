@@ -162,6 +162,19 @@ impl Predicate {
         }
     }
 
+    // Predicate would have (additionally) been checked at prev. layer
+    pub(crate) fn is_prev_layer_pred(
+        &self,
+        filter_layer: FilterLayer,
+    ) -> bool {
+        match filter_layer {
+            FilterLayer::PacketContinue => false,
+            FilterLayer::Packet | FilterLayer::Protocol => self.on_packet(),
+            FilterLayer::PacketDeliver | FilterLayer::ConnectionDeliver => true,
+            FilterLayer::Session => self.on_packet() || self.on_proto(),
+        }
+    }
+
     pub(super) fn default_pred() -> Predicate {
         Predicate::Unary {
             protocol: protocol!("ethernet"),
