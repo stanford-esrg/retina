@@ -1092,11 +1092,11 @@ mod tests {
         // IPv4 address disambiguation was removed, but `ipv4`
         // still needed to extract protocol.
         // eth -> ipv4 -> [tcp, udp]
-        println!("{}", ptree);
+        // println!("{}", ptree);
         assert!(ptree.size == 4);
 
         let mut ptree = PTree::new_empty(FilterLayer::Protocol);
-        for f in &filters {
+        for f in &filters[0..filters.len() - 1] {
             let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
             spec.add_datatype(DataType::new_default_connection());
             spec.add_datatype(DataType::new_default_session());
@@ -1104,10 +1104,10 @@ mod tests {
             ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
         }
 
-        // eth -> ipv4 -> [tcp -> http, udp -> [dns, quic]]
-        // IPv4 addresses can be removed; ipv4 no longer needed to extract protocol
+        // Can't remove IPs, because dns is no longer present under `68.64.0.0` --
+        // need to disambiguate
         ptree.collapse();
-        assert!(ptree.size == 6);
+        assert!(ptree.size == 13);
 
         let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
         for f in &filters {
