@@ -213,6 +213,33 @@ impl PNode {
                 .iter()
                 .any(|n| self.pred.get_protocol() == n.pred.get_protocol() && n.pred.is_binary())
     }
+
+    // Populates `paths` will all root-to-leaf paths originating
+    // at node `self`.
+    fn get_paths(&self, curr_path: &mut Vec<String>, paths: &mut Vec<String>) {
+        if self.children.is_empty() && !curr_path.is_empty() {
+            paths.push(format!("{}", curr_path.join(",")));
+        } else {
+            for c in &self.children {
+                curr_path.push(format!("{}", c));
+                c.get_paths(curr_path, paths);
+            }
+        }
+        curr_path.pop();
+    }
+
+    fn all_paths_eq(&self, other: &PNode) -> bool {
+        if self.children.is_empty() && other.children.is_empty() {
+            return true;
+        }
+        let mut paths = vec![];
+        let mut curr = vec![];
+        self.get_paths(&mut curr, &mut paths);
+        let mut peer_paths = vec![];
+        curr = vec![];
+        other.get_paths(&mut curr, &mut peer_paths);
+        peer_paths == paths
+    }
 }
 
 impl fmt::Display for PNode {
@@ -584,6 +611,49 @@ impl PTree {
         prune_packet_conditions(&mut self.root, self.filter_layer);
     }
 
+    // Avoid applying conditions that (1) are not needed for filtering *out*
+    // (i.e., would have already been checked by prev layer), and (2) end in
+    // the same result.
+    // Example: two different IP addresses in a packet filter followed by
+    // a TCP/UDP disambiguation.
+    fn prune_redundant_branches(&mut self) {
+        fn prune_redundant_branches(node: &mut PNode, filter_layer: FilterLayer) {
+            if !node.pred.is_prev_layer_pred(filter_layer) {
+                return;
+            }
+            for child in &mut node.children {
+                prune_redundant_branches(child, filter_layer);
+            }
+
+            let (must_keep, could_drop): (Vec<PNode>, Vec<PNode>) =
+                node.children.iter().cloned().partition(|child| {
+                    !child.actions.drop()
+                        || !child.deliver.is_empty()
+                        || !child.pred.is_prev_layer_pred(filter_layer)
+                        || child.extracts_protocol(filter_layer)
+                });
+            let mut new_children = vec![];
+            for child in &could_drop {
+                // Can "upgrade" descendants if all children in a layer
+                // have the same descendant conditions.
+                if node.children.iter().all(|c| child.all_paths_eq(c)) {
+                    new_children.extend(child.children.clone());
+                } else {
+                    new_children.push(child.clone());
+                }
+            }
+
+            new_children.extend(must_keep);
+            new_children.sort();
+            new_children.dedup();
+            node.children = new_children;
+        }
+        if matches!(self.filter_layer, FilterLayer::PacketContinue) {
+            return;
+        }
+        prune_redundant_branches(&mut self.root, self.filter_layer);
+    }
+
     /// Apply all filter tree optimizations.
     /// This must only be invoked AFTER the tree is completely built.
     pub fn collapse(&mut self) {
@@ -604,6 +674,7 @@ impl PTree {
                 return;
             }
         }
+        self.prune_redundant_branches();
         self.prune_packet_conditions();
         self.prune_branches();
         self.sort();
@@ -996,5 +1067,59 @@ mod tests {
         let filter = Filter::new(filter_str).unwrap();
         ptree.add_filter(&filter.get_patterns_flat(), &spec_conn, 0);
         assert!(ptree.size == 6);
+    }
+
+    #[test]
+    fn core_ptree_prune() {
+        let filters = vec![
+            "ipv4.src_addr = 172.16.133.0 and (http)",
+            "ipv4.dst_addr = 68.64.0.0 and (http)",
+            "ipv4.src_addr = 172.16.133.0 and (quic)",
+            "ipv4.dst_addr = 68.64.0.0 and (quic)",
+            "ipv4.src_addr = 172.16.133.0 and (udp and dns)",
+            "ipv4.dst_addr = 68.64.0.0 and (udp and dns)",
+        ];
+        let mut ptree = PTree::new_empty(FilterLayer::Packet);
+        for f in &filters {
+            let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
+            spec.add_datatype(DataType::new_default_connection());
+            spec.add_datatype(DataType::new_default_session());
+            let filter = Filter::new(f).unwrap();
+            ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        }
+        assert!(ptree.size == 8);
+        ptree.collapse();
+        // IPv4 address disambiguation was removed, but `ipv4`
+        // still needed to extract protocol.
+        // eth -> ipv4 -> [tcp, udp]
+        println!("{}", ptree);
+        assert!(ptree.size == 4);
+
+        let mut ptree = PTree::new_empty(FilterLayer::Protocol);
+        for f in &filters {
+            let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
+            spec.add_datatype(DataType::new_default_connection());
+            spec.add_datatype(DataType::new_default_session());
+            let filter = Filter::new(f).unwrap();
+            ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        }
+
+        // eth -> ipv4 -> [tcp -> http, udp -> [dns, quic]]
+        // IPv4 addresses can be removed; ipv4 no longer needed to extract protocol
+        ptree.collapse();
+        assert!(ptree.size == 6);
+
+        let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
+        for f in &filters {
+            let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
+            spec.add_datatype(DataType::new_default_connection());
+            spec.add_datatype(DataType::new_default_session());
+            let filter = Filter::new(f).unwrap();
+            ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        }
+
+        ptree.collapse();
+        // One subscription, no disambiguation
+        assert!(ptree.size == 1);
     }
 }

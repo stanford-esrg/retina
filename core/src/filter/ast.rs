@@ -136,7 +136,7 @@ impl Predicate {
         }
     }
 
-    pub(crate) fn is_prev_layer(
+    pub(super) fn is_prev_layer(
         &self,
         filter_layer: FilterLayer,
         subscription_level: &Level,
@@ -159,6 +159,17 @@ impl Predicate {
             FilterLayer::ConnectionDeliver => {
                 !matches!(subscription_level, Level::Connection) // delivery
             }
+        }
+    }
+
+    // Predicate would have been checked at prev. layer
+    // Does not consider subscription type; meant to be used for filter collapse.
+    pub(super) fn is_prev_layer_pred(&self, filter_layer: FilterLayer) -> bool {
+        match filter_layer {
+            FilterLayer::PacketContinue => false,
+            FilterLayer::Packet | FilterLayer::Protocol => self.on_packet(),
+            FilterLayer::PacketDeliver | FilterLayer::ConnectionDeliver => true,
+            FilterLayer::Session => self.on_packet() || self.on_proto(),
         }
     }
 
