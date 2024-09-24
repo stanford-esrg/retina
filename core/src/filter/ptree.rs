@@ -151,15 +151,15 @@ impl PNode {
         self.children.iter_mut().find(|n| pred.is_child(&n.pred))
     }
 
-    // Returns true if (1) both `self` and `peer` are leaf nodes
+    // Returns true if (1) both `self` and `peer` have equal node-to-leaf paths
     // and (2) actions/CB are the same.
     // This is useful for marking nodes as mutually exclusive even
     // if there predicates are not mutually exclusive.
     fn outcome_eq(&self, peer: &PNode) -> bool {
-        peer.children.is_empty()
-            && self.children.is_empty()
-            && self.actions == peer.actions
-            && self.deliver == peer.deliver
+        if self.actions != peer.actions || self.deliver != peer.deliver {
+            return false;
+        }
+        (self.children.is_empty() && peer.children.is_empty()) || self.all_paths_eq(peer)
     }
 
     // True if there is a PNode that can act as parent of `pred`.
@@ -678,7 +678,7 @@ impl PTree {
         self.prune_packet_conditions();
         self.prune_branches();
         self.sort();
-        self.mark_mutual_exclusion();
+        self.mark_mutual_exclusion(); // Must be last
         self.update_size();
     }
 
