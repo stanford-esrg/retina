@@ -36,6 +36,9 @@ impl fmt::Display for FilterLayer {
     }
 }
 
+/// Represents a subscription (callback, datatype)
+/// that will be delivered at a given filter node.
+/// Used in compile-time filter generation.
 #[derive(Hash, Debug, Clone, PartialEq, Eq)]
 pub struct Deliver {
     pub id: usize,
@@ -83,7 +86,8 @@ impl PNode {
     }
 
     // Utility to check whether a descendant exists
-    // Need to actually get the descendant in an `if` block to make borrow checker happy
+    // Helper for `get_descendant`, which must be invoked in an `if` block
+    // due to borrow checker
     fn has_descendant(&self, pred: &Predicate) -> bool {
         for n in &self.children {
             if &n.pred == pred {
@@ -96,6 +100,7 @@ impl PNode {
         false
     }
 
+    // See above
     fn get_descendant(&mut self, pred: &Predicate) -> Option<&mut PNode> {
         for n in &mut self.children {
             // found exact match
@@ -112,52 +117,44 @@ impl PNode {
         None
     }
 
+    // Returns true if `self` has `pred` as a direct child
     fn has_child(&self, pred: &Predicate) -> bool {
         self.children.iter().any(|n| &n.pred == pred)
     }
 
+    // See above
     fn get_child(&mut self, pred: &Predicate) -> &mut PNode {
         self.children.iter_mut().find(|n| &n.pred == pred).unwrap()
     }
 
-    /// True if `self` has children that should be (more specific)
-    /// children of `pred`
+    // True if `self` has children that should be (more specific)
+    // children of `pred`
     fn has_children_of(&self, pred: &Predicate) -> bool {
         self.children.iter().any(|n| n.pred.is_child(pred))
     }
 
+    // Returns all of the PNodes that should be children of `pred`,
+    // while retaining in `self.children` the nodes that are
+    // not children of `pred`
     fn get_children_of(&mut self, pred: &Predicate) -> Vec<PNode> {
-        // drain_filter is unstable in current rust
-        // better way to do this is swap indices then use `drain` at index
-        /*
-        let mut children = self.children.clone();
-        self.children.retain(|x| !x.pred.is_child(pred));
-        children.retain(|x| x.pred.is_child(pred));
-        children
-         */
-        let mut new = vec![];
-        self.children = std::mem::take(&mut self.children)
-            .into_iter()
-            .filter_map(|x| {
-                if x.pred.is_child(pred) {
-                    new.push(x);
-                    None
-                } else {
-                    Some(x)
-                }
-            })
-            .collect();
+        let new;
+        let children = std::mem::take(&mut self.children);
+
+        (new, self.children) = children.into_iter().partition(|p| p.pred.is_child(pred));
 
         new
     }
 
-    /// Returns a reference to a PNode that is a child of `self`
-    /// that can act as "parent" of `pred`.
+    // Returns a reference to a PNode that is a child of `self`
+    // that can act as "parent" of `pred`.
     fn get_parent_candidate(&mut self, pred: &Predicate) -> Option<&mut PNode> {
         self.children.iter_mut().find(|n| pred.is_child(&n.pred))
     }
 
-    /// Returns true if (1) both are leaf nodes and (2) actions/CB are the same
+    // Returns true if (1) both `self` and `peer` are leaf nodes
+    // and (2) actions/CB are the same.
+    // This is useful for marking nodes as mutually exclusive even
+    // if there predicates are not mutually exclusive.
     fn outcome_eq(&self, peer: &PNode) -> bool {
         peer.children.is_empty()
             && self.children.is_empty()
@@ -165,7 +162,7 @@ impl PNode {
             && self.deliver == peer.deliver
     }
 
-    /// True if there is a PNode that can act as parent of `pred`.
+    // True if there is a PNode that can act as parent of `pred`.
     fn has_parent(&self, pred: &Predicate) -> bool {
         for n in &self.children {
             if pred.is_child(&n.pred) {
@@ -175,8 +172,10 @@ impl PNode {
         false
     }
 
+    // Returns a node that can act as a parent to `pred`, or None.
+    // The most "narrow" parent condition will be returned if multiple exist.
     fn get_parent(&mut self, pred: &Predicate, tree_size: usize) -> Option<&mut PNode> {
-        // This is hacky, but directly iterating through children or
+        // This is messy, but directly iterating through children or
         // recursing will raise flags with the borrow checker.
         let mut node = self;
         for _ in 0..tree_size {
@@ -186,32 +185,34 @@ impl PNode {
                 // `next` is the last possible parent at this stage
                 return Some(next);
             } else {
-                // there are more parents
+                // There are more potential parents
                 node = next;
             }
         }
         None
     }
 
+    // Returns `true` if a condition cannot be removed from the filter due to
+    // its role extracting data needed for a subsequent condition.
+    // For example, getting `ipv4` is necessary for checking `ipv4.src_addr`.
     fn extracts_protocol(&self, filter_layer: FilterLayer) -> bool {
         // Filters that parse raw packets are special case
         // Need upper layers to extract inner from mbuf
         // E.g.: need ipv4 header to parse tcp
-        if matches!(filter_layer, FilterLayer::PacketDeliver |
-                                  FilterLayer::Packet) {
-            if self.pred.is_unary() &&
-                    self.children.iter().any(|n| {
-                        n.pred.is_unary()
-                    }) {
+        if matches!(
+            filter_layer,
+            FilterLayer::PacketDeliver | FilterLayer::Packet
+        ) {
+            if self.pred.is_unary() && self.children.iter().any(|n| n.pred.is_unary()) {
                 return true;
             }
         }
         self.pred.is_unary()
-            && self.children.iter().any(|n| {
-                self.pred.get_protocol() == n.pred.get_protocol() && n.pred.is_binary()
-            })
+            && self
+                .children
+                .iter()
+                .any(|n| self.pred.get_protocol() == n.pred.get_protocol() && n.pred.is_binary())
     }
-
 }
 
 impl fmt::Display for PNode {
@@ -251,6 +252,10 @@ pub struct PTree {
 
     /// Which filter this PTree represents
     pub filter_layer: FilterLayer,
+
+    /// Has `collapse` been applied?
+    /// Use to ensure no filters are applied after `collapse`
+    collapsed: bool,
 }
 
 impl PTree {
@@ -263,6 +268,7 @@ impl PTree {
             size: 1,
             actions: Actions::new(),
             filter_layer,
+            collapsed: false,
         }
     }
 
@@ -275,6 +281,9 @@ impl PTree {
         subscription: &SubscriptionSpec,
         filter_id: usize,
     ) {
+        if self.collapsed {
+            panic!("Cannot add filter to tree after collapsing");
+        }
         if matches!(self.filter_layer, FilterLayer::PacketDeliver)
             && !matches!(subscription.level, Level::Packet)
         {
@@ -283,8 +292,8 @@ impl PTree {
         self.build_tree(patterns, subscription, filter_id);
     }
 
-    /// Add all given patterns (root-to-leaf paths) to a PTree
-    pub fn build_tree(
+    // Add all given patterns (root-to-leaf paths) to a PTree
+    fn build_tree(
         &mut self,
         patterns: &[FlatPattern],
         subscription: &SubscriptionSpec,
@@ -316,7 +325,7 @@ impl PTree {
     /// Add a single pattern (root-to-leaf path) to the tree.
     /// Add nodes that don't exist. Update actions or subscription IDs
     /// for terminal nodes at this stage.
-    pub(crate) fn add_pattern(
+    fn add_pattern(
         &mut self,
         pattern: &FlatPattern,
         pattern_id: usize,
@@ -405,6 +414,9 @@ impl PTree {
         get_subtree(id, &self.root)
     }
 
+    // Sorts the PTree according to predicates
+    // Useful as a pre-step for marking mutual exclusion; places
+    // conditions with the same protocols/fields next to each other.
     fn sort(&mut self) {
         fn sort(node: &mut PNode) {
             for child in node.children.iter_mut() {
@@ -415,20 +427,29 @@ impl PTree {
         sort(&mut self.root);
     }
 
-    fn get_callbacks(&self) -> HashSet<Deliver> {
-        fn get_callbacks(node: &PNode, callbacks: &mut HashSet<Deliver>) {
+    // If only one callback is present in the tree, this function
+    // returns it. Otherwise, it returns None.
+    fn get_single_callback(&self) -> Option<Deliver> {
+        fn check_callbacks(node: &PNode, callbacks: &mut HashSet<Deliver>) {
             if !node.deliver.is_empty() {
                 callbacks.extend(node.deliver.iter().cloned());
             }
+            if callbacks.len() > 1 {
+                return;
+            }
             for child in &node.children {
-                get_callbacks(child, callbacks);
+                check_callbacks(child, callbacks);
             }
         }
         let mut callbacks = HashSet::new();
-        get_callbacks(&self.root, &mut callbacks);
-        callbacks
+        check_callbacks(&self.root, &mut callbacks);
+        if callbacks.len() != 1 {
+            return None;
+        }
+        Some(callbacks.iter().next().unwrap().clone())
     }
 
+    // Remove all nodes and callbacks from the tree
     fn clear(&mut self) {
         let pred = Predicate::Unary {
             protocol: protocol!("ethernet"),
@@ -436,39 +457,39 @@ impl PTree {
         self.root = PNode::new(pred, 0);
         self.size = 1;
         self.actions = Actions::new();
+        self.collapsed = false;
     }
 
-    /// Best-effort to give the filter generator hints as to where an "else"
-    /// statement can go between two predicates.
+    // Best-effort to give the filter generator hints as to where an "else"
+    // statement can go between two predicates.
     fn mark_mutual_exclusion(&mut self) {
         fn mark_mutual_exclusion(node: &mut PNode) {
-            if !node.children.is_empty() {
-                mark_mutual_exclusion(&mut node.children[0]);
-            }
-            if node.children.len() <= 1 {
-                return;
-            }
-
-            for idx in 1..node.children.len() {
+            for idx in 0..node.children.len() {
+                // Recurse for children/descendants
                 mark_mutual_exclusion(&mut node.children[idx]);
-                // Look for mutually exclusive predicates
+                if idx == 0 {
+                    continue;
+                }
+
+                // Look for mutually exclusive predicates in direct children
                 if node.children[idx]
                     .pred
                     .is_excl(&node.children[idx - 1].pred)
                 {
                     node.children[idx].if_else = true;
                 }
-                // If the result is equivalent (e.g., same CB in delivery filter) for child nodes,
-                // then we can safely use first match. (Similar to "early return.")
+                // If the result is equivalent (e.g., same actions)
+                // for child nodes, then we can safely use first match.
+                // (Similar to "early return.")
                 if node.children[idx].outcome_eq(&node.children[idx - 1]) {
                     node.children[idx].if_else = true;
                 }
-                // TODO more optimizations with branches here...
             }
         }
         mark_mutual_exclusion(&mut self.root);
     }
 
+    // After collapsing the tree, make sure node IDs and sizes are correct.
     fn update_size(&mut self) {
         fn count_nodes(node: &mut PNode, id: &mut usize) -> usize {
             node.id = *id;
@@ -483,11 +504,10 @@ impl PTree {
         self.size = count_nodes(&mut self.root, &mut id);
     }
 
-    /// Removes some patterns that are covered by others
-    /// Should be called after tree is completely built
+    // Removes some patterns that are covered by others
     fn prune_branches(&mut self) {
         fn prune(node: &mut PNode, on_path_actions: &Actions, on_path_deliver: &HashSet<String>) {
-            // Remove redundant delivery
+            // 1. Remove callbacks that would have already been invoked on this path
             let mut my_deliver = on_path_deliver.clone();
             let mut new_ids = HashSet::new();
             for i in &node.deliver {
@@ -497,23 +517,27 @@ impl PTree {
                 }
             }
             node.deliver = new_ids;
-            // Remove redundant actions
+
+            // 2. Remove actions that would have already been invoked on this path
             let mut my_actions = on_path_actions.clone();
             if !node.actions.drop() {
                 node.actions.clear_intersection(&my_actions);
                 my_actions.push(&node.actions);
             }
-            // Prune children
-            let mut new_children = vec![];
-            for child in node.children.iter_mut() {
-                prune(child, &my_actions, &my_deliver);
-                // Backtrack: retain only those with actions, deliver, or children
-                if !child.actions.drop() || !child.children.is_empty() || !child.deliver.is_empty()
-                {
-                    new_children.push(child.clone());
-                }
-            }
-            node.children = new_children;
+
+            // 3. Repeat for each child
+            node.children
+                .iter_mut()
+                .for_each(|child| prune(child, &mut my_actions, &mut my_deliver));
+
+            // 4. Remove empty children
+            let children = std::mem::take(&mut node.children);
+            node.children = children
+                .into_iter()
+                .filter(|child| {
+                    !child.actions.drop() || !child.children.is_empty() || !child.deliver.is_empty()
+                })
+                .collect();
         }
 
         let on_path_actions = Actions::new();
@@ -541,39 +565,43 @@ impl PTree {
                 // If the protocol needs to be extracted, can't remove node
                 // Look for unary predicate (e.g., `ipv4`) and child with
                 // binary predicate of same protocol (e.g., `ipv4.addr = ...`)
-                let child = &node.children[0];
-                if child.extracts_protocol(filter_layer)
-                {
+                let child = &mut node.children[0];
+                if child.extracts_protocol(filter_layer) {
                     break;
                 }
                 node.actions.push(&child.actions);
                 node.deliver.extend(child.deliver.iter().cloned());
-                node.children = child.children.clone();
+                node.children = std::mem::take(&mut child.children);
             }
         }
 
-        // Don't prune from the first filter
+        // Can't prune from the first filter
+        // \Note future optimization could prune based on HW filtering if
+        // confirmed that HW filtering will be enabled.
         if matches!(self.filter_layer, FilterLayer::PacketContinue) {
             return;
         }
         prune_packet_conditions(&mut self.root, self.filter_layer);
     }
 
+    /// Apply all filter tree optimizations.
+    /// This must only be invoked AFTER the tree is completely built.
     pub fn collapse(&mut self) {
         if matches!(
             self.filter_layer,
             FilterLayer::PacketDeliver | FilterLayer::ConnectionDeliver
         ) {
-            let callbacks = self.get_callbacks();
+            self.collapsed = true;
+
             // The delivery filter will only be invoked if a previous filter
             // determined that delivery is needed at the corresponding stage.
             // If disambiguation is not needed (i.e., only one possible delivery
             // outcome), then no filter condition is needed.
-            if callbacks.len() == 1 {
+            if let Some(deliver) = self.get_single_callback() {
                 self.clear();
-                self.root
-                    .deliver
-                    .insert(callbacks.iter().next().unwrap().clone());
+                self.root.deliver.insert(deliver);
+                self.update_size();
+                return;
             }
         }
         self.prune_packet_conditions();
@@ -645,7 +673,7 @@ impl PTree {
         s
     }
 
-    // For writing intermediate output to file
+    // Displays the conditions in the PTree as a filter string
     pub fn to_filter_string(&self) -> String {
         fn to_filter_string(p: &PNode, all: &mut Vec<String>, curr: String) {
             let mut curr = curr;
@@ -676,33 +704,6 @@ impl PTree {
         to_filter_string(&self.root, &mut all_filters, curr_filter);
         all_filters.join(" or ")
     }
-
-    // For "packet"-layer filter
-    pub fn get_packet_subtree(&self) -> PTree {
-        fn get_packet_subtree(p: &mut PNode) {
-            p.children.retain(|x| x.pred.on_packet());
-            for child in &mut p.children {
-                get_packet_subtree(child);
-            }
-        }
-        let mut output = (*self).clone();
-        get_packet_subtree(&mut output.root);
-        output
-    }
-
-    // For "connection"-layer filter
-    pub fn get_connection_subtree(&self) -> PTree {
-        fn get_connection_subtree(p: &mut PNode) {
-            p.children
-                .retain(|x| x.pred.on_packet() || x.pred.on_proto());
-            for child in &mut p.children {
-                get_connection_subtree(child);
-            }
-        }
-        let mut output = (*self).clone();
-        get_connection_subtree(&mut output.root);
-        output
-    }
 }
 
 impl fmt::Display for PTree {
@@ -712,11 +713,10 @@ impl fmt::Display for PTree {
     }
 }
 
+// Compares the contents of the nodes, ignoring children
 impl PartialEq for PNode {
     fn eq(&self, other: &PNode) -> bool {
-        self.pred == other.pred &&
-               self.actions == other.actions &&
-               self.deliver == other.deliver
+        self.pred == other.pred && self.actions == other.actions && self.deliver == other.deliver
     }
 }
 
@@ -728,6 +728,7 @@ impl PartialOrd for PNode {
     }
 }
 
+// Used for ordering nodes by protocol and field
 impl Ord for PNode {
     fn cmp(&self, other: &PNode) -> Ordering {
         if let Predicate::Binary {
@@ -752,7 +753,10 @@ impl Ord for PNode {
         }
 
         // Sort by protocol name
-        self.pred.get_protocol().name().cmp(other.pred.get_protocol().name())
+        self.pred
+            .get_protocol()
+            .name()
+            .cmp(other.pred.get_protocol().name())
     }
 }
 
@@ -993,5 +997,4 @@ mod tests {
         ptree.add_filter(&filter.get_patterns_flat(), &spec_conn, 0);
         assert!(ptree.size == 6);
     }
-
 }
