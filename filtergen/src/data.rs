@@ -56,8 +56,10 @@ impl TrackedDataBuilder {
                     #field_name : #type_name,
                 });
                 self.new.push(quote! { #field_name: #type_name::new(pdu), });
-                self.clear.push( quote! { self.#field_name.clear(); } );
 
+                if matches!(datatype.level, Level::Connection) {
+                    self.clear.push( quote! { self.#field_name.clear(); } );
+                }
                 if datatype.needs_update {
                     self.update
                         .push(quote! { self.#field_name.update(pdu, reassembled); });
