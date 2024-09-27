@@ -10,6 +10,10 @@ pub(crate) fn gen_proto_filter(
 ) -> proc_macro2::TokenStream {
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
 
+    if !ptree.root.actions.drop() || !ptree.root.deliver.is_empty() {
+        update_body(&mut body, &ptree.root, FilterLayer::Protocol, false);
+    }
+
     gen_proto_filter_util(&mut body, statics, &ptree.root, FilterLayer::Protocol);
 
     let start = quote! { let mut result = retina_core::filter::Actions::new(); };

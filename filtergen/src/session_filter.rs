@@ -10,6 +10,9 @@ pub(crate) fn gen_session_filter(
     statics: &mut Vec<proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
+    if !ptree.root.actions.drop() || !ptree.root.deliver.is_empty() {
+        update_body(&mut body, &ptree.root, FilterLayer::Session, false);
+    }
 
     gen_session_filter_util(&mut body, statics, &ptree.root, FilterLayer::Session);
 

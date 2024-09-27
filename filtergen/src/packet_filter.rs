@@ -18,6 +18,10 @@ pub(crate) fn gen_packet_filter(
 
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
 
+    if !ptree.root.actions.drop() || !ptree.root.deliver.is_empty() {
+        update_body(&mut body, &ptree.root, filter_layer, false);
+    }
+
     gen_packet_filter_util(
         &mut body,
         statics,

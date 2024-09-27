@@ -13,6 +13,13 @@ pub(crate) fn gen_deliver_filter(
 ) -> proc_macro2::TokenStream {
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
 
+    // Ensure that "always deliver" case is covered.
+    // \Note if more outer protocols are added (beyond ethernet), this would
+    // need to be changed.
+    if !ptree.root.deliver.is_empty() {
+        update_body(&mut body, &ptree.root, filter_layer, false);
+    }
+
     gen_deliver_util(&mut body, statics, &ptree.root, filter_layer);
 
     let connection_deliver = quote! {
