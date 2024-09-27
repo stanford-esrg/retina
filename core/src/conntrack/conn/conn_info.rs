@@ -199,4 +199,11 @@ where
         // a terminal action at the protocol stage
         // (should be re-calculated per session).
     }
+
+    // Helper to clear all data
+    // Used for keeping empty UDP connections in the table until they age out
+    pub(crate) fn clear(&mut self) {
+        self.cdata.clear();
+        self.sdata.clear();
+    }
 }

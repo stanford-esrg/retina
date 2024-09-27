@@ -110,9 +110,8 @@ where
                     occupied.remove();
                     return;
                 } else if conn.drop_pdu() {
-                    conn.info.clear_packets();
-                }
-                if conn.terminated() {
+                    conn.info.clear();
+                } else if conn.terminated() {
                     conn.terminate(subscription);
                     occupied.remove();
                 }

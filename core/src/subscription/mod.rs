@@ -40,6 +40,9 @@ pub trait Trackable {
     /// Parsers needed by all datatypes
     /// Parsers needed by filter are generated on program startup
     fn parsers() -> ParserRegistry;
+
+    /// Clear all internal data
+    fn clear(&mut self);
 }
 
 pub struct Subscription<S>

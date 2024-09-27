@@ -1,39 +1,8 @@
 [[subscriptions]]
-filter = "ipv4.src_addr = 172.16.133.0 and (http)"
+filter = "dns or http or quic or tls"
 datatypes = [
+    "SessionList",
     "Connection",
-    "HttpTransaction",
 ]
-callback = "conn_cb"
+callback = "conn_list_cb"
 
-[[subscriptions]]
-filter = "ipv4.dst_addr = 68.64.0.0 and (http)"
-datatypes = [
-    "Connection",
-    "HttpTransaction",
-]
-callback = "conn_cb"
-
-[[subscriptions]]
-filter = "ipv4.src_addr = 172.16.133.0 and (quic)"
-datatypes = [
-    "Connection",
-    "HttpTransaction",
-]
-callback = "conn_cb"
-
-[[subscriptions]]
-filter = "ipv4.dst_addr = 68.64.0.0 and (quic)"
-datatypes = [
-    "Connection",
-    "HttpTransaction",
-]
-callback = "conn_cb"
-
-[[subscriptions]]
-filter = "ipv4.src_addr = 172.16.133.0 and (udp and dns)"
-datatypes = [
-    "Connection",
-    "HttpTransaction",
-]
-callback = "conn_cb"

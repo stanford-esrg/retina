@@ -27,6 +27,7 @@ pub trait Tracked {
     fn update(&mut self, pdu: &L4Pdu, reassembled: bool);
     fn stream_protocols() -> Vec<&'static str>;
     fn session_matched(&mut self, session: &Session);
+    fn clear(&mut self);
 }
 
 pub trait FromSession {

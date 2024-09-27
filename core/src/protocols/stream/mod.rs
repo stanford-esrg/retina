@@ -154,6 +154,10 @@ impl ConnData {
         }
     }
 
+    pub(crate) fn clear(&mut self) {
+        self.conn_parser = ConnParser::Unknown;
+    }
+
     /// Returns the application-layer protocol parser associated with the connection.
     pub fn service(&self) -> &ConnParser {
         &self.conn_parser

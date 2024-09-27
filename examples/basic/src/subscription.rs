@@ -31,8 +31,8 @@ fn conn_cb(conn: &Connection, http: &HttpTransaction) {
 }
 
 #[allow(dead_code)]
-fn conn_list_cb(list: &SessionList, five_tuple: &FiveTuple) {
-    println!("conn_list_cb - {:?}: {:?}", five_tuple, list);
+fn conn_list_cb(list: &SessionList, five_tuple: &Connection) {
+    // println!("conn_list_cb - {:?}: {:?}", five_tuple, list);
 }
 
 #[allow(dead_code)]

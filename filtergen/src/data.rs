@@ -12,6 +12,7 @@ pub(crate) struct TrackedDataBuilder {
     update: Vec<proc_macro2::TokenStream>,
     struct_def: Vec<proc_macro2::TokenStream>,
     new: Vec<proc_macro2::TokenStream>,
+    clear: Vec<proc_macro2::TokenStream>,
     stream_protocols: HashSet<&'static str>,
     datatypes: HashSet<&'static str>,
 }
@@ -22,6 +23,7 @@ impl TrackedDataBuilder {
             update: vec![],
             struct_def: vec![],
             new: vec![],
+            clear: vec![],
             stream_protocols: HashSet::new(),
             datatypes: HashSet::new(),
         };
@@ -54,6 +56,7 @@ impl TrackedDataBuilder {
                     #field_name : #type_name,
                 });
                 self.new.push(quote! { #field_name: #type_name::new(pdu), });
+                self.clear.push( quote! { self.#field_name.clear(); } );
 
                 if datatype.needs_update {
                     self.update
@@ -90,6 +93,7 @@ impl TrackedDataBuilder {
         let def = std::mem::take(&mut self.struct_def);
         let update = std::mem::take(&mut self.update);
         let new = std::mem::take(&mut self.new);
+        let clear = std::mem::take(&mut self.clear);
 
         let mut conn_parsers: Vec<proc_macro2::TokenStream> = vec![];
         for datatype in &self.stream_protocols {
@@ -138,6 +142,12 @@ impl TrackedDataBuilder {
 
                 fn drain_packets(&mut self) {
                     self.mbufs = vec![];
+                }
+
+                fn clear(&mut self) {
+                    self.drain_packets();
+                    self.sessions = vec![];
+                    #( #clear )*
                 }
 
                 fn sessions(&self) -> &Vec<retina_core::protocols::Session> {

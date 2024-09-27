@@ -184,6 +184,15 @@ impl Tracked for Connection {
         }
     }
 
+    // Clear the more memory-intensive data structures
+    fn clear(&mut self) {
+        self.orig.chunks = Vec::with_capacity(0);
+        self.orig.gaps = HashMap::with_capacity(0);
+        self.resp.chunks = Vec::with_capacity(0);
+        self.resp.gaps = HashMap::with_capacity(0);
+        self.history = Vec::with_capacity(0);
+    }
+
     fn update(&mut self, pdu: &L4Pdu, _reassembled: bool) {
         self.update_data(pdu);
     }
