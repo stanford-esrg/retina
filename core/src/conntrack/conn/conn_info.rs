@@ -153,6 +153,13 @@ where
             SessionState::Remove => {
                 // Done parsing: we expect no more sessions for this connection.
                 self.actions.session_clear_parse();
+                // If the only remaining thing to do is deliver the connection --
+                // i.e., no more `updates` are required -- then we can deliver now,
+                // as no more session parsing is expected.
+                if self.actions.conn_deliver_only() {
+                    self.handle_terminate(subscription);
+                    self.actions.clear();
+                }
             }
             SessionState::Parsing => {
                 // SessionFilter, Track, and Delivery will be terminal actions if needed.

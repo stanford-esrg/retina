@@ -126,6 +126,11 @@ impl Actions {
     }
 
     #[inline]
+    pub fn conn_deliver_only(&self) -> bool {
+        self.data == ActionData::ConnDeliver
+    }
+
+    #[inline]
     pub fn apply_session_filter(&mut self) -> bool {
         // \note deliver filter is in session filter
         self.data

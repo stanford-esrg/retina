@@ -103,6 +103,9 @@ where
                 if conn.info.actions.update_pdu(false) {
                     conn.info.sdata.update(&pdu, false);
                 }
+                if !conn.info.actions.reassemble() {
+                    return;
+                }
                 conn.update(pdu, subscription, &self.registry);
 
                 // Delete stale data for connections no longer matching
