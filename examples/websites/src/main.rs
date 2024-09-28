@@ -16,8 +16,7 @@ use std::fs::File;
 // Should be defined at compile-time so that we can use a
 // statically-sized array for RESULTS
 const NUM_CORES: usize = 16;
-// Add 1 for ARR_LEN to avoid overflow; core 0 is typically used for
-// monitoring/orchestration in online mode
+// Add 1 for ARR_LEN to avoid overflow; one core is used as main_core
 const ARR_LEN: usize = NUM_CORES + 1;
 // Temporary per-core files
 const OUTFILE_PREFIX: &str = "websites_";
@@ -49,7 +48,7 @@ struct Args {
 }
 
 fn write_result(key: &str, value: String, core_id: &CoreId) {
-    if value.is_empty() { return; }
+    if value.is_empty() { return; } // Would it be helpful to count these?
     let with_proto = format!(",\n[\"{}\", \"{}\"]", key, value);
     let ptr = RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
     let wtr = unsafe { &mut *ptr};
@@ -102,12 +101,11 @@ fn combine_results(outfile: &PathBuf) {
 fn main() {
     let args = Args::parse();
     let config = load_config(&args.config);
-    let mut cores = config.get_all_core_ids();
+    let cores = config.get_all_core_ids();
     let num_cores = cores.len();
-    if num_cores > NUM_CORES {
+    if num_cores > ARR_LEN {
         panic!("Compile-time NUM_CORES ({}) must be <= num cores ({}) in config file", NUM_CORES, num_cores);
     }
-    cores.sort();
     if cores.len() > 1 && !cores.windows(2).all(|w| w[1].raw() - w[0].raw() == 1) {
         panic!("Cores in config file should be consecutive for zero-lock indexing");
     }
