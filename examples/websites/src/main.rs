@@ -12,15 +12,22 @@ use lazy_static::lazy_static;
 use std::io::{BufWriter, Write};
 use std::fs::File;
 
+// Number of cores being used by the runtime; should match config file
+// Should be defined at compile-time so that we can use a
+// statically-sized array for RESULTS
 const NUM_CORES: usize = 16;
+// Add 1 for ARR_LEN to avoid overflow; core 0 is typically used for
+// monitoring/orchestration in online mode
+const ARR_LEN: usize = NUM_CORES + 1;
+// Temporary per-core files
 const OUTFILE_PREFIX: &str = "websites_";
 
 lazy_static! {
     static ref PROTOS: Vec<String> = vec![String::from("dns"), String::from("http"), String::from("quic"), String::from("tls")];
 
-    static ref RESULTS: [AtomicPtr<BufWriter<File>>; NUM_CORES] = {
+    static ref RESULTS: [AtomicPtr<BufWriter<File>>; ARR_LEN] = {
         let mut results = vec![];
-        for core_id in 0..NUM_CORES {
+        for core_id in 0..ARR_LEN {
             let file_name = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";
             let mut core_wtr = BufWriter::new(
                     File::create(&file_name).unwrap()
@@ -70,8 +77,9 @@ fn quic_cb(quic: &QuicStream, core_id: &CoreId) {
 }
 
 fn combine_results(outfile: &PathBuf) {
+    println!("Combining results from {} cores...", NUM_CORES);
     let mut result = HashMap::new();
-    for core_id in 0..NUM_CORES {
+    for core_id in 0..ARR_LEN {
         let ptr = RESULTS[core_id].load(Ordering::Relaxed);
         let wtr = unsafe { &mut *ptr};
         wtr.write_all(b"\n]").unwrap();
@@ -94,9 +102,14 @@ fn combine_results(outfile: &PathBuf) {
 fn main() {
     let args = Args::parse();
     let config = load_config(&args.config);
-    let num_cores = config.get_all_core_ids().len();
+    let mut cores = config.get_all_core_ids();
+    let num_cores = cores.len();
     if num_cores > NUM_CORES {
         panic!("Compile-time NUM_CORES ({}) must be <= num cores ({}) in config file", NUM_CORES, num_cores);
+    }
+    cores.sort();
+    if cores.len() > 1 && !cores.windows(2).all(|w| w[1].raw() - w[0].raw() == 1) {
+        panic!("Cores in config file should be consecutive for zero-lock indexing");
     }
     let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
     runtime.run();
