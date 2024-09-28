@@ -96,7 +96,7 @@ pub struct RuntimeConfig {
 
 impl RuntimeConfig {
     /// Returns a list of core IDs assigned to the runtime.
-    fn get_all_core_ids(&self) -> Vec<CoreId> {
+    pub fn get_all_core_ids(&self) -> Vec<CoreId> {
         let mut cores = vec![CoreId(self.main_core)];
         if let Some(online) = &self.online {
             for port in online.ports.iter() {

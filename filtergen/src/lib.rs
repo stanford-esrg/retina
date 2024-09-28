@@ -49,7 +49,9 @@ fn filter_subtree(input: &SubscriptionConfig, filter_layer: FilterLayer) -> PTre
 }
 
 #[proc_macro_attribute]
-pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
+pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::ItemFn);
+
     let inp_file = parse_macro_input!(args as syn::LitStr).value();
     let config = SubscriptionConfig::from_file(&inp_file);
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
@@ -109,7 +111,7 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
 
         #lazy_statics
 
-        pub(super) fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
+        pub fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
 
             fn packet_continue(mbuf: &retina_core::Mbuf,
                                core_id: &retina_core::CoreId) -> Actions {
@@ -155,6 +157,8 @@ pub fn subscription(args: TokenStream, _input: TokenStream) -> TokenStream {
                 connection_deliver,
             )
         }
+
+        #input
 
     };
     tst.into()
