@@ -24,9 +24,10 @@ impl Dns {
     /// Returns the DNS query domain name, or `""` if no query was observed in the transaction.
     pub fn query_domain(&self) -> &str {
         if let Some(query) = &self.query {
-            &query.queries[0]
-        } else {
-            ""
+            if !query.queries.is_empty() {
+                return &query.queries[0];
+            }
         }
+        ""
     }
 }
