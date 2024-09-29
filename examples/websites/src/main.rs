@@ -4,7 +4,6 @@ use retina_datatypes::*;
 use retina_filtergen::subscription;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use array_init::array_init;
-use std::collections::HashMap;
 
 use clap::Parser;
 use std::path::PathBuf;
@@ -28,10 +27,9 @@ lazy_static! {
         let mut results = vec![];
         for core_id in 0..ARR_LEN {
             let file_name = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";
-            let mut core_wtr = BufWriter::new(
+            let core_wtr = BufWriter::new(
                     File::create(&file_name).unwrap()
                 );
-            core_wtr.write(b"[\n[\"start\", \"start\"]").unwrap();
             let core_wtr = Box::into_raw(Box::new(core_wtr));
             results.push(core_wtr);
         }
@@ -49,7 +47,7 @@ struct Args {
 
 fn write_result(key: &str, value: String, core_id: &CoreId) {
     if value.is_empty() { return; } // Would it be helpful to count these?
-    let with_proto = format!(",\n[\"{}\", \"{}\"]", key, value);
+    let with_proto = format!("\n{}: {}", key, value);
     let ptr = RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
     let wtr = unsafe { &mut *ptr};
     wtr.write_all(with_proto.as_bytes()).unwrap();
@@ -77,24 +75,15 @@ fn quic_cb(quic: &QuicStream, core_id: &CoreId) {
 
 fn combine_results(outfile: &PathBuf) {
     println!("Combining results from {} cores...", NUM_CORES);
-    let mut result = HashMap::new();
+    let mut results = Vec::new();
     for core_id in 0..ARR_LEN {
-        let ptr = RESULTS[core_id].load(Ordering::Relaxed);
-        let wtr = unsafe { &mut *ptr};
-        wtr.write_all(b"\n]").unwrap();
-        wtr.flush().unwrap();
         let fp = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";
-        let content = std::fs::read_to_string(fp.clone()).unwrap();
-        let values: Vec<(String, String)> = serde_json::from_str(&content).unwrap();
-        for res in values {
-            if res.0 == "start" { continue; }
-            let entry = result.entry(res.0).or_insert_with(HashMap::new);
-            *entry.entry(res.1).or_insert(0) += 1;
-        }
+        let content = std::fs::read(fp.clone()).unwrap();
+        results.extend_from_slice(&content);
         std::fs::remove_file(fp).unwrap();
     }
-    let file = std::fs::File::create(outfile).unwrap();
-    serde_json::to_writer(&file, &result).unwrap();
+    let mut file = std::fs::File::create(outfile).unwrap();
+    file.write_all(&results).unwrap();
 }
 
 #[subscription("/home/tcr6/retina/examples/websites/spec.toml")]
