@@ -39,8 +39,12 @@ pub(crate) fn add_subscription(callback: String, datatypes: Vec<String>, filter:
 }
 
 pub(crate) fn is_done() -> bool {
-    CACHED_SUBSCRIPTIONS.lock().unwrap().subscriptions.len() ==
-        NUM_SUBSCRIPTIONS.load(Ordering::SeqCst)
+    let present = CACHED_SUBSCRIPTIONS.lock().unwrap().subscriptions.len();
+    let expected = NUM_SUBSCRIPTIONS.load(Ordering::SeqCst);
+    if present > expected {
+        panic!("Too many subscriptions present; expected: {}", expected);
+    }
+    present == expected
 }
 
 pub(crate) fn set_count(count: usize) {

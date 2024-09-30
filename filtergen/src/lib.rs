@@ -26,6 +26,7 @@ use crate::proto_filter::gen_proto_filter;
 use crate::session_filter::gen_session_filter;
 use crate::cache::*;
 
+// Build a string that can be used to generate a hardware (NIC) filter at runtime.
 fn get_hw_filter(packet_continue: &PTree) -> String {
     let ret = packet_continue.to_filter_string();
     let _flat_ptree =
@@ -33,6 +34,7 @@ fn get_hw_filter(packet_continue: &PTree) -> String {
     ret
 }
 
+// Returns a PTree from the given config
 fn filter_subtree(input: &SubscriptionConfig, filter_layer: FilterLayer) -> PTree {
     let mut ptree = PTree::new_empty(filter_layer);
 
@@ -51,6 +53,8 @@ fn filter_subtree(input: &SubscriptionConfig, filter_layer: FilterLayer) -> PTre
     ptree
 }
 
+// Generate code from the given config (all subscriptions)
+// Also includes the original input (typically a callback or main function)
 fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
 
@@ -161,6 +165,7 @@ fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
     }.into()
 }
 
+// Generate a Retina program from a specification file
 #[proc_macro_attribute]
 pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemFn);
@@ -169,6 +174,8 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
     generate(input, config)
 }
 
+// For generating a Retina program without a specification file
+// This expects a #[filter("...")] macro followed by the expected callback
 #[proc_macro_attribute]
 pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemFn);
@@ -192,6 +199,8 @@ pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
     generate(input, config)
 }
 
+// For generating a Retina program without a specification file
+// This expects to receive the number of subscriptions
 #[proc_macro_attribute]
 pub fn retina_main(args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemFn);
