@@ -24,18 +24,13 @@ pub(crate) struct SubscriptionConfig {
 }
 
 impl SubscriptionConfig {
-    pub(crate) fn from_file(filepath_in: &str) -> Self {
-        let config_str = std::fs::read_to_string(filepath_in)
-            .unwrap_or_else(|err| panic!("ERROR: File read failed {}: {:?}", filepath_in, err));
 
-        let config: ConfigRaw = toml::from_str(&config_str)
-            .unwrap_or_else(|err| panic!("ERROR: Config file invalid {}: {:?}", filepath_in, err));
-
+    pub(crate) fn from_raw(config: &ConfigRaw) -> Self {
         let mut subscriptions = vec![];
-        for s in config.subscriptions {
+        for s in &config.subscriptions {
             assert!(!s.datatypes.is_empty());
             let mut spec = SubscriptionSpec::new(s.filter.clone(), s.callback.clone());
-            for datatype_str in s.datatypes {
+            for datatype_str in &s.datatypes {
                 Self::validate_datatype(datatype_str.as_str());
                 let datatype = DATATYPES.get(datatype_str.as_str()).unwrap().clone();
                 spec.add_datatype(datatype);
@@ -43,6 +38,15 @@ impl SubscriptionConfig {
             subscriptions.push(spec);
         }
         Self { subscriptions }
+    }
+
+    pub(crate) fn from_file(filepath_in: &str) -> Self {
+        let config_str = std::fs::read_to_string(filepath_in)
+            .unwrap_or_else(|err| panic!("ERROR: File read failed {}: {:?}", filepath_in, err));
+
+        let config: ConfigRaw = toml::from_str(&config_str)
+            .unwrap_or_else(|err| panic!("ERROR: Config file invalid {}: {:?}", filepath_in, err));
+        Self::from_raw(&config)
     }
 
     fn validate_datatype(datatype: &str) {

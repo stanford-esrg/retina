@@ -4,6 +4,7 @@ use retina_core::filter::ptree::*;
 use retina_core::filter::*;
 use syn::parse_macro_input;
 use utils::DELIVER;
+use std::str::FromStr;
 
 #[macro_use]
 extern crate lazy_static;
@@ -15,6 +16,7 @@ mod parse;
 mod proto_filter;
 mod session_filter;
 mod utils;
+mod cache;
 
 use crate::data::*;
 use crate::deliver_filter::gen_deliver_filter;
@@ -22,6 +24,7 @@ use crate::packet_filter::gen_packet_filter;
 use crate::parse::*;
 use crate::proto_filter::gen_proto_filter;
 use crate::session_filter::gen_session_filter;
+use crate::cache::*;
 
 fn get_hw_filter(packet_continue: &PTree) -> String {
     let ret = packet_continue.to_filter_string();
@@ -48,12 +51,7 @@ fn filter_subtree(input: &SubscriptionConfig, filter_layer: FilterLayer) -> PTre
     ptree
 }
 
-#[proc_macro_attribute]
-pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::ItemFn);
-
-    let inp_file = parse_macro_input!(args as syn::LitStr).value();
-    let config = SubscriptionConfig::from_file(&inp_file);
+fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
 
     let packet_cont_ptree = filter_subtree(&config, FilterLayer::PacketContinue);
@@ -101,7 +99,7 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
         }
     };
 
-    let tst = quote! {
+    quote! {
         use retina_core::filter::actions::*;
         use retina_core::subscription::{Trackable, Subscribable};
 
@@ -160,6 +158,58 @@ pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
 
         #input
 
-    };
-    tst.into()
+    }.into()
+}
+
+#[proc_macro_attribute]
+pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::ItemFn);
+    let inp_file = parse_macro_input!(args as syn::LitStr).value();
+    let config = SubscriptionConfig::from_file(&inp_file);
+    generate(input, config)
+}
+
+#[proc_macro_attribute]
+pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::ItemFn);
+    let filter_str = parse_macro_input!(args as syn::LitStr).value();
+    let (datatypes, callback) = parse_input(&input);
+    println!("Filter: {}, Datatypes: {:?}, Callback: {:?}", filter_str, datatypes, callback);
+
+    // If more subscriptions to parse, just output the callback
+    add_subscription(callback, datatypes, filter_str);
+    if !is_done() {
+        return quote! {
+            #input
+        }.into();
+    }
+
+    // Otherwise, ready to assemble
+    let config = SubscriptionConfig::from_raw(
+        &*CACHED_SUBSCRIPTIONS.lock().unwrap()
+    );
+
+    generate(input, config)
+}
+
+#[proc_macro_attribute]
+pub fn retina_main(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::ItemFn);
+    let count = usize::from_str(parse_macro_input!(args as syn::LitInt).base10_digits()).unwrap();
+    println!("Expecting {} subsctription(s)", count);
+    set_count(count);
+
+    // More subscriptions expected
+    if !is_done() {
+        return quote! {
+            #input
+        }.into();
+    }
+
+    // Otherwise, ready to assemble
+    let config = SubscriptionConfig::from_raw(
+        &*CACHED_SUBSCRIPTIONS.lock().unwrap()
+    );
+
+    generate(input, config)
 }

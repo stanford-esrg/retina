@@ -3,7 +3,8 @@ members = [
     "core",
     "datatypes",
     "examples/basic",
-    "examples/websites"
+    "examples/websites",
+    "examples/websites_2"
 ]
 resolver = "2"
 
