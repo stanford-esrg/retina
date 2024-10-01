@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, Span};
 use retina_core::filter::{ptree::FilterLayer, Level, SubscriptionSpec};
 use retina_core::protocols::stream::ConnParser;
-use retina_datatypes::typedefs::DIRECTLY_TRACKED;
+use retina_datatypes::*;
 use std::collections::HashSet;
 
 use quote::quote;
@@ -37,7 +37,7 @@ impl TrackedDataBuilder {
                 .extend(ConnParser::requires_parsing(&spec.filter));
             for datatype in &spec.datatypes {
                 let name = datatype.as_str;
-                if self.datatypes.contains(name) {
+                if self.datatypes.contains(name) || name == *FILTER_STR {
                     continue;
                 }
                 self.datatypes.insert(name);
@@ -170,19 +170,21 @@ impl TrackedDataBuilder {
 
 // Build parameters for a packet-level subscription
 // Only multi-parameter packet-level subscription supported is a packet datatype + retina_core::CoreId
-pub(crate) fn build_packet_params(spec: &SubscriptionSpec) -> Vec<proc_macro2::TokenStream> {
-    let mut params = vec![quote! { p }];
+pub(crate) fn build_packet_params(spec: &SubscriptionSpec) -> (Vec<proc_macro2::TokenStream>, Option<Ident>) {
+    let mut type_ident = None;
+    let mut params = vec![];
     for datatype in &spec.datatypes {
         if matches!(datatype.level, Level::Packet) {
-            continue;
-        }
-
-        if DIRECTLY_TRACKED.contains_key(datatype.as_str) {
+            params.push( quote! { p } );
+            type_ident = Some(Ident::new(&datatype.as_str, Span::call_site()));
+        } else if DIRECTLY_TRACKED.contains_key(datatype.as_str) {
             let accessor = Ident::new(
                 DIRECTLY_TRACKED.get(&datatype.as_str).unwrap(),
                 Span::call_site(),
             );
             params.push(quote! { tracked.#accessor() });
+        } else if datatype.as_str == *FILTER_STR {
+            params.push( retina_datatypes::FilterStr::from_subscription(&spec) );
         } else {
             let tracked_field: Ident =
                 Ident::new(&datatype.as_str.to_lowercase(), Span::call_site());
@@ -190,7 +192,7 @@ pub(crate) fn build_packet_params(spec: &SubscriptionSpec) -> Vec<proc_macro2::T
         }
     }
 
-    params
+    (params, type_ident)
 }
 
 pub(crate) fn build_packet_callback(
@@ -198,14 +200,18 @@ pub(crate) fn build_packet_callback(
     filter_layer: FilterLayer,
 ) -> proc_macro2::TokenStream {
     let callback = Ident::new(&spec.callback, Span::call_site());
-    let type_ident = Ident::new(&spec.datatypes[0].as_str, Span::call_site());
-    let params = build_packet_params(spec);
+    let (params, type_ident) = build_packet_params(spec);
+
+    let condition = match type_ident {
+        Some(type_ident) => quote! { let Some(p) = #type_ident::from_mbuf(mbuf) },
+        None => quote! { true },
+    };
 
     return match filter_layer {
         // Deliver packet directly
         FilterLayer::PacketContinue | FilterLayer::PacketDeliver => {
             quote! {
-                if let Some(p) = #type_ident::from_mbuf(mbuf) {
+                if #condition {
                     #callback(#( #params ),*);
                 }
             }
@@ -214,7 +220,7 @@ pub(crate) fn build_packet_callback(
             // Drain existing tracked packets
             quote! {
                 for mbuf in tracked.packets() {
-                    if let Some(p) = #type_ident::from_mbuf(mbuf) {
+                    if #condition {
                         #callback(#( #params ),*);
                     }
                 }
@@ -239,6 +245,10 @@ pub(crate) fn build_callback(
                 Span::call_site(),
             );
             params.push(quote! { tracked.#accessor() });
+            continue;
+        }
+        if datatype.as_str == *FILTER_STR {
+            params.push( retina_datatypes::FilterStr::from_subscription(&spec) );
             continue;
         }
         if matches!(datatype.level, Level::Session) && matches!(filter_layer, FilterLayer::Session)

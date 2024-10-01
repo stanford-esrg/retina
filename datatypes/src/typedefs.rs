@@ -84,27 +84,34 @@ lazy_static! {
             ("CoreId", { DataType::new_static("CoreId") }),
             ("FiveTuple", { DataType::new_static("FiveTuple") }),
             ("EtherTCI", { DataType::new_static("EtherTCI") }),
+            ("FilterStr", { DataType::new_static("FilterStr") }),
         ])
     };
 }
 
-// To avoid copying, the `Tracked` structure in the framework --
-// built at compile time -- will track certain generic, raw datatypes
-// if a subset of subscriptions require them.
-//
-// For example: buffering packets may be required as a pre-match action for a
-// packet-level datatype; it may also be required if one or more subscriptions request
-// a connection-level `PacketList`. Rather than maintaining these lists separately --
-// one for filtering and one for delivery -- the tracked packets are stored once.
-//
-// Core ID is a special case, as it cannot be derived from connection,
-// session, or packet data. It is simpler to define it as a directly tracked datatype.
+// Special cases: have specific conditions in generated code
+// \Note ideally these would be implemented more cleanly
 lazy_static! {
+    // To avoid copying, the `Tracked` structure in the framework --
+    // built at compile time -- will track certain generic, raw datatypes
+    // if a subset of subscriptions require them.
+    //
+    // For example: buffering packets may be required as a pre-match action for a
+    // packet-level datatype; it may also be required if one or more subscriptions request
+    // a connection-level `PacketList`. Rather than maintaining these lists separately --
+    // one for filtering and one for delivery -- the tracked packets are stored once.
+    //
+    // Core ID is a special case, as it cannot be derived from connection,
+    // session, or packet data. It is simpler to define it as a directly tracked datatype.
     pub static ref DIRECTLY_TRACKED: HashMap<&'static str, &'static str> = HashMap::from([
         ("PacketList", "packets"),
         ("SessionList", "sessions"),
         ("CoreId", "core_id")
     ]);
+
+    // Another special case -- datatype is the matched filter as a string literal.
+    // \TODO ideally this would be a map to from_subscription function pointers.
+    pub static ref FILTER_STR: &'static str = "FilterStr";
 }
 
 pub type PacketList = Vec<Mbuf>;

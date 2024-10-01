@@ -1,6 +1,7 @@
-use super::StaticData;
+use super::{FromSubscription, StaticData};
 use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
+use retina_core::filter::SubscriptionSpec;
 
 impl StaticData for FiveTuple {
     fn new(first_pkt: &L4Pdu) -> Self {
@@ -21,5 +22,26 @@ impl StaticData for EtherTCI {
             }
         }
         EtherTCI(None)
+    }
+}
+
+use quote::quote;
+use proc_macro2::Span;
+
+/// When used as a subscribable datatype, this will be the string literal
+/// representing the filter that matched.
+///
+/// Note that, as usual, if multiple filters are assigned to the same callback,
+/// the callback may not be invoked for each matched filter due to filter
+/// optimization. Optimization includes early return (mutual exclusion) and
+/// parent/child collapse.
+/// For example: if `http` and `http.user_agent = x` are both associated with the
+/// same callback, then the callback will only be invoked for the `http` filter.
+pub type FilterStr<'a> = &'a str;
+
+impl<'a> FromSubscription for FilterStr<'a> {
+    fn from_subscription(spec: &SubscriptionSpec) -> proc_macro2::TokenStream {
+        let str = syn::LitStr::new(&spec.filter, Span::call_site());
+        quote! { &#str }
     }
 }

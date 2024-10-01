@@ -3,6 +3,17 @@ filter = "dns or http or quic or tls"
 datatypes = [
     "SessionList",
     "Connection",
+    "FilterStr"
 ]
 callback = "conn_list_cb"
+
+[[subscriptions]]
+filter = "tls"
+datatypes = [
+    "ZcFrame",
+    "CoreId",
+    "EtherTCI",
+    "FilterStr"
+]
+callback = "packet_cb"
 
