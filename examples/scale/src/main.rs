@@ -68,15 +68,18 @@ fn tls_cb(tls: &TlsHandshake, core_id: &CoreId, filter_str: &FilterStr) {
     write_result(*filter_str, sni, core_id);
 }
 
+#[allow(dead_code)]
 fn quic_cb(quic: &QuicStream, core_id: &CoreId, filter_str: &FilterStr) {
     let sni = (*quic).tls.sni().to_string();
     write_result(*filter_str, sni, core_id);
 }
 
-fn packet_cb(frame: &ZcFrame, core_id: &CoreId, filter_str: &FilterStr) {
+fn packet_cb(_frame: &ZcFrame, core_id: &CoreId, filter_str: &FilterStr) {
+    write_result(*filter_str, String::from(""), core_id);
 }
 
 fn conn_cb(core_id: &CoreId, filter_str: &FilterStr, _five_tuple: &ConnFiveTuple) {
+    write_result(*filter_str, String::from(""), core_id);
 }
 
 fn combine_results(outfile: &PathBuf) {
