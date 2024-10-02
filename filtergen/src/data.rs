@@ -170,25 +170,35 @@ impl TrackedDataBuilder {
 
 // Build parameters for a packet-level subscription
 // Only multi-parameter packet-level subscription supported is a packet datatype + retina_core::CoreId
-pub(crate) fn build_packet_params(spec: &SubscriptionSpec) -> (Vec<proc_macro2::TokenStream>, Option<Ident>) {
+pub(crate) fn build_packet_params(spec: &SubscriptionSpec, filter_layer: FilterLayer) -> (Vec<proc_macro2::TokenStream>, Option<Ident>) {
     let mut type_ident = None;
     let mut params = vec![];
     for datatype in &spec.datatypes {
         if matches!(datatype.level, Level::Packet) {
             params.push( quote! { p } );
             type_ident = Some(Ident::new(&datatype.as_str, Span::call_site()));
-        } else if DIRECTLY_TRACKED.contains_key(datatype.as_str) {
-            let accessor = Ident::new(
-                DIRECTLY_TRACKED.get(&datatype.as_str).unwrap(),
-                Span::call_site(),
-            );
-            params.push(quote! { tracked.#accessor() });
-        } else if datatype.as_str == *FILTER_STR {
+        }
+        // Spacial cases - can't be extracted from the packet data, so are
+        // permitted in packet-layer callbacks
+
+        // Literal string in code
+        else if datatype.as_str == *FILTER_STR {
             params.push( retina_datatypes::FilterStr::from_subscription(&spec) );
+        }
+        // passed as a parameter to the packet filter, accessed directly
+        // or pulled from directly tracked data
+        else if datatype.as_str == "CoreId" {
+            if matches!(filter_layer, FilterLayer::PacketContinue) {
+                params.push(quote! { core_id });
+            } else {
+                let accessor = Ident::new(
+                    &DIRECTLY_TRACKED.get("CoreId").unwrap().to_lowercase(),
+                    Span::call_site()
+                );
+                params.push(quote! { tracked.#accessor() });
+            }
         } else {
-            let tracked_field: Ident =
-                Ident::new(&datatype.as_str.to_lowercase(), Span::call_site());
-            params.push(quote! { &tracked.#tracked_field });
+            panic!("Invalid datatype in packet callback: {:?}", datatype);
         }
     }
 
@@ -200,7 +210,7 @@ pub(crate) fn build_packet_callback(
     filter_layer: FilterLayer,
 ) -> proc_macro2::TokenStream {
     let callback = Ident::new(&spec.callback, Span::call_site());
-    let (params, type_ident) = build_packet_params(spec);
+    let (params, type_ident) = build_packet_params(spec, filter_layer);
 
     let condition = match type_ident {
         Some(type_ident) => quote! { let Some(p) = #type_ident::from_mbuf(mbuf) },

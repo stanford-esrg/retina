@@ -12,7 +12,6 @@ filter = "tls"
 datatypes = [
     "ZcFrame",
     "CoreId",
-    "EtherTCI",
     "FilterStr"
 ]
 callback = "packet_cb"

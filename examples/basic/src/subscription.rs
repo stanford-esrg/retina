@@ -52,7 +52,7 @@ fn conn_dns_cb(conn: &Connection) {
 
 #[allow(dead_code)]
 #[allow(unused_variables)]
-fn packet_cb(pkt: &ZcFrame, _core_id: &retina_core::CoreId, _ether_tci: &EtherTCI, filter_str: &FilterStr) {
+fn packet_cb(pkt: &ZcFrame, _core_id: &retina_core::CoreId, filter_str: &FilterStr) {
     println!("packet_cb - {:?}", pkt.data());
 }
 

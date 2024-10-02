@@ -35,6 +35,7 @@ impl SubscriptionConfig {
                 let datatype = DATATYPES.get(datatype_str.as_str()).unwrap().clone();
                 spec.add_datatype(datatype);
             }
+            spec.validate_spec();
             subscriptions.push(spec);
         }
         Self { subscriptions }
