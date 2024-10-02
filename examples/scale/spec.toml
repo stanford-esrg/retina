@@ -13978,11 +13978,11 @@ callback = "http_cb"
 [[subscriptions]]
 filter = "udp and ipv4.time_to_live = 1"
 datatypes = [
+    "ZcFrame",
     "CoreId",
     "FilterStr",
-    "ConnFiveTuple"
 ]
-callback = "conn_cb"
+callback = "packet_cb"
 
 [[subscriptions]]
 filter = "tcp.src_port = 5714 and tcp.ack = 1 and tcp.syn = 1"

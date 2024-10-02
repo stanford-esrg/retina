@@ -57,10 +57,8 @@ impl TrackedDataBuilder {
                 });
                 self.new.push(quote! { #field_name: #type_name::new(pdu), });
 
-                if matches!(datatype.level, Level::Connection) {
-                    self.clear.push( quote! { self.#field_name.clear(); } );
-                }
                 if datatype.needs_update {
+                    self.clear.push( quote! { self.#field_name.clear(); } );
                     self.update
                         .push(quote! { self.#field_name.update(pdu, reassembled); });
                 }
