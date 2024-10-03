@@ -24,6 +24,7 @@ struct ConnStats {
     pub max_duration_ms: u128,
     pub min_duration_ms: u128,
     pub conn_count: usize,
+    #[serde(skip_serializing)]
     pub init: bool,
 }
 
@@ -61,6 +62,7 @@ impl ConnStats {
     pub fn combine(&mut self, other: &ConnStats) {
         self.total_pkts += other.total_pkts;
         self.total_bytes += other.total_bytes;
+        self.conn_count += other.conn_count;
 
         self.avg_duration_ms = (self.avg_duration_ms * self.conn_count as u128 +
                                 other.avg_duration_ms * other.conn_count as u128) /
