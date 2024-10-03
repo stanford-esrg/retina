@@ -33,3 +33,11 @@ datatypes = [
     "FilterStr"
 ]
 callback = "record_conn"
+
+[[subscriptions]]
+filter = ""
+datatypes = [
+    "ZcFrame",
+    "CoreId",
+]
+callback = "record_pkt"

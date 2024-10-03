@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use std::collections::HashMap;
 use std::io::Write;
-use std::sync::atomic::{AtomicPtr, Ordering};
+use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 
 use array_init::array_init;
 use clap::Parser;
@@ -24,6 +24,7 @@ struct ConnStats {
     pub max_duration_ms: u128,
     pub min_duration_ms: u128,
     pub conn_count: usize,
+    pub init: bool,
 }
 
 impl ConnStats {
@@ -35,6 +36,7 @@ impl ConnStats {
             max_duration_ms: 0,
             min_duration_ms: 0,
             conn_count: 0,
+            init: false,
         }
     }
 
@@ -50,8 +52,9 @@ impl ConnStats {
         if duration > self.max_duration_ms {
             self.max_duration_ms = duration;
         }
-        if duration < self.min_duration_ms {
+        if duration < self.min_duration_ms || !self.init {
             self.min_duration_ms = duration;
+            self.init = true;
         }
     }
 
@@ -73,15 +76,17 @@ impl ConnStats {
 }
 
 fn init_results() -> [AtomicPtr<HashMap<String, ConnStats>>; ARR_LEN] {
-    let mut results = vec![];
-    for _ in 0..ARR_LEN {
-        results.push(Box::into_raw(Box::new(HashMap::new())));
-    }
-    array_init(|i| AtomicPtr::new(results[i].clone()))
+    array_init(|_| AtomicPtr::new(Box::into_raw(Box::new(HashMap::new()))))
 }
 
 lazy_static! {
     static ref RESULTS: [AtomicPtr<HashMap<String, ConnStats>>; ARR_LEN] = init_results();
+    static ref BYTES: [AtomicUsize; ARR_LEN] = {
+        array_init(|_| AtomicUsize::new(0))
+    };
+    static ref PKTS: [AtomicUsize; ARR_LEN] = {
+        array_init(|_| AtomicUsize::new(0))
+    };
 }
 
 #[derive(Parser, Debug)]
@@ -104,6 +109,11 @@ fn record_conn(conn: &ByteCounter, core_id: &CoreId, filter_str: &FilterStr) {
     (*dict.entry(String::from(*filter_str)).or_insert(ConnStats::new())).update(conn);
 }
 
+fn record_pkt(mbuf: &ZcFrame, core_id: &CoreId) {
+    PKTS[core_id.raw() as usize].fetch_add(1, Ordering::Relaxed);
+    BYTES[core_id.raw() as usize].fetch_add(mbuf.data_len(), Ordering::Relaxed);
+}
+
 fn combine_results(outfile: &PathBuf) {
     let mut results = HashMap::new();
     for core_id in 0..ARR_LEN {
@@ -113,6 +123,17 @@ fn combine_results(outfile: &PathBuf) {
             results.entry(fil.clone()).or_insert(ConnStats::new()).combine(stats);
         }
     }
+
+    let total_pkts = PKTS.iter()
+                         .map(|cnt| cnt.load(Ordering::SeqCst)).sum();
+    let total_bytes = BYTES.iter()
+                           .map(|cnt| cnt.load(Ordering::SeqCst)).sum();
+
+    let mut all_pkts = ConnStats::new();
+    all_pkts.total_pkts = total_pkts;
+    all_pkts.total_bytes = total_bytes;
+    results.insert("all_traffic".into(), all_pkts);
+
     let mut file = std::fs::File::create(outfile).unwrap();
     let results = serde_json::to_string(&results).unwrap();
     file.write_all(results.as_bytes()).unwrap();

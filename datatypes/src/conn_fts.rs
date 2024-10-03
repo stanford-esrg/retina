@@ -8,7 +8,7 @@ use serde::ser::{Serialize, Serializer, SerializeStruct};
 #[derive(Debug)]
 pub struct ByteCounter {
     pub pkt_count: usize,
-    pub byte_count: usize,
+    pub byte_count: usize, // including headers
     pub start_ts: Instant,
     pub last_ts: Instant,
 }
@@ -50,7 +50,7 @@ impl Tracked for ByteCounter {
 
     fn update(&mut self, pdu: &L4Pdu, _reassembled: bool) {
         self.pkt_count += 1;
-        self.byte_count += pdu.length();
+        self.byte_count += pdu.mbuf_ref().data_len();
         self.last_ts = Instant::now();
     }
 
