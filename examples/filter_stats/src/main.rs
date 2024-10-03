@@ -20,7 +20,7 @@ const ARR_LEN: usize = NUM_CORES + 1;
 struct ConnStats {
     pub total_pkts: usize,
     pub total_bytes: usize,
-    pub conn_count: usize,
+    pub conn_count: Option<usize>,
 }
 
 impl ConnStats {
@@ -28,12 +28,12 @@ impl ConnStats {
         Self {
             total_pkts: 0,
             total_bytes: 0,
-            conn_count: 0,
+            conn_count: Some(0),
         }
     }
 
     pub fn update(&mut self, pkts: &PktCount, bytes: &ByteCount) {
-        self.conn_count += 1;
+        self.conn_count.map(|cnt| cnt + 1);
         self.total_pkts += pkts.pkt_count;
         self.total_bytes += bytes.byte_count;
     }
@@ -41,7 +41,7 @@ impl ConnStats {
     pub fn combine(&mut self, other: &ConnStats) {
         self.total_pkts += other.total_pkts;
         self.total_bytes += other.total_bytes;
-        self.conn_count += other.conn_count;
+        self.conn_count.map(|cnt| cnt + other.conn_count.unwrap());
     }
 }
 
