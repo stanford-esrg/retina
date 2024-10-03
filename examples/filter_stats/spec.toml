@@ -1,0 +1,35 @@
+[[subscriptions]]
+filter = "dns"
+datatypes = [
+    "ByteCounter",
+    "CoreId",
+    "FilterStr"
+]
+callback = "record_conn"
+
+[[subscriptions]]
+filter = "http"
+datatypes = [
+    "ByteCounter",
+    "CoreId",
+    "FilterStr"
+]
+callback = "record_conn"
+
+[[subscriptions]]
+filter = "tls"
+datatypes = [
+    "ByteCounter",
+    "CoreId",
+    "FilterStr"
+]
+callback = "record_conn"
+
+[[subscriptions]]
+filter = "quic"
+datatypes = [
+    "ByteCounter",
+    "CoreId",
+    "FilterStr"
+]
+callback = "record_conn"

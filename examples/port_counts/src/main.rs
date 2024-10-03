@@ -114,11 +114,11 @@ fn eth_cb(_mbuf: &ZcFrame) {
 fn combine_results(outfile: &PathBuf) {
     let mut results = HashMap::from([("udp", HashMap::new()), ("tcp", HashMap::new())]);
     for core_id in 0..ARR_LEN {
-        let ptr = TCP_RESULTS[core_id as usize].load(Ordering::Relaxed);
+        let ptr = TCP_RESULTS[core_id as usize].load(Ordering::SeqCst);
         let dict = unsafe { &mut *ptr };
         results.get_mut("tcp").unwrap().extend(dict);
 
-        let ptr = UDP_RESULTS[core_id as usize].load(Ordering::Relaxed);
+        let ptr = UDP_RESULTS[core_id as usize].load(Ordering::SeqCst);
         let dict = unsafe { &mut *ptr };
         results.get_mut("udp").unwrap().extend(dict);
     }

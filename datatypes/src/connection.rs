@@ -27,7 +27,7 @@ const HIST_FIN: u8 = b'F';
 /// Has RST set
 const HIST_RST: u8 = b'R';
 
-impl Connection {
+impl ConnRecord {
     /// Returns the client (originator) socket address.
     #[inline]
     pub fn client(&self) -> SocketAddr {
@@ -75,12 +75,12 @@ impl Connection {
     }
 }
 
-impl Serialize for Connection {
+impl Serialize for ConnRecord {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("Connection", 6)?;
+        let mut state = serializer.serialize_struct("ConnRecord", 6)?;
         state.serialize_field("five_tuple", &self.five_tuple)?;
         state.serialize_field("duration", &self.duration())?;
         state.serialize_field("time_to_second_pkt", &self.time_to_second_packet())?;
@@ -92,7 +92,7 @@ impl Serialize for Connection {
     }
 }
 
-impl fmt::Display for Connection {
+impl fmt::Display for ConnRecord {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.five_tuple, self.history())?;
         Ok(())
@@ -105,7 +105,7 @@ impl fmt::Display for Connection {
 /// Internal connection state is an associated type of a `pub` trait, and therefore must also be
 /// public. Documentation is hidden by default to avoid confusing users.
 #[derive(Debug)]
-pub struct Connection {
+pub struct ConnRecord {
     five_tuple: FiveTuple,
     first_seen_ts: Instant,
     second_seen_ts: Instant,
@@ -116,7 +116,7 @@ pub struct Connection {
     resp: Flow,
 }
 
-impl Connection {
+impl ConnRecord {
     #[inline]
     fn update_data(&mut self, segment: &L4Pdu) {
         let now = Instant::now();
@@ -168,7 +168,7 @@ impl Connection {
     }
 }
 
-impl Tracked for Connection {
+impl Tracked for ConnRecord {
     fn new(first_pkt: &L4Pdu) -> Self {
         let five_tuple = FiveTuple::from_ctxt(first_pkt.ctxt);
         let now = Instant::now();

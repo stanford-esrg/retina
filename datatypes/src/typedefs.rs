@@ -10,7 +10,7 @@ lazy_static! {
     pub static ref DATATYPES: HashMap<&'static str, DataType> = {
         HashMap::from([
             (
-                "Connection",
+                "ConnRecord",
                 DataType {
                     level: Level::Connection,
                     needs_parse: false,
@@ -18,7 +18,19 @@ lazy_static! {
                     needs_update_reassembled: false,
                     track_packets: false,
                     stream_protos: vec![],
-                    as_str: "Connection",
+                    as_str: "ConnRecord",
+                },
+            ),
+            (
+                "ByteCounter",
+                DataType {
+                    level: Level::Connection,
+                    needs_parse: false,
+                    needs_update: true,
+                    needs_update_reassembled: false,
+                    track_packets: false,
+                    stream_protos: vec![],
+                    as_str: "ByteCounter",
                 },
             ),
             (

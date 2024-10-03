@@ -2,7 +2,7 @@
 filter = "dns or http or quic or tls"
 datatypes = [
     "SessionList",
-    "Connection",
+    "ConnRecord",
     "FilterStr"
 ]
 callback = "conn_list_cb"

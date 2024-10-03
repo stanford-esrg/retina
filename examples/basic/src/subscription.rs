@@ -23,13 +23,13 @@ fn http_cb(http: &HttpTransaction, five_tuple: &FiveTuple) {
 
 #[allow(dead_code)]
 #[allow(unused_variables)]
-fn conn_cb(conn: &Connection, http: &HttpTransaction) {
+fn conn_cb(conn: &ConnRecord, http: &HttpTransaction) {
     println!("conn_cb - {:?}: {:?}", conn, http);
 }
 
 #[allow(dead_code)]
 #[allow(unused_variables)]
-fn conn_list_cb(list: &SessionList, conn: &Connection, filter_str: &FilterStr) {
+fn conn_list_cb(list: &SessionList, conn: &ConnRecord, filter_str: &FilterStr) {
     // println!("conn_list_cb - {:?}: {:?}", conn, list);
     println!("conn_list_cb - {:?}: {:?}, {}", conn, list, filter_str);
     *CONN.write().unwrap() += 1;
@@ -37,13 +37,13 @@ fn conn_list_cb(list: &SessionList, conn: &Connection, filter_str: &FilterStr) {
 
 #[allow(unused_variables)]
 #[allow(dead_code)]
-fn conn_multi_cb(conn: &Connection, list: &SessionList, http: &HttpTransaction) {
+fn conn_multi_cb(conn: &ConnRecord, list: &SessionList, http: &HttpTransaction) {
     println!("conn_multi_cb - {:?}, {:?}, {:?}", conn, list, http);
 }
 
 #[allow(dead_code)]
 #[allow(unused_variables)]
-fn conn_dns_cb(conn: &Connection) {
+fn conn_dns_cb(conn: &ConnRecord) {
     println!("conn_dns_cb - {:?}", conn);
 }
 

@@ -1,6 +1,8 @@
-pub mod connection;
 pub mod typedefs;
-pub use connection::Connection;
+pub mod conn_fts;
+pub use conn_fts::ByteCounter;
+pub mod connection;
+pub use connection::ConnRecord;
 pub mod http;
 pub use http::HttpTransaction;
 pub mod dns_transaction;
