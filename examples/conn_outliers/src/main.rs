@@ -3,6 +3,7 @@ use retina_core::{CoreId, Runtime, FiveTuple};
 use retina_datatypes::*;
 use retina_filtergen::{filter, retina_main};
 use retina_core::protocols::stream::SessionData;
+use retina_core::protocols::packet::{tcp::TCP_PROTOCOL, udp::UDP_PROTOCOL};
 
 use std::io::Write;
 use std::sync::atomic::{Ordering, AtomicPtr};
@@ -13,6 +14,7 @@ use array_init::array_init;
 use clap::Parser;
 use lazy_static::lazy_static;
 use std::path::PathBuf;
+use serde::Serialize;
 
 // Number of cores being used by the runtime; should match config file
 // Should be defined at compile-time so that we can use a
@@ -29,6 +31,8 @@ lazy_static! {
     static ref RESULTS: [AtomicPtr<Vec<RawConnStats>>; ARR_LEN] = init_results();
 }
 
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
 enum Proto {
     Http,
     Quic,
@@ -38,12 +42,10 @@ enum Proto {
     Udp,
     Ipv4,
     Ipv6,
-    None
 }
 
 impl Proto {
-    pub(crate) fn from_sessions(sessions: &SessionList,
-                                five_tuple: &FiveTuple) -> Vec<Proto> {
+    pub(crate) fn from_sessions(sessions: &SessionList) -> Vec<Proto> {
         let mut ret = Vec::with_capacity(sessions.len());
 
         for session in sessions {
@@ -63,6 +65,7 @@ impl Proto {
 
 struct RawConnStats {
     five_tuple: FiveTuple,
+    #[allow(unused)]
     eth: EthAddr,
     history: ConnHistory,
     interarrivals: InterArrivals,
@@ -72,6 +75,7 @@ struct RawConnStats {
     protos: Vec<Proto>
 }
 
+#[derive(Serialize)]
 struct ConnStats {
     src_port: u16,
     dst_port: u16,
@@ -174,7 +178,7 @@ fn record(core_id: &CoreId, history: &ConnHistory, interarrivals: &InterArrivals
                 byte_count: byte_count.byte_count,
                 pkt_count: pkt_count.pkt_count,
                 duration: duration.duration(),
-                protos: Proto::from_sessions(sessions, five_tuple),
+                protos: Proto::from_sessions(sessions),
             },
             core_id
         );
@@ -182,7 +186,20 @@ fn record(core_id: &CoreId, history: &ConnHistory, interarrivals: &InterArrivals
 }
 
 fn process_results(outfile: &PathBuf) {
-
+    let mut results = vec![];
+    for core_id in 0..ARR_LEN {
+        let ptr = RESULTS[core_id as usize].load(Ordering::Relaxed);
+        let v = unsafe { &mut *ptr };
+        for mut raw in v.iter_mut() {
+            results.push(
+                ConnStats::from_raw(&mut raw)
+            );
+        }
+    }
+    println!("Logging {} results", results.len());
+    let mut file = std::fs::File::create(outfile).unwrap();
+    let results = serde_json::to_string(&results).unwrap();
+    file.write_all(results.as_bytes()).unwrap();
 }
 
 #[retina_main(1)]
