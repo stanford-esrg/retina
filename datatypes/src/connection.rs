@@ -15,17 +15,17 @@ use std::fmt;
 use std::net::SocketAddr;
 
 /// Pure SYN
-const HIST_SYN: u8 = b'S';
+pub(crate) const HIST_SYN: u8 = b'S';
 /// Pure SYNACK
-const HIST_SYNACK: u8 = b'H';
+pub(crate) const HIST_SYNACK: u8 = b'H';
 /// Pure ACK (no payload)
-const HIST_ACK: u8 = b'A';
+pub(crate) const HIST_ACK: u8 = b'A';
 /// Has non-zero payload length
-const HIST_DATA: u8 = b'D';
+pub(crate) const HIST_DATA: u8 = b'D';
 /// Has FIN set
-const HIST_FIN: u8 = b'F';
+pub(crate) const HIST_FIN: u8 = b'F';
 /// Has RST set
-const HIST_RST: u8 = b'R';
+pub(crate) const HIST_RST: u8 = b'R';
 
 impl ConnRecord {
     /// Returns the client (originator) socket address.
@@ -116,6 +116,32 @@ pub struct ConnRecord {
     resp: Flow,
 }
 
+#[inline]
+pub(crate) fn update_history(history: &mut Vec<u8>, segment: &L4Pdu, mask: u8) {
+    fn insert(history: &mut Vec<u8>, event: u8) {
+        if !history.contains(&event) {
+            history.push(event);
+        }
+    }
+    if segment.flags() == SYN {
+        insert(history, HIST_SYN ^ mask);
+    } else if segment.flags() == (SYN | ACK) {
+        insert(history, HIST_SYNACK ^ mask);
+    } else if segment.flags() == ACK && segment.length() == 0 {
+        insert(history, HIST_ACK ^ mask);
+    }
+
+    if segment.flags() & FIN != 0 {
+        insert(history, HIST_FIN ^ mask);
+    }
+    if segment.flags() & RST != 0 {
+        insert(history, HIST_RST ^ mask);
+    }
+    if segment.length() > 0 {
+        insert(history, HIST_DATA ^ mask);
+    }
+}
+
 impl ConnRecord {
     #[inline]
     fn update_data(&mut self, segment: &L4Pdu) {
@@ -127,44 +153,19 @@ impl ConnRecord {
         self.last_seen_ts = now;
 
         if segment.dir {
-            self.update_history(segment, 0x0);
+            update_history(&mut self.history, segment, 0x0);
             // TODO need a separate `update` for `update_owned`
             // Cloning segment is a non-starter.
             self.orig.insert_segment(segment);
         } else {
-            self.update_history(segment, 0x20);
+            update_history(&mut self.history, segment, 0x20);
             self.resp.insert_segment(segment);
         }
 
         if self.orig.nb_pkts + self.resp.nb_pkts == 2 {
             self.second_seen_ts = now;
         }
-    }
 
-    #[inline]
-    fn update_history(&mut self, segment: &L4Pdu, mask: u8) {
-        fn insert(history: &mut Vec<u8>, event: u8) {
-            if !history.contains(&event) {
-                history.push(event);
-            }
-        }
-        if segment.flags() == SYN {
-            insert(&mut self.history, HIST_SYN ^ mask);
-        } else if segment.flags() == (SYN | ACK) {
-            insert(&mut self.history, HIST_SYNACK ^ mask);
-        } else if segment.flags() == ACK && segment.length() == 0 {
-            insert(&mut self.history, HIST_ACK ^ mask);
-        }
-
-        if segment.flags() & FIN != 0 {
-            insert(&mut self.history, HIST_FIN ^ mask);
-        }
-        if segment.flags() & RST != 0 {
-            insert(&mut self.history, HIST_RST ^ mask);
-        }
-        if segment.length() > 0 {
-            insert(&mut self.history, HIST_DATA ^ mask);
-        }
     }
 }
 

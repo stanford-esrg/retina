@@ -8,6 +8,7 @@ members = [
     "examples/scale",
     "examples/port_counts",
     "examples/filter_stats",
+    "examples/conn_outliers"
 ]
 resolver = "2"
 

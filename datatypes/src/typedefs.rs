@@ -26,6 +26,14 @@ lazy_static! {
                 DataType::new_default_connection("ByteCount"),
             ),
             (
+                "InterArrivals",
+                DataType::new_default_connection("InterArrivals"),
+            ),
+            (
+                "ConnHistory",
+                DataType::new_default_connection("ConnHistory"),
+            ),
+            (
                 "HttpTransaction",
                 DataType::new_session("HttpTransaction", HttpTransaction::stream_protocols()),
             ),

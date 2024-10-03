@@ -61,6 +61,7 @@ impl StaticData for ConnFiveTuple {
 }
 
 /// The src/dst MAC of a connection
+#[derive(Clone, Debug)]
 pub struct EthAddr {
     pub src: MacAddr,
     pub dst: MacAddr,

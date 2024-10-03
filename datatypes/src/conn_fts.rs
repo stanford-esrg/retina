@@ -1,9 +1,10 @@
-use std::time::Instant;
+use std::time::{Instant, Duration};
 use retina_core::protocols::Session;
 use retina_core::L4Pdu;
 use crate::Tracked;
 use serde::ser::{Serialize, Serializer, SerializeStruct};
 
+#[derive(Debug, Clone)]
 pub struct ConnDuration {
     pub start_ts: Instant,
     pub last_ts: Instant,
@@ -25,6 +26,10 @@ impl Serialize for ConnDuration {
 impl ConnDuration {
     pub fn duration_ms(&self) -> u128 {
         (self.last_ts - self.start_ts).as_millis()
+    }
+
+    pub fn duration(&self) -> Duration {
+        self.last_ts - self.start_ts
     }
 }
 
@@ -56,6 +61,7 @@ impl Tracked for ConnDuration {
 }
 
 
+#[derive(Debug, serde::Serialize, Clone)]
 pub struct PktCount {
     pub pkt_count: usize,
 }
@@ -85,6 +91,7 @@ impl Tracked for PktCount {
     }
 }
 
+#[derive(Debug, serde::Serialize, Clone)]
 pub struct ByteCount {
     pub byte_count: usize,
 }
@@ -112,4 +119,92 @@ impl Tracked for ByteCount {
     fn stream_protocols() -> Vec<&'static str> {
         vec![]
     }
+}
+
+#[derive(Debug, serde::Serialize, Clone)]
+pub struct InterArrivals {
+    pkt_count_ctos: usize,
+    pkt_count_stoc: usize,
+    #[serde(skip_serializing)]
+    last_pkt_ctos: Instant,
+    #[serde(skip_serializing)]
+    last_pkt_stoc: Instant,
+    interarrivals_ctos: Vec<Duration>,
+    interarrivals_stoc: Vec<Duration>,
+}
+
+impl Tracked for InterArrivals {
+    fn new(_first_pkt: &L4Pdu) -> Self {
+        let now = Instant::now();
+        Self {
+            pkt_count_ctos: 0,
+            pkt_count_stoc: 0,
+            last_pkt_ctos: now,
+            last_pkt_stoc: now,
+            interarrivals_ctos: Vec::new(),
+            interarrivals_stoc: Vec::new(),
+        }
+    }
+
+    #[inline]
+    fn clear(&mut self) {}
+
+    #[inline]
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+        if !reassembled {
+            let now = Instant::now();
+            if pdu.dir {
+                self.pkt_count_ctos += 1;
+                if self.pkt_count_ctos > 1 {
+                    self.interarrivals_ctos.push (now - self.last_pkt_ctos);
+                }
+                self.last_pkt_stoc = now;
+            } else {
+                self.pkt_count_stoc += 1;
+                if self.pkt_count_stoc > 1 {
+                    self.interarrivals_stoc.push (now - self.last_pkt_stoc);
+                }
+                self.last_pkt_stoc = now;
+            }
+        }
+    }
+
+    #[inline]
+    fn session_matched(&mut self, _session: &Session) {}
+
+    fn stream_protocols() -> Vec<&'static str> { vec![] }
+}
+
+use crate::connection::update_history;
+
+#[derive(Debug, serde::Serialize, Clone)]
+pub struct ConnHistory {
+    pub history: Vec<u8>,
+}
+
+impl Tracked for ConnHistory {
+    fn new(_first_pkt: &L4Pdu) -> Self {
+        Self {
+            history: Vec::with_capacity(16)
+        }
+    }
+
+    #[inline]
+    fn clear(&mut self) {}
+
+    #[inline]
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+        if !reassembled {
+            if pdu.dir {
+                update_history(&mut self.history, pdu, 0x0);
+            } else {
+                update_history(&mut self.history, pdu, 0x20);
+            }
+        }
+    }
+
+    #[inline]
+    fn session_matched(&mut self, _session: &Session) {}
+
+    fn stream_protocols() -> Vec<&'static str> { vec![] }
 }
