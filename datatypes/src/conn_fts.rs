@@ -2,7 +2,7 @@ use std::time::{Instant, Duration};
 use retina_core::protocols::Session;
 use retina_core::L4Pdu;
 use crate::Tracked;
-use serde::ser::{Serialize, Serializer, SerializeStruct};
+use serde::ser::{Serialize, Serializer, SerializeStruct, SerializeSeq};
 
 #[derive(Debug, Clone)]
 pub struct ConnDuration {
@@ -121,13 +121,11 @@ impl Tracked for ByteCount {
     }
 }
 
-#[derive(Debug, serde::Serialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct InterArrivals {
     pkt_count_ctos: usize,
     pkt_count_stoc: usize,
-    #[serde(skip_serializing)]
     last_pkt_ctos: Instant,
-    #[serde(skip_serializing)]
     last_pkt_stoc: Instant,
     interarrivals_ctos: Vec<Duration>,
     interarrivals_stoc: Vec<Duration>,
@@ -175,9 +173,37 @@ impl Tracked for InterArrivals {
     fn stream_protocols() -> Vec<&'static str> { vec![] }
 }
 
+struct DurationVec<'a>(&'a Vec<Duration>);
+impl<'a> Serialize for DurationVec<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+        for dur in self.0 {
+            seq.serialize_element(&dur.as_nanos())?;
+        }
+        seq.end()
+    }
+}
+
+impl Serialize for InterArrivals {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("InterArrivals", 4)?;
+        state.serialize_field("pkt_count_ctos", &self.pkt_count_ctos)?;
+        state.serialize_field("pkt_count_stoc", &self.pkt_count_stoc)?;
+        state.serialize_field("interarrivals_ctos", &DurationVec(&self.interarrivals_ctos))?;
+        state.serialize_field("interarrivals_stoc", &DurationVec(&self.interarrivals_stoc))?;
+        state.end()
+    }
+}
+
 use crate::connection::update_history;
 
-#[derive(Debug, serde::Serialize, Clone)]
+#[derive(Default, Debug, serde::Serialize, Clone)]
 pub struct ConnHistory {
     pub history: Vec<u8>,
 }
