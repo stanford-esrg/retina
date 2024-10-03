@@ -1,6 +1,6 @@
 pub mod typedefs;
 pub mod conn_fts;
-pub use conn_fts::ByteCounter;
+pub use conn_fts::*;
 pub mod connection;
 pub use connection::ConnRecord;
 pub mod http;
@@ -14,7 +14,6 @@ pub use quic_stream::QuicStream;
 pub mod packet;
 pub use packet::{Payload, ZcFrame};
 pub mod static_type;
-
 pub use static_type::*;
 pub use typedefs::*;
 

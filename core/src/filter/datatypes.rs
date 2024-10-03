@@ -90,9 +90,7 @@ impl DataType {
         }
     }
 
-    // For testing only
-    #[allow(dead_code)]
-    pub(crate) fn new_default_connection() -> Self {
+    pub fn new_default_connection(as_str: &'static str) -> Self {
         Self::new(
             Level::Connection,
             false,
@@ -100,7 +98,7 @@ impl DataType {
             false,
             false,
             vec![],
-            "Connection",
+            as_str,
         )
     }
 
@@ -425,7 +423,7 @@ impl SubscriptionSpec {
     pub(crate) fn new_default_connection() -> Self {
         let mut spec = Self::new(String::from("fil"), String::from("cb"));
         spec.level = Level::Connection;
-        spec.datatypes.push(DataType::new_default_connection());
+        spec.datatypes.push(DataType::new_default_connection("Connection"));
         spec
     }
 
@@ -559,7 +557,7 @@ mod tests {
     #[test]
     fn basic_multispec() {
         let datatype_session = DataType::new_default_session();
-        let datatype_connection = DataType::new_default_connection();
+        let datatype_connection = DataType::new_default_connection("Connection");
         let mut spec = SubscriptionSpec::new(String::from(""), String::from("cb"));
         spec.add_datatype(datatype_session);
         assert!(matches!(spec.level, Level::Session));

@@ -11,27 +11,19 @@ lazy_static! {
         HashMap::from([
             (
                 "ConnRecord",
-                DataType {
-                    level: Level::Connection,
-                    needs_parse: false,
-                    needs_update: true,
-                    needs_update_reassembled: false,
-                    track_packets: false,
-                    stream_protos: vec![],
-                    as_str: "ConnRecord",
-                },
+                DataType::new_default_connection("ConnRecord"),
             ),
             (
-                "ByteCounter",
-                DataType {
-                    level: Level::Connection,
-                    needs_parse: false,
-                    needs_update: true,
-                    needs_update_reassembled: false,
-                    track_packets: false,
-                    stream_protos: vec![],
-                    as_str: "ByteCounter",
-                },
+                "ConnDuration",
+                DataType::new_default_connection("ConnDuration"),
+            ),
+            (
+                "PktCount",
+                DataType::new_default_connection("PktCount"),
+            ),
+            (
+                "ByteCount",
+                DataType::new_default_connection("ByteCount"),
             ),
             (
                 "HttpTransaction",
@@ -96,6 +88,7 @@ lazy_static! {
             ("CoreId", { DataType::new_static("CoreId") }),
             ("FiveTuple", { DataType::new_static("FiveTuple") }),
             ("EtherTCI", { DataType::new_static("EtherTCI") }),
+            ("EthAddr", { DataType::new_static("EthAddr") }),
             ("FilterStr", { DataType::new_static("FilterStr") }),
             (
                 "ConnFiveTuple",

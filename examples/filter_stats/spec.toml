@@ -1,7 +1,8 @@
 [[subscriptions]]
 filter = "dns"
 datatypes = [
-    "ByteCounter",
+    "PktCount",
+    "ByteCount",
     "CoreId",
     "FilterStr"
 ]
@@ -10,7 +11,8 @@ callback = "record_conn"
 [[subscriptions]]
 filter = "http"
 datatypes = [
-    "ByteCounter",
+    "PktCount",
+    "ByteCount",
     "CoreId",
     "FilterStr"
 ]
@@ -19,7 +21,8 @@ callback = "record_conn"
 [[subscriptions]]
 filter = "tls"
 datatypes = [
-    "ByteCounter",
+    "PktCount",
+    "ByteCount",
     "CoreId",
     "FilterStr"
 ]
@@ -28,7 +31,8 @@ callback = "record_conn"
 [[subscriptions]]
 filter = "quic"
 datatypes = [
-    "ByteCounter",
+    "PktCount",
+    "ByteCount",
     "CoreId",
     "FilterStr"
 ]

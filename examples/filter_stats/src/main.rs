@@ -20,12 +20,7 @@ const ARR_LEN: usize = NUM_CORES + 1;
 struct ConnStats {
     pub total_pkts: usize,
     pub total_bytes: usize,
-    pub avg_duration_ms: u128,
-    pub max_duration_ms: u128,
-    pub min_duration_ms: u128,
     pub conn_count: usize,
-    #[serde(skip_serializing)]
-    pub init: bool,
 }
 
 impl ConnStats {
@@ -33,47 +28,20 @@ impl ConnStats {
         Self {
             total_pkts: 0,
             total_bytes: 0,
-            avg_duration_ms: 0,
-            max_duration_ms: 0,
-            min_duration_ms: 0,
             conn_count: 0,
-            init: false,
         }
     }
 
-    pub fn update(&mut self, conn: &ByteCounter) {
+    pub fn update(&mut self, pkts: &PktCount, bytes: &ByteCount) {
         self.conn_count += 1;
-        self.total_pkts += conn.pkt_count;
-        self.total_bytes += conn.byte_count;
-        let duration = conn.duration_ms();
-        // avg = avg + (new - avg) / count
-        self.avg_duration_ms += duration / self.conn_count as u128;
-        self.avg_duration_ms -= self.avg_duration_ms / self.conn_count as u128;
-
-        if duration > self.max_duration_ms {
-            self.max_duration_ms = duration;
-        }
-        if duration < self.min_duration_ms || !self.init {
-            self.min_duration_ms = duration;
-            self.init = true;
-        }
+        self.total_pkts += pkts.pkt_count;
+        self.total_bytes += bytes.byte_count;
     }
 
     pub fn combine(&mut self, other: &ConnStats) {
         self.total_pkts += other.total_pkts;
         self.total_bytes += other.total_bytes;
         self.conn_count += other.conn_count;
-
-        self.avg_duration_ms = (self.avg_duration_ms * self.conn_count as u128 +
-                                other.avg_duration_ms * other.conn_count as u128) /
-                                (self.conn_count + other.conn_count) as u128;
-
-        if other.max_duration_ms > self.max_duration_ms {
-            self.max_duration_ms = other.max_duration_ms;
-        }
-        if other.min_duration_ms < self.min_duration_ms {
-            self.min_duration_ms = other.min_duration_ms;
-        }
     }
 }
 
@@ -105,10 +73,10 @@ struct Args {
     outfile: PathBuf,
 }
 
-fn record_conn(conn: &ByteCounter, core_id: &CoreId, filter_str: &FilterStr) {
+fn record_conn(pkts: &PktCount, bytes: &ByteCount, core_id: &CoreId, filter_str: &FilterStr) {
     let ptr = RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
     let dict = unsafe { &mut *ptr };
-    (*dict.entry(String::from(*filter_str)).or_insert(ConnStats::new())).update(conn);
+    (*dict.entry(String::from(*filter_str)).or_insert(ConnStats::new())).update(pkts, bytes);
 }
 
 fn record_pkt(mbuf: &ZcFrame, core_id: &CoreId) {

@@ -2,6 +2,7 @@ use super::{FromSubscription, StaticData};
 use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
 use retina_core::filter::SubscriptionSpec;
+use pnet::datalink::MacAddr;
 
 impl StaticData for FiveTuple {
     fn new(first_pkt: &L4Pdu) -> Self {
@@ -55,6 +56,25 @@ impl StaticData for ConnFiveTuple {
     fn new(first_pkt: &L4Pdu) -> Self {
         Self {
             five_tuple: FiveTuple::from_ctxt(first_pkt.ctxt),
+        }
+    }
+}
+
+/// The src/dst MAC of a connection
+pub struct EthAddr {
+    pub src: MacAddr,
+    pub dst: MacAddr,
+}
+
+impl StaticData for EthAddr {
+    fn new(first_pkt: &L4Pdu) -> Self {
+        if let Ok(ethernet) = &Packet::parse_to::<Ethernet,>(first_pkt.mbuf_ref()) {
+            return Self {
+                src: ethernet.src(),
+                dst: ethernet.dst(),
+            };
+        } else {
+            panic!("Non-ethernet packets not supported");
         }
     }
 }

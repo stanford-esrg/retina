@@ -1027,7 +1027,7 @@ mod tests {
     fn multi_ptree() {
         let filter_str = "ipv4 and http";
         let mut spec = SubscriptionSpec::new(String::from(filter_str), String::from("callback"));
-        spec.add_datatype(DataType::new_default_connection());
+        spec.add_datatype(DataType::new_default_connection("Connection"));
         spec.add_datatype(DataType::new_default_session());
 
         let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
@@ -1044,7 +1044,7 @@ mod tests {
         ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
         let mut spec_conn =
             SubscriptionSpec::new(String::from(filter_str), String::from("callback_conn"));
-        spec_conn.add_datatype(DataType::new_default_connection());
+        spec_conn.add_datatype(DataType::new_default_connection("Connection"));
         ptree.add_filter(&filter.get_patterns_flat(), &spec_conn, 0);
 
         // eth -> ipv4 -> tcp -> http
@@ -1084,7 +1084,7 @@ mod tests {
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
         for f in &filters {
             let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
-            spec.add_datatype(DataType::new_default_connection());
+            spec.add_datatype(DataType::new_default_connection("Connection"));
             spec.add_datatype(DataType::new_default_session());
             let filter = Filter::new(f).unwrap();
             ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
@@ -1100,7 +1100,7 @@ mod tests {
         let mut ptree = PTree::new_empty(FilterLayer::Protocol);
         for f in &filters[0..filters.len() - 1] {
             let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
-            spec.add_datatype(DataType::new_default_connection());
+            spec.add_datatype(DataType::new_default_connection("Connection"));
             spec.add_datatype(DataType::new_default_session());
             let filter = Filter::new(f).unwrap();
             ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
@@ -1114,7 +1114,7 @@ mod tests {
         let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
         for f in &filters {
             let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
-            spec.add_datatype(DataType::new_default_connection());
+            spec.add_datatype(DataType::new_default_connection("Connection"));
             spec.add_datatype(DataType::new_default_session());
             let filter = Filter::new(f).unwrap();
             ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
