@@ -26,6 +26,7 @@ use retina_core::Mbuf;
 pub trait Tracked {
     // Note `first_pkt` will also be delivered to `update`
     fn new(first_pkt: &L4Pdu) -> Self;
+    // *this may be invoked 2x per packet* - 1x reassembled, 1x not
     fn update(&mut self, pdu: &L4Pdu, reassembled: bool);
     fn stream_protocols() -> Vec<&'static str>;
     fn session_matched(&mut self, session: &Session);

@@ -193,8 +193,10 @@ impl Tracked for ConnRecord {
         self.history = Vec::with_capacity(0);
     }
 
-    fn update(&mut self, pdu: &L4Pdu, _reassembled: bool) {
-        self.update_data(pdu);
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+        if !reassembled {
+            self.update_data(pdu);
+        }
     }
 
     fn session_matched(&mut self, _session: &Session) {}

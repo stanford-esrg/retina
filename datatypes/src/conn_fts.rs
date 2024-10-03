@@ -48,10 +48,12 @@ impl Tracked for ByteCounter {
 
     fn clear(&mut self) {}
 
-    fn update(&mut self, pdu: &L4Pdu, _reassembled: bool) {
-        self.pkt_count += 1;
-        self.byte_count += pdu.mbuf_ref().data_len();
-        self.last_ts = Instant::now();
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+        if !reassembled {
+            self.pkt_count += 1;
+            self.byte_count += pdu.mbuf_ref().data_len();
+            self.last_ts = Instant::now();
+        }
     }
 
     fn session_matched(&mut self, _session: &Session) {}
