@@ -25,8 +25,8 @@ impl StaticData for EtherTCI {
     }
 }
 
-use quote::quote;
 use proc_macro2::Span;
+use quote::quote;
 
 /// When used as a subscribable datatype, this will be the string literal
 /// representing the filter that matched.
@@ -46,7 +46,6 @@ impl<'a> FromSubscription for FilterStr<'a> {
     }
 }
 
-
 /// A FiveTuple forced to be at the Connection level
 pub struct ConnFiveTuple {
     pub five_tuple: FiveTuple,
@@ -55,7 +54,7 @@ pub struct ConnFiveTuple {
 impl StaticData for ConnFiveTuple {
     fn new(first_pkt: &L4Pdu) -> Self {
         Self {
-            five_tuple: FiveTuple::from_ctxt(first_pkt.ctxt)
+            five_tuple: FiveTuple::from_ctxt(first_pkt.ctxt),
         }
     }
 }

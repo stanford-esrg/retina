@@ -2,13 +2,14 @@ use proc_macro::TokenStream;
 use quote::quote;
 use retina_core::filter::ptree::*;
 use retina_core::filter::*;
+use std::str::FromStr;
 use syn::parse_macro_input;
 use utils::DELIVER;
-use std::str::FromStr;
 
 #[macro_use]
 extern crate lazy_static;
 
+mod cache;
 mod data;
 mod deliver_filter;
 mod packet_filter;
@@ -16,15 +17,14 @@ mod parse;
 mod proto_filter;
 mod session_filter;
 mod utils;
-mod cache;
 
+use crate::cache::*;
 use crate::data::*;
 use crate::deliver_filter::gen_deliver_filter;
 use crate::packet_filter::gen_packet_filter;
 use crate::parse::*;
 use crate::proto_filter::gen_proto_filter;
 use crate::session_filter::gen_session_filter;
-use crate::cache::*;
 
 // Build a string that can be used to generate a hardware (NIC) filter at runtime.
 fn get_hw_filter(packet_continue: &PTree) -> String {
@@ -162,7 +162,8 @@ fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
 
         #input
 
-    }.into()
+    }
+    .into()
 }
 
 // Generate a Retina program from a specification file
@@ -181,20 +182,22 @@ pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemFn);
     let filter_str = parse_macro_input!(args as syn::LitStr).value();
     let (datatypes, callback) = parse_input(&input);
-    println!("Filter: {}, Datatypes: {:?}, Callback: {:?}", filter_str, datatypes, callback);
+    println!(
+        "Filter: {}, Datatypes: {:?}, Callback: {:?}",
+        filter_str, datatypes, callback
+    );
 
     // If more subscriptions to parse, just output the callback
     add_subscription(callback, datatypes, filter_str);
     if !is_done() {
         return quote! {
             #input
-        }.into();
+        }
+        .into();
     }
 
     // Otherwise, ready to assemble
-    let config = SubscriptionConfig::from_raw(
-        &*CACHED_SUBSCRIPTIONS.lock().unwrap()
-    );
+    let config = SubscriptionConfig::from_raw(&*CACHED_SUBSCRIPTIONS.lock().unwrap());
 
     generate(input, config)
 }
@@ -212,13 +215,12 @@ pub fn retina_main(args: TokenStream, input: TokenStream) -> TokenStream {
     if !is_done() {
         return quote! {
             #input
-        }.into();
+        }
+        .into();
     }
 
     // Otherwise, ready to assemble
-    let config = SubscriptionConfig::from_raw(
-        &*CACHED_SUBSCRIPTIONS.lock().unwrap()
-    );
+    let config = SubscriptionConfig::from_raw(&*CACHED_SUBSCRIPTIONS.lock().unwrap());
 
     generate(input, config)
 }

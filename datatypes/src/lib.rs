@@ -17,9 +17,9 @@ pub use static_type::*;
 pub use typedefs::*;
 
 use retina_core::conntrack::pdu::L4Pdu;
+use retina_core::filter::SubscriptionSpec;
 use retina_core::protocols::stream::Session;
 use retina_core::Mbuf;
-use retina_core::filter::SubscriptionSpec;
 
 pub trait Tracked {
     // Note `first_pkt` will also be delivered to `update`
@@ -43,7 +43,6 @@ pub trait FromMbuf {
 pub trait StaticData {
     fn new(first_pkt: &L4Pdu) -> Self;
 }
-
 
 /// Trait for a datatype that is built from a subscription specification.
 /// The filtergen code and typedefs data structure assume that FilterStr is

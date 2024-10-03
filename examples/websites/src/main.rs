@@ -1,15 +1,15 @@
+use array_init::array_init;
 use retina_core::config::load_config;
 use retina_core::{CoreId, Runtime};
 use retina_datatypes::*;
 use retina_filtergen::subscription;
 use std::sync::atomic::{AtomicPtr, Ordering};
-use array_init::array_init;
 
 use clap::Parser;
-use std::path::PathBuf;
 use lazy_static::lazy_static;
-use std::io::{BufWriter, Write};
 use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::PathBuf;
 
 // Number of cores being used by the runtime; should match config file
 // Should be defined at compile-time so that we can use a
@@ -21,15 +21,17 @@ const ARR_LEN: usize = NUM_CORES + 1;
 const OUTFILE_PREFIX: &str = "websites_";
 
 lazy_static! {
-    static ref PROTOS: Vec<String> = vec![String::from("dns"), String::from("http"), String::from("quic"), String::from("tls")];
-
+    static ref PROTOS: Vec<String> = vec![
+        String::from("dns"),
+        String::from("http"),
+        String::from("quic"),
+        String::from("tls")
+    ];
     static ref RESULTS: [AtomicPtr<BufWriter<File>>; ARR_LEN] = {
         let mut results = vec![];
         for core_id in 0..ARR_LEN {
             let file_name = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";
-            let core_wtr = BufWriter::new(
-                    File::create(&file_name).unwrap()
-                );
+            let core_wtr = BufWriter::new(File::create(&file_name).unwrap());
             let core_wtr = Box::into_raw(Box::new(core_wtr));
             results.push(core_wtr);
         }
@@ -41,15 +43,23 @@ lazy_static! {
 struct Args {
     #[clap(short, long, parse(from_os_str), value_name = "FILE")]
     config: PathBuf,
-    #[clap(short, long, parse(from_os_str), value_name = "FILE", default_value = "websites.jsonl")]
+    #[clap(
+        short,
+        long,
+        parse(from_os_str),
+        value_name = "FILE",
+        default_value = "websites.jsonl"
+    )]
     outfile: PathBuf,
 }
 
 fn write_result(key: &str, value: String, core_id: &CoreId) {
-    if value.is_empty() { return; } // Would it be helpful to count these?
+    if value.is_empty() {
+        return;
+    } // Would it be helpful to count these?
     let with_proto = format!("\n{}: {}", key, value);
     let ptr = RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
-    let wtr = unsafe { &mut *ptr};
+    let wtr = unsafe { &mut *ptr };
     wtr.write_all(with_proto.as_bytes()).unwrap();
 }
 
@@ -93,7 +103,10 @@ fn main() {
     let cores = config.get_all_core_ids();
     let num_cores = cores.len();
     if num_cores > ARR_LEN {
-        panic!("Compile-time NUM_CORES ({}) must be <= num cores ({}) in config file", NUM_CORES, num_cores);
+        panic!(
+            "Compile-time NUM_CORES ({}) must be <= num cores ({}) in config file",
+            NUM_CORES, num_cores
+        );
     }
     if cores.len() > 1 && !cores.windows(2).all(|w| w[1].raw() - w[0].raw() == 1) {
         panic!("Cores in config file should be consecutive for zero-lock indexing");

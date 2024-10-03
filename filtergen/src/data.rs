@@ -58,7 +58,7 @@ impl TrackedDataBuilder {
                 self.new.push(quote! { #field_name: #type_name::new(pdu), });
 
                 if datatype.needs_update {
-                    self.clear.push( quote! { self.#field_name.clear(); } );
+                    self.clear.push(quote! { self.#field_name.clear(); });
                     self.update
                         .push(quote! { self.#field_name.update(pdu, reassembled); });
                 }
@@ -168,12 +168,15 @@ impl TrackedDataBuilder {
 
 // Build parameters for a packet-level subscription
 // Only multi-parameter packet-level subscription supported is a packet datatype + retina_core::CoreId
-pub(crate) fn build_packet_params(spec: &SubscriptionSpec, filter_layer: FilterLayer) -> (Vec<proc_macro2::TokenStream>, Option<Ident>) {
+pub(crate) fn build_packet_params(
+    spec: &SubscriptionSpec,
+    filter_layer: FilterLayer,
+) -> (Vec<proc_macro2::TokenStream>, Option<Ident>) {
     let mut type_ident = None;
     let mut params = vec![];
     for datatype in &spec.datatypes {
         if matches!(datatype.level, Level::Packet) {
-            params.push( quote! { p } );
+            params.push(quote! { p });
             type_ident = Some(Ident::new(&datatype.as_str, Span::call_site()));
         }
         // Spacial cases - can't be extracted from the packet data, so are
@@ -181,7 +184,7 @@ pub(crate) fn build_packet_params(spec: &SubscriptionSpec, filter_layer: FilterL
 
         // Literal string in code
         else if datatype.as_str == *FILTER_STR {
-            params.push( retina_datatypes::FilterStr::from_subscription(&spec) );
+            params.push(retina_datatypes::FilterStr::from_subscription(&spec));
         }
         // passed as a parameter to the packet filter, accessed directly
         // or pulled from directly tracked data
@@ -191,7 +194,7 @@ pub(crate) fn build_packet_params(spec: &SubscriptionSpec, filter_layer: FilterL
             } else {
                 let accessor = Ident::new(
                     &DIRECTLY_TRACKED.get("CoreId").unwrap().to_lowercase(),
-                    Span::call_site()
+                    Span::call_site(),
                 );
                 params.push(quote! { tracked.#accessor() });
             }
@@ -256,7 +259,7 @@ pub(crate) fn build_callback(
             continue;
         }
         if datatype.as_str == *FILTER_STR {
-            params.push( retina_datatypes::FilterStr::from_subscription(&spec) );
+            params.push(retina_datatypes::FilterStr::from_subscription(&spec));
             continue;
         }
         if matches!(datatype.level, Level::Session) && matches!(filter_layer, FilterLayer::Session)

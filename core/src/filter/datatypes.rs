@@ -364,7 +364,8 @@ impl SubscriptionSpec {
         // - Cannot be static
         assert!(
             !matches!(self.level, Level::Static),
-            "Static-only subscriptions not allowed: {:?}", self
+            "Static-only subscriptions not allowed: {:?}",
+            self
         );
 
         // - One packet-level datatype per subscription
@@ -377,7 +378,8 @@ impl SubscriptionSpec {
                         .filter(|d| matches!(d.level, Level::Packet))
                         .count()
                         == 1,
-                    "Must have one packet-level datatype in packet-level subscription: {:?}", self
+                    "Must have one packet-level datatype in packet-level subscription: {:?}",
+                    self
                 );
                 assert!(
                     self.datatypes
@@ -385,7 +387,8 @@ impl SubscriptionSpec {
                         .filter(|d| matches!(d.level, Level::Static))
                         .count()
                         >= self.datatypes.len() - 1,
-                    "Non-static datatype in packet-level subscription: {:?}", self
+                    "Non-static datatype in packet-level subscription: {:?}",
+                    self
                 );
             }
         } else {
@@ -395,7 +398,8 @@ impl SubscriptionSpec {
                     .filter(|d| matches!(d.level, Level::Packet))
                     .count()
                     == 0,
-                "Packet-level datatype in non-packet subscription: {:?}", self
+                "Packet-level datatype in non-packet subscription: {:?}",
+                self
             );
         }
 
@@ -406,7 +410,8 @@ impl SubscriptionSpec {
                 .filter(|d| matches!(d.level, Level::Session))
                 .count()
                 <= 1,
-            "Multiple session-level datatypes in subscription: {:?}", self
+            "Multiple session-level datatypes in subscription: {:?}",
+            self
         );
     }
 

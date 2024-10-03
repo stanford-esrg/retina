@@ -24,7 +24,6 @@ pub(crate) struct SubscriptionConfig {
 }
 
 impl SubscriptionConfig {
-
     pub(crate) fn from_raw(config: &ConfigRaw) -> Self {
         let mut subscriptions = vec![];
         for s in &config.subscriptions {

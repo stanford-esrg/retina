@@ -16,10 +16,7 @@ lazy_static! {
 
 #[allow(dead_code)]
 #[allow(unused_variables)]
-fn http_cb(
-    http: &HttpTransaction,
-    five_tuple: &FiveTuple,
-) {
+fn http_cb(http: &HttpTransaction, five_tuple: &FiveTuple) {
     let http = &**http;
     println!("http_cb - {:?}: {:?}", five_tuple, http);
 }

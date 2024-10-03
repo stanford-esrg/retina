@@ -1,17 +1,17 @@
+use retina_core::config::load_config;
+use retina_core::protocols::packet::{ethernet::*, ipv4::*, ipv6::*, tcp::*, udp::*, Packet};
+use retina_core::{CoreId, Runtime};
 use retina_datatypes::*;
 use retina_filtergen::{filter, retina_main};
-use retina_core::protocols::packet::{Packet, tcp::*, udp::*, ethernet::*, ipv4::*, ipv6::*};
-use retina_core::config::load_config;
-use retina_core::{CoreId, Runtime};
 
-use std::io::Write;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicPtr, Ordering, AtomicUsize};
+use std::io::Write;
+use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 
 use array_init::array_init;
 use clap::Parser;
-use std::path::PathBuf;
 use lazy_static::lazy_static;
+use std::path::PathBuf;
 
 // Number of cores being used by the runtime; should match config file
 // Should be defined at compile-time so that we can use a
@@ -29,15 +29,8 @@ fn init_results() -> [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
 }
 
 lazy_static! {
-
-    static ref UDP_RESULTS: [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] = {
-        init_results()
-    };
-
-    static ref TCP_RESULTS: [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] = {
-        init_results()
-    };
-
+    static ref UDP_RESULTS: [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] = { init_results() };
+    static ref TCP_RESULTS: [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] = { init_results() };
     static ref WLAN_CNT: AtomicUsize = AtomicUsize::new(0);
     static ref ETH_CNT: AtomicUsize = AtomicUsize::new(0);
     static ref UDP_CNT: AtomicUsize = AtomicUsize::new(0);
@@ -48,7 +41,13 @@ lazy_static! {
 struct Args {
     #[clap(short, long, parse(from_os_str), value_name = "FILE")]
     config: PathBuf,
-    #[clap(short, long, parse(from_os_str), value_name = "FILE", default_value = "protos.jsonl")]
+    #[clap(
+        short,
+        long,
+        parse(from_os_str),
+        value_name = "FILE",
+        default_value = "protos.jsonl"
+    )]
     outfile: PathBuf,
 }
 
@@ -70,7 +69,7 @@ fn udp_cb(mbuf: &ZcFrame, core_id: &CoreId) {
         }
     }
     let ptr = UDP_RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
-    let dict = unsafe { &mut *ptr};
+    let dict = unsafe { &mut *ptr };
     *dict.entry(src_port.unwrap()).or_insert(0) += 1;
     *dict.entry(dst_port.unwrap()).or_insert(0) += 1;
     UDP_CNT.fetch_add(1, Ordering::Relaxed);
@@ -94,7 +93,7 @@ fn tcp_cp(mbuf: &ZcFrame, core_id: &CoreId) {
         }
     }
     let ptr = TCP_RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
-    let dict = unsafe { &mut *ptr};
+    let dict = unsafe { &mut *ptr };
     *dict.entry(src_port.unwrap()).or_insert(0) += 1;
     *dict.entry(dst_port.unwrap()).or_insert(0) += 1;
     TCP_CNT.fetch_add(1, Ordering::Relaxed);
@@ -113,27 +112,20 @@ fn eth_cb(_mbuf: &ZcFrame) {
  */
 
 fn combine_results(outfile: &PathBuf) {
-    let mut results = HashMap::from(
-        [
-            ("udp", HashMap::new()),
-            ("tcp", HashMap::new())
-        ]
-    );
+    let mut results = HashMap::from([("udp", HashMap::new()), ("tcp", HashMap::new())]);
     for core_id in 0..ARR_LEN {
         let ptr = TCP_RESULTS[core_id as usize].load(Ordering::Relaxed);
-        let dict = unsafe { &mut *ptr};
+        let dict = unsafe { &mut *ptr };
         results.get_mut("tcp").unwrap().extend(dict);
 
         let ptr = UDP_RESULTS[core_id as usize].load(Ordering::Relaxed);
-        let dict = unsafe { &mut *ptr};
+        let dict = unsafe { &mut *ptr };
         results.get_mut("udp").unwrap().extend(dict);
     }
     let mut file = std::fs::File::create(outfile).unwrap();
     let results = serde_json::to_string(&results).unwrap();
     file.write_all(results.as_bytes()).unwrap();
 }
-
-
 
 #[retina_main(3)]
 fn main() {
@@ -142,7 +134,10 @@ fn main() {
     let cores = config.get_all_core_ids();
     let num_cores = cores.len();
     if num_cores > ARR_LEN {
-        panic!("Compile-time NUM_CORES ({}) must be <= num cores ({}) in config file", NUM_CORES, num_cores);
+        panic!(
+            "Compile-time NUM_CORES ({}) must be <= num cores ({}) in config file",
+            NUM_CORES, num_cores
+        );
     }
     if cores.len() > 1 && !cores.windows(2).all(|w| w[1].raw() - w[0].raw() == 1) {
         panic!("Cores in config file should be consecutive for zero-lock indexing");
@@ -150,8 +145,10 @@ fn main() {
     let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
     runtime.run();
     combine_results(&args.outfile);
-    println!("Got {} wlan, {} tcp, {} udp packets",
-             WLAN_CNT.load(Ordering::SeqCst),
-             TCP_CNT.load(Ordering::SeqCst),
-             UDP_CNT.load(Ordering::SeqCst));
+    println!(
+        "Got {} wlan, {} tcp, {} udp packets",
+        WLAN_CNT.load(Ordering::SeqCst),
+        TCP_CNT.load(Ordering::SeqCst),
+        UDP_CNT.load(Ordering::SeqCst)
+    );
 }
