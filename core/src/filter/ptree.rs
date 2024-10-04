@@ -316,6 +316,10 @@ impl PTree {
         {
             return;
         }
+        if matches!(self.filter_layer, FilterLayer::ConnectionDeliver)
+            && !matches!(subscription.level, Level::Connection) {
+            return;
+        }
         self.build_tree(patterns, subscription, filter_id);
     }
 
@@ -1028,7 +1032,7 @@ mod tests {
         let filter_str = "ipv4 and http";
         let mut spec = SubscriptionSpec::new(String::from(filter_str), String::from("callback"));
         spec.add_datatype(DataType::new_default_connection("Connection"));
-        spec.add_datatype(DataType::new_default_session());
+        spec.add_datatype(DataType::new_default_session("S", vec![]));
 
         let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
         let filter = Filter::new(filter_str).unwrap();
@@ -1085,7 +1089,7 @@ mod tests {
         for f in &filters {
             let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
             spec.add_datatype(DataType::new_default_connection("Connection"));
-            spec.add_datatype(DataType::new_default_session());
+            spec.add_datatype(DataType::new_default_session("S", vec![]));
             let filter = Filter::new(f).unwrap();
             ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
         }
@@ -1101,7 +1105,7 @@ mod tests {
         for f in &filters[0..filters.len() - 1] {
             let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
             spec.add_datatype(DataType::new_default_connection("Connection"));
-            spec.add_datatype(DataType::new_default_session());
+            spec.add_datatype(DataType::new_default_session("S", vec![]));
             let filter = Filter::new(f).unwrap();
             ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
         }
@@ -1115,7 +1119,7 @@ mod tests {
         for f in &filters {
             let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
             spec.add_datatype(DataType::new_default_connection("Connection"));
-            spec.add_datatype(DataType::new_default_session());
+            spec.add_datatype(DataType::new_default_session("S", vec![]));
             let filter = Filter::new(f).unwrap();
             ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
         }

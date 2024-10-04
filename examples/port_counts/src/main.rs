@@ -29,8 +29,8 @@ fn init_results() -> [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
 }
 
 lazy_static! {
-    static ref UDP_RESULTS: [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] = { init_results() };
-    static ref TCP_RESULTS: [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] = { init_results() };
+    static ref UDP_RESULTS: [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] = init_results();
+    static ref TCP_RESULTS: [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] = init_results();
     static ref WLAN_CNT: AtomicUsize = AtomicUsize::new(0);
     static ref ETH_CNT: AtomicUsize = AtomicUsize::new(0);
     static ref UDP_CNT: AtomicUsize = AtomicUsize::new(0);

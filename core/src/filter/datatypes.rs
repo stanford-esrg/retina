@@ -1,7 +1,6 @@
 use super::ast::Predicate;
 use super::ptree::FilterLayer;
 use super::{ActionData, Actions};
-use crate::protocols::stream::IMPLEMENTED_PROTOCOLS;
 
 #[derive(Clone, Debug)]
 pub enum Level {
@@ -40,8 +39,10 @@ pub struct SubscriptionSpec {
 pub struct DataType {
     // Indicates when delivery can start, dictates per-stage actions
     pub level: Level,
-    // Datatype requires parsing app-level data
+    // Datatype requires parsing application-level sessions
     pub needs_parse: bool,
+    // Datatype requires the framework to track ("cache") matched sessions.
+    pub track_sessions: bool,
     // Datatype requires invoking `update` method
     pub needs_update: bool,             // Before reassembly
     pub needs_update_reassembled: bool, // After reassembly
@@ -54,80 +55,60 @@ pub struct DataType {
 }
 
 impl DataType {
-    pub fn new(
-        level: Level,
-        needs_parse: bool,
-        needs_update: bool,
-        needs_update_reassembled: bool,
-        track_packets: bool,
-        stream_protos: Vec<&'static str>,
-        as_str: &'static str,
-    ) -> Self {
-        // Only known stream protocols are accepted
-        if let Some(s) = stream_protos
-            .iter()
-            .find(|s| !IMPLEMENTED_PROTOCOLS.contains(s))
-        {
-            panic!(
-                "{} is not in implemented protocols; options: {:?}",
-                s, IMPLEMENTED_PROTOCOLS
-            );
-        }
 
-        // Packet-level subscriptions are incompatible with stateful operations
-        if matches!(level, Level::Packet) || matches!(level, Level::Static) {
-            assert!(!needs_parse && !needs_update && !track_packets);
-        }
-
+    pub fn new_default_connection(as_str: &'static str) -> Self {
         Self {
-            level,
-            needs_parse,
-            needs_update,
-            needs_update_reassembled,
-            track_packets,
+            level: Level::Connection,
+            needs_parse: false,
+            track_sessions: false,
+            needs_update: true,
+            needs_update_reassembled: false,
+            track_packets: false,
+            stream_protos: vec![],
+            as_str,
+        }
+    }
+
+    // For testing only
+    pub fn new_default_session(as_str: &'static str,
+                                stream_protos: Vec<&'static str>) -> Self {
+        Self {
+            level: Level::Session,
+            needs_parse: true,
+            track_sessions: false,
+            needs_update: false,
+            needs_update_reassembled: false,
+            track_packets: false,
             stream_protos,
             as_str,
         }
     }
 
-    pub fn new_default_connection(as_str: &'static str) -> Self {
-        Self::new(
-            Level::Connection,
-            false,
-            true,
-            false,
-            false,
-            vec![],
+    // For testing only
+    pub fn new_default_packet(as_str: &'static str) -> Self {
+        Self {
+            level: Level::Packet,
+            needs_parse: false,
+            track_sessions: false,
+            needs_update: false,
+            needs_update_reassembled: false,
+            track_packets: false,
+            stream_protos: vec![],
             as_str,
-        )
-    }
-
-    // For testing only
-    #[allow(dead_code)]
-    pub(crate) fn new_default_session() -> Self {
-        Self::new(Level::Session, true, false, false, false, vec![], "Session")
-    }
-
-    // For testing only
-    #[allow(dead_code)]
-    pub(crate) fn new_default_packet() -> Self {
-        Self::new(Level::Packet, false, false, false, false, vec![], "Packet")
+        }
     }
 
     pub fn new_static(as_str: &'static str) -> Self {
-        Self::new(Level::Static, false, false, false, false, vec![], as_str)
-    }
-
-    pub fn new_session(as_str: &'static str, stream_protos: Vec<&'static str>) -> Self {
-        Self::new(
-            Level::Session,
-            true,
-            false,
-            false,
-            false,
-            stream_protos,
+        Self {
+            level: Level::Static,
+            needs_parse: false,
+            track_sessions: false,
+            needs_update: false,
+            needs_update_reassembled: false,
+            track_packets: false,
+            stream_protos: vec![],
             as_str,
-        )
+        }
     }
 
     // Returns whether the current filter layer is the earliest where this datatype,
@@ -206,17 +187,11 @@ impl DataType {
 
     // Helper for proto_filter and session_filter
     fn track_sessions(&self, actions: &mut MatchingActions, sub_level: &Level) {
-        // If a connection-level subscription requests a session,
-        // then the session must be tracked.
-        let mut needs_track =
-            matches!(sub_level, Level::Connection) && matches!(self.level, Level::Session);
-
-        // If we parsed a session and it isn't deliverable, it should be tracked
-        // Example: SessionList is a Connection-level datatype
-        needs_track |= self.needs_parse && !matches!(self.level, Level::Session);
-
-        // SessionList will be all Sessions that match any filter of any subscription
-        if needs_track {
+        // SessionTrack should only be terminal if matched at packet layer
+        // After parsing is complete, session will be tracked if it matched
+        // at any layer. See "on_parse" in conntrack mod.
+        if matches!(sub_level, Level::Connection) &&
+            (matches!(self.level, Level::Session) || self.needs_parse) {
             actions.if_matched.data |= ActionData::SessionTrack;
         }
     }
@@ -247,8 +222,16 @@ impl DataType {
         self.conn_deliver(&sub_level, &mut actions);
 
         if self.needs_parse {
+            // Framework will need to know it is at probing stage
             actions.if_matched.data |= ActionData::ProtoProbe;
+            // Framework will need to know that subscription requiring
+            // probing/parsing matched at packet stage
             actions.if_matched.terminal_actions |= ActionData::ProtoProbe;
+            // Session can be tracked when/if parsed
+            if matches!(sub_level, Level::Connection) {
+                actions.if_matched.data |= ActionData::SessionTrack;
+                actions.if_matched.terminal_actions |= ActionData::SessionTrack;
+            }
             // In if_matching case, protocol will be probed
             // due to Protocol Filter being applied.
         }
@@ -256,6 +239,7 @@ impl DataType {
         // Session-level datatype can be delivered when session is parsed
         if matches!(self.level, Level::Session) {
             actions.if_matched.data |= ActionData::SessionDeliver;
+            actions.if_matched.terminal_actions |= ActionData::SessionDeliver;
         }
         actions
     }
@@ -279,8 +263,8 @@ impl DataType {
         self.track_sessions(&mut actions, sub_level);
         self.conn_deliver(&sub_level, &mut actions);
 
-        if matches!(self.level, Level::Session) && matches!(sub_level, Level::Session) {
-            // Deliver session when parsed
+        if matches!(sub_level, Level::Session) {
+            // Deliver session when parsed (done in session filter)
             actions.if_matched.data |= ActionData::SessionDeliver;
         }
 
@@ -432,7 +416,7 @@ impl SubscriptionSpec {
     pub fn new_default_session() -> Self {
         let mut spec = Self::new(String::from("fil"), String::from("cb"));
         spec.level = Level::Session;
-        spec.datatypes.push(DataType::new_default_session());
+        spec.datatypes.push(DataType::new_default_session("Session", vec![]));
         spec
     }
 
@@ -441,7 +425,7 @@ impl SubscriptionSpec {
     pub fn new_default_packet() -> Self {
         let mut spec = Self::new(String::from("fil"), String::from("cb"));
         spec.level = Level::Packet;
-        spec.datatypes.push(DataType::new_default_packet());
+        spec.datatypes.push(DataType::new_default_packet("Packet"));
         spec
     }
 
@@ -556,7 +540,7 @@ mod tests {
 
     #[test]
     fn basic_multispec() {
-        let datatype_session = DataType::new_default_session();
+        let datatype_session = DataType::new_default_session("Session", vec![]);
         let datatype_connection = DataType::new_default_connection("Connection");
         let mut spec = SubscriptionSpec::new(String::from(""), String::from("cb"));
         spec.add_datatype(datatype_session);
@@ -574,7 +558,7 @@ mod tests {
         assert!(matching_actions.if_matching.update_pdu(false));
 
         let mut spec = SubscriptionSpec::new(String::from(""), String::from("cb"));
-        spec.add_datatype(DataType::new_default_packet());
+        spec.add_datatype(DataType::new_default_packet("Packet"));
         assert!(spec.proto_filter().if_matched.packet_deliver());
         assert!(spec.proto_filter().if_matching.buffer_frame());
     }

@@ -37,6 +37,8 @@ pub(crate) enum ParseResult {
     Continue(usize),
     /// Parsing skipped, no data extracted.
     Skipped,
+    /// For Unknown parser
+    None,
 }
 
 /// Represents the result of a probing one packet as a protocol message type.
@@ -253,7 +255,7 @@ impl ConnParser {
             ConnParser::Dns(parser) => parser.parse(pdu),
             ConnParser::Http(parser) => parser.parse(pdu),
             ConnParser::Quic(parser) => parser.parse(pdu),
-            ConnParser::Unknown => ParseResult::Skipped,
+            ConnParser::Unknown => ParseResult::None,
         }
     }
 

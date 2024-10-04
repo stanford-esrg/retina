@@ -32,7 +32,6 @@ lazy_static! {
 }
 
 #[derive(Debug, Serialize)]
-#[serde(untagged)]
 enum Proto {
     Http,
     Quic,
@@ -149,7 +148,6 @@ struct Args {
     outfile: PathBuf,
 }
 
-const LOW_DURATION_THRESH_MS: u128 = 100;
 const HIGH_DURATION_THRESH_MS: u128 = 1_000 * 60 * 5; // 5 mins
 const PKT_CNT_LOW_THRESH: usize = 2;
 
@@ -166,8 +164,7 @@ fn record(core_id: &CoreId, history: &ConnHistory, interarrivals: &InterArrivals
           byte_count: &ByteCount, pkt_count: &PktCount, duration: &ConnDuration,
           sessions: &SessionList, five_tuple: &FiveTuple, ethaddr: &EthAddr) {
 
-    if duration.duration_ms() < LOW_DURATION_THRESH_MS ||
-       duration.duration_ms() > HIGH_DURATION_THRESH_MS ||
+    if duration.duration_ms() > HIGH_DURATION_THRESH_MS ||
        pkt_count.pkt_count < PKT_CNT_LOW_THRESH {
         save_record(
             RawConnStats {

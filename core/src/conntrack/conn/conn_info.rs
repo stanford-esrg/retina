@@ -97,18 +97,18 @@ where
             ProbeRegistryResult::Some(conn_parser) => {
                 // Application-layer protocol known
                 self.cdata.conn_parser = conn_parser;
-                self.handle_conn(subscription);
+                self.done_probe(subscription);
             }
             ProbeRegistryResult::None => {
                 // All relevant parsers have failed to match
                 // Handle connection state change
-                self.handle_conn(subscription);
+                self.done_probe(subscription);
             }
             ProbeRegistryResult::Unsure => { /* Continue */ }
         }
     }
 
-    fn handle_conn(&mut self, subscription: &Subscription<T::Subscribed>) {
+    fn done_probe(&mut self, subscription: &Subscription<T::Subscribed>) {
         #[cfg(debug_assertions)]
         {
             if !self.actions.apply_proto_filter() {
@@ -120,11 +120,14 @@ where
             self.clear_stale_data(&actions);
             self.actions.update(&actions);
         }
+        self.actions.session_done_probe();
     }
 
     fn on_parse(&mut self, pdu: &L4Pdu, subscription: &Subscription<T::Subscribed>) {
-        if let ParseResult::Done(id) = self.cdata.conn_parser.parse(pdu) {
-            self.handle_session(subscription, id);
+        match self.cdata.conn_parser.parse(pdu) {
+            ParseResult::Done(id) => self.handle_session(subscription, id),
+            ParseResult::None => { self.session_done_parse(subscription) },
+            _ => { } //
         }
     }
 
@@ -144,7 +147,10 @@ where
         } else {
             log::error!("Done parsing but no session found");
         }
+        self.session_done_parse(subscription);
+    }
 
+    fn session_done_parse(&mut self, subscription: &Subscription<T::Subscribed>) {
         match self.cdata.conn_parser.session_parsed_state() {
             SessionState::Probing => {
                 // Re-apply the protocol filter to update actions

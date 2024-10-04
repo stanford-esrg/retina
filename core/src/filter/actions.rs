@@ -152,7 +152,8 @@ impl Actions {
     pub fn session_parse(&self) -> bool {
         self.data.intersects(
             ActionData::SessionDeliver | ActionData::SessionFilter | ActionData::SessionTrack,
-        )
+        ) &&
+        !self.session_probe() // SessionDeliver/Track but still at probing stage
     }
 
     #[inline]
@@ -172,17 +173,43 @@ impl Actions {
     #[inline]
     pub fn session_clear_parse(&mut self) {
         self.clear_mask(
-            ActionData::SessionFilter | ActionData::SessionDeliver | ActionData::SessionTrack,
+            ActionData::SessionFilter | ActionData::SessionDeliver |
+            ActionData::SessionTrack | ActionData::ProtoProbe,
         );
     }
 
+    // Subscription requires protocol probe/parse but matched at packet stage
+    // Update action to reflect state transition to protocol parsing
+    #[inline]
+    pub fn session_done_probe(&mut self) {
+        if self.terminal_actions.contains(ActionData::ProtoProbe) {
+            // Maintain in terminal actions, but move to parse stage
+            self.data &= (ActionData::ProtoProbe).not();
+            assert!(self.data.intersects(ActionData::SessionDeliver |
+                                         ActionData::SessionTrack));
+        }
+    }
+
     /// Some app-layer protocols revert to probing after session is parsed
-    /// (e.g., in case of encapsulation)
+    /// This is done if more sessions are expected
     pub fn session_set_probe(&mut self) {
-        self.clear_mask(
-            ActionData::SessionFilter | ActionData::SessionDeliver | ActionData::SessionTrack,
-        );
+
+        // If protocol probing was set at the PacketFilter stage (i.e.,
+        // terminal match for a subscription that requires parsing sessions),
+        // then the ProtoProbe action will be "terminal"
+        if self.terminal_actions.contains(ActionData::ProtoProbe) {
+            // Clear out session actions set by session_filter or protocol_filter
+            self.data &= (ActionData::SessionFilter |
+                          ActionData::SessionDeliver |
+                          ActionData::SessionTrack).not();
+
+            // While maintiaining those set by packet filter
+            self.data |= self.terminal_actions;
+        }
+
+        // Return to probing stage
         self.data |= ActionData::ProtoProbe | ActionData::ProtoFilter;
+
         /*
          * Note: it could be inefficient to re-apply the proto filter
          *       (protocol was already ID'd). However, this makes it easier

@@ -148,10 +148,10 @@ impl Predicate {
                 self.on_packet() && matches!(subscription_level, Level::Packet)
             }
             FilterLayer::PacketDeliver => {
-                // Packet would be delivered in session filter
-                matches!(subscription_level, Level::Session) ||
-                // Packet would be delivered in packet filter
-                self.on_packet() && matches!(subscription_level, Level::Packet)
+                // Subscription not delivered in this filter
+                !matches!(subscription_level, Level::Packet) ||
+                    // Subscription delivered in PacketContinue
+                    self.on_packet()
             }
             FilterLayer::Protocol => self.on_packet(),
             FilterLayer::Session => {
@@ -159,7 +159,7 @@ impl Predicate {
                 !matches!(subscription_level, Level::Session) // no delivery req'd
             }
             FilterLayer::ConnectionDeliver => {
-                !matches!(subscription_level, Level::Connection) // delivery
+                !matches!(subscription_level, Level::Connection)
             }
         }
     }

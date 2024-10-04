@@ -35,46 +35,31 @@ lazy_static! {
             ),
             (
                 "HttpTransaction",
-                DataType::new_session("HttpTransaction", HttpTransaction::stream_protocols()),
+                DataType::new_default_session("HttpTransaction", HttpTransaction::stream_protocols()),
             ),
             (
                 "DnsTransaction",
-                DataType::new_session("DnsTransaction", DnsTransaction::stream_protocols()),
+                DataType::new_default_session("DnsTransaction", DnsTransaction::stream_protocols()),
             ),
             (
                 "TlsHandshake",
-                DataType::new_session("TlsHandshake", TlsHandshake::stream_protocols()),
+                DataType::new_default_session("TlsHandshake", TlsHandshake::stream_protocols()),
             ),
             (
                 "QuicStream",
-                DataType::new_session("QuicStream", QuicStream::stream_protocols()),
+                DataType::new_default_session("QuicStream", QuicStream::stream_protocols()),
             ),
-            ("ZcFrame", {
-                DataType {
-                    level: Level::Packet,
-                    needs_parse: false,
-                    needs_update: false,
-                    needs_update_reassembled: false,
-                    track_packets: false,
-                    stream_protos: vec![],
-                    as_str: "ZcFrame",
-                }
-            }),
-            ("Payload", {
-                DataType {
-                    level: Level::Packet,
-                    needs_parse: false,
-                    needs_update: false,
-                    needs_update_reassembled: false,
-                    track_packets: false,
-                    stream_protos: vec![],
-                    as_str: "Payload",
-                }
-            }),
+            (
+                "ZcFrame", DataType::new_default_packet("ZcFrame")
+            ),
+            (
+                "Payload", DataType::new_default_packet("Payload")
+            ),
             ("PacketList", {
                 DataType {
                     level: Level::Connection,
                     needs_parse: false,
+                    track_sessions: false,
                     needs_update: false,
                     needs_update_reassembled: false,
                     track_packets: true,
@@ -86,10 +71,11 @@ lazy_static! {
                 DataType {
                     level: Level::Connection,
                     needs_parse: true,
+                    track_sessions: true,
                     needs_update: false,
                     needs_update_reassembled: false,
                     track_packets: false,
-                    stream_protos: vec![],
+                    stream_protos: vec!["tls", "dns", "http", "quic"],
                     as_str: "SessionList",
                 }
             }),
@@ -103,6 +89,7 @@ lazy_static! {
                 DataType {
                     level: Level::Connection,
                     needs_parse: false,
+                    track_sessions: false,
                     needs_update: false,
                     needs_update_reassembled: false,
                     track_packets: false,
