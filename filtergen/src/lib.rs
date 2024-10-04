@@ -44,7 +44,12 @@ fn filter_subtree(input: &SubscriptionConfig, filter_layer: FilterLayer) -> PTre
             .unwrap_or_else(|err| panic!("Failed to parse filter {}: {:?}", spec.filter, err));
 
         let patterns = filter.get_patterns_flat();
-        ptree.add_filter(&patterns, &spec, i);
+        let deliver = Deliver {
+            id: i,
+            as_str: spec.as_str(),
+            must_deliver: spec.datatypes.iter().any(|d| d.as_str == "FilterStr"),
+        };
+        ptree.add_filter(&patterns, &spec, &deliver);
         DELIVER.lock().unwrap().insert(i, spec.clone());
     }
 

@@ -41,8 +41,12 @@ impl fmt::Display for FilterLayer {
 /// Used in compile-time filter generation.
 #[derive(Hash, Debug, Clone, PartialEq, Eq)]
 pub struct Deliver {
+    // Subscription ID as given by filtergen module
     pub id: usize,
+    // Subscription spec formatted as CB(datatypes)
     pub as_str: String,
+    // This callback should not be optimized out
+    pub must_deliver: bool,
 }
 
 /// A node representing a predicate in the tree
@@ -306,7 +310,7 @@ impl PTree {
         &mut self,
         patterns: &[FlatPattern],
         subscription: &SubscriptionSpec,
-        filter_id: usize,
+        deliver: &Deliver,
     ) {
         if self.collapsed {
             panic!("Cannot add filter to tree after collapsing");
@@ -320,7 +324,7 @@ impl PTree {
             && !matches!(subscription.level, Level::Connection) {
             return;
         }
-        self.build_tree(patterns, subscription, filter_id);
+        self.build_tree(patterns, subscription, deliver);
     }
 
     // Add all given patterns (root-to-leaf paths) to a PTree
@@ -328,23 +332,20 @@ impl PTree {
         &mut self,
         patterns: &[FlatPattern],
         subscription: &SubscriptionSpec,
-        filter_id: usize,
+        deliver: &Deliver
     ) {
         // add each pattern to tree
         let mut added = false;
         for (i, pattern) in patterns.iter().enumerate() {
             added = added || !pattern.predicates.is_empty();
-            self.add_pattern(pattern, i, subscription, filter_id);
+            self.add_pattern(pattern, i, subscription, deliver);
         }
 
         // Need to terminate somewhere
         if !added {
             let pred = Predicate::default_pred();
             if subscription.should_deliver(self.filter_layer, &pred) {
-                self.root.deliver.insert(Deliver {
-                    id: filter_id,
-                    as_str: subscription.as_str(),
-                });
+                self.root.deliver.insert(deliver.clone());
             } else {
                 let actions = subscription.with_term_filter(self.filter_layer, &pred);
                 self.root.actions.push(&actions);
@@ -361,7 +362,7 @@ impl PTree {
         pattern: &FlatPattern,
         pattern_id: usize,
         subscription: &SubscriptionSpec,
-        filter_id: usize,
+        deliver: &Deliver,
     ) {
         // Skip patterns that already terminated
         if pattern
@@ -417,10 +418,7 @@ impl PTree {
             node.patterns.push(pattern_id);
         }
         if subscription.should_deliver(self.filter_layer, &node.pred) {
-            node.deliver.insert(Deliver {
-                id: filter_id,
-                as_str: subscription.as_str(),
-            });
+            node.deliver.insert(deliver.clone());
         }
         let actions = subscription.with_term_filter(self.filter_layer, &node.pred);
         if !actions.drop() {
@@ -544,6 +542,8 @@ impl PTree {
             for i in &node.deliver {
                 if !my_deliver.contains(&i.as_str) {
                     my_deliver.insert(i.as_str.clone());
+                    new_ids.insert(i.clone());
+                } else if i.must_deliver {
                     new_ids.insert(i.clone());
                 }
             }
@@ -842,6 +842,14 @@ mod tests {
     use super::*;
     use crate::filter::*;
 
+    lazy_static! {
+        static ref DELIVER: Deliver = Deliver {
+            id: 0,
+            as_str: String::from("CB(X)"),
+            must_deliver: false,
+        };
+    }
+
     #[test]
     fn core_ptree_session() {
         let datatype_conn = SubscriptionSpec::new_default_connection();
@@ -851,8 +859,8 @@ mod tests {
 
         // Add Conn and Session-layer datatypes with Session-level filter
         let mut ptree = PTree::new_empty(FilterLayer::Session);
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 0);
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_session, 1);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, &DELIVER);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_session, &DELIVER);
 
         let mut expected_actions = Actions::new();
         expected_actions.data |=
@@ -863,7 +871,7 @@ mod tests {
 
         // Add filter that terminates at connection layer; should be no-op
         let noop_filter = Filter::new("tls").unwrap();
-        ptree.add_filter(&noop_filter.get_patterns_flat(), &datatype_conn, 0);
+        ptree.add_filter(&noop_filter.get_patterns_flat(), &datatype_conn, &DELIVER);
         assert!(ptree.get_subtree(3).unwrap().actions.drop());
         // println!("{}", ptree);
 
@@ -871,7 +879,7 @@ mod tests {
         let filter =
             Filter::new("(ipv4 and tls.sni = \'abc\') or (ipv4.dst_addr = 1.1.1.1/32)").unwrap();
         let mut ptree: PTree = PTree::new_empty(FilterLayer::Session);
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, &DELIVER);
         assert!(ptree.size == 5); // eth - ipv4 - tls - tls sni
     }
 
@@ -884,7 +892,7 @@ mod tests {
 
         // Connection-level datatype matching at connection level
         let mut ptree = PTree::new_empty(FilterLayer::Protocol);
-        ptree.add_filter(&filter_conn.get_patterns_flat(), &datatype, 0);
+        ptree.add_filter(&filter_conn.get_patterns_flat(), &datatype, &DELIVER);
         expected_actions.data |= ActionData::UpdatePDU | ActionData::ConnDeliver;
         expected_actions.terminal_actions |= ActionData::UpdatePDU | ActionData::ConnDeliver;
         // println!("{}", ptree);
@@ -893,13 +901,13 @@ mod tests {
         // Session-level datatype matching at session level
         let filter = Filter::new("ipv4 and tls.sni = \'abc\'").unwrap();
         let datatype = SubscriptionSpec::new_default_session();
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype, &DELIVER);
         expected_actions.data |= ActionData::SessionFilter;
         assert!(ptree.actions == expected_actions);
 
         // Session-level datatype matching at connection level
         let filter = Filter::new("ipv4 and http").unwrap();
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype, &DELIVER);
         expected_actions.data |= ActionData::SessionDeliver;
         // println!("{} {:?}", ptree, expected_actions);
         assert!(ptree.actions == expected_actions);
@@ -911,7 +919,7 @@ mod tests {
         let filter = Filter::new("ipv4 and tls").unwrap();
         let datatype = SubscriptionSpec::new_default_connection();
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype, &DELIVER);
 
         expected_actions.data |= ActionData::ProtoFilter | ActionData::UpdatePDU;
         // println!("{}", ptree);
@@ -922,7 +930,7 @@ mod tests {
             Filter::new("ipv4.dst_addr = 1.1.1.1 or (ipv4 and tls) or (ipv4 and quic)").unwrap();
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
         let datatype = SubscriptionSpec::new_default_packet();
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype, &DELIVER);
         ptree.collapse();
         // println!("{}", ptree);
         // ipv4.dst_addr should be prev. layer (delivered)
@@ -934,7 +942,7 @@ mod tests {
         assert!(ptree.actions == expected_actions);
 
         let mut ptree = PTree::new_empty(FilterLayer::PacketContinue);
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype, &DELIVER);
         // println!("{}", ptree);
         // Need to apply all conditions at first layer of packet filtering
         assert!(ptree.size == 5);
@@ -945,11 +953,11 @@ mod tests {
         let filter = Filter::new("ipv4 and tls").unwrap();
         let datatype = SubscriptionSpec::new_default_packet();
         let mut ptree = PTree::new_empty(FilterLayer::PacketDeliver);
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype, &DELIVER);
         assert!(!ptree.get_subtree(3).unwrap().deliver.is_empty());
 
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype, &DELIVER);
         let mut expected_actions = Actions::new();
         expected_actions.data |= ActionData::PacketTrack | ActionData::ProtoFilter;
         assert!(ptree.actions == expected_actions);
@@ -974,21 +982,28 @@ mod tests {
 
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
 
+        let mut deliver = DELIVER.clone();
+
         let filter = Filter::new(filter).unwrap();
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_session, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_session, &deliver);
         let filter = Filter::new(filter_child1).unwrap();
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_session, 1);
+        deliver.id = 1;
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_session, &deliver);
         let filter = Filter::new(filter_child2).unwrap();
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 2);
+        deliver.id = 2;
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, &deliver);
         let filter: Filter = Filter::new(filter_child3).unwrap();
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 3);
+        deliver.id = 3;
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, &deliver);
         let filter = Filter::new(filter_child4).unwrap();
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 4);
+        deliver.id = 4;
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, &deliver);
         let filter = Filter::new(filter_child5).unwrap();
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 5);
+        deliver.id = 5;
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, &deliver);
 
         // no_op
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 4);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, &deliver);
 
         // println!("{}", ptree);
         assert!(ptree.size == 13);
@@ -1016,10 +1031,13 @@ mod tests {
 
         let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
 
+        let mut deliver = DELIVER.clone();
+
         let filter = Filter::new(filter).unwrap();
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, &deliver);
         let filter = Filter::new(filter_child).unwrap();
-        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, 1);
+        deliver.id = 1;
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, &deliver);
 
         ptree.prune_branches();
         ptree.update_size();
@@ -1034,9 +1052,11 @@ mod tests {
         spec.add_datatype(DataType::new_default_connection("Connection"));
         spec.add_datatype(DataType::new_default_session("S", vec![]));
 
+        let mut deliver = DELIVER.clone();
+
         let mut ptree = PTree::new_empty(FilterLayer::ConnectionDeliver);
         let filter = Filter::new(filter_str).unwrap();
-        ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &spec, &deliver);
 
         ptree.collapse();
 
@@ -1045,11 +1065,12 @@ mod tests {
 
         // Two CBs - disambiguation needed
         ptree.clear();
-        ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &spec, &deliver);
         let mut spec_conn =
             SubscriptionSpec::new(String::from(filter_str), String::from("callback_conn"));
         spec_conn.add_datatype(DataType::new_default_connection("Connection"));
-        ptree.add_filter(&filter.get_patterns_flat(), &spec_conn, 0);
+        deliver.id = 1;
+        ptree.add_filter(&filter.get_patterns_flat(), &spec_conn, &deliver);
 
         // eth -> ipv4 -> tcp -> http
         assert!(ptree.size == 4);
@@ -1059,7 +1080,7 @@ mod tests {
 
         // Packet FilterLayer
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
-        ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        ptree.add_filter(&filter.get_patterns_flat(), &spec, &DELIVER);
         ptree.collapse();
         // Only one path (eth -> ipv4) would have already been applied at PacketContinue
         println!("{}", ptree);
@@ -1068,10 +1089,12 @@ mod tests {
         ptree.clear();
 
         // Multiple paths: eth -> ipv4 -> [tcp, udp], ipv6 -> [udp]
-        ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+        deliver.id = 0;
+        ptree.add_filter(&filter.get_patterns_flat(), &spec, &deliver);
         let filter_str = "quic";
         let filter = Filter::new(filter_str).unwrap();
-        ptree.add_filter(&filter.get_patterns_flat(), &spec_conn, 0);
+        deliver.id = 1;
+        ptree.add_filter(&filter.get_patterns_flat(), &spec_conn, &deliver);
         assert!(ptree.size == 6);
     }
 
@@ -1091,7 +1114,7 @@ mod tests {
             spec.add_datatype(DataType::new_default_connection("Connection"));
             spec.add_datatype(DataType::new_default_session("S", vec![]));
             let filter = Filter::new(f).unwrap();
-            ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+            ptree.add_filter(&filter.get_patterns_flat(), &spec, &DELIVER);
         }
         assert!(ptree.size == 8);
         ptree.collapse();
@@ -1107,7 +1130,7 @@ mod tests {
             spec.add_datatype(DataType::new_default_connection("Connection"));
             spec.add_datatype(DataType::new_default_session("S", vec![]));
             let filter = Filter::new(f).unwrap();
-            ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+            ptree.add_filter(&filter.get_patterns_flat(), &spec, &DELIVER);
         }
 
         // Can't remove IPs, because dns is no longer present under `68.64.0.0` --
@@ -1121,7 +1144,7 @@ mod tests {
             spec.add_datatype(DataType::new_default_connection("Connection"));
             spec.add_datatype(DataType::new_default_session("S", vec![]));
             let filter = Filter::new(f).unwrap();
-            ptree.add_filter(&filter.get_patterns_flat(), &spec, 0);
+            ptree.add_filter(&filter.get_patterns_flat(), &spec, &DELIVER);
         }
 
         ptree.collapse();

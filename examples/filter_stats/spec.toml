@@ -39,6 +39,16 @@ datatypes = [
 callback = "record_conn"
 
 [[subscriptions]]
+filter = "udp"
+datatypes = [
+    "PktCount",
+    "ByteCount",
+    "CoreId",
+    "FilterStr"
+]
+callback = "record_conn"
+
+[[subscriptions]]
 filter = ""
 datatypes = [
     "ZcFrame",
