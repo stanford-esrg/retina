@@ -111,6 +111,20 @@ impl RuntimeConfig {
         cores
     }
 
+    pub fn get_all_rx_core_ids(&self) -> Vec<CoreId> {
+        let mut cores = vec![];
+        if let Some(online) = &self.online {
+            for port in online.ports.iter() {
+                cores.extend(port.cores.iter().map(|c| CoreId(*c)));
+            }
+        } else {
+            cores.push(CoreId(self.main_core));
+        }
+        cores.sort();
+        cores.dedup();
+        cores
+    }
+
     /// Returns a list of socket IDs in use.
     pub(crate) fn get_all_socket_ids(&self) -> Vec<SocketId> {
         let mut sockets = vec![];

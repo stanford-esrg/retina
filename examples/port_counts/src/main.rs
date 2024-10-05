@@ -131,9 +131,9 @@ fn combine_results(outfile: &PathBuf) {
 fn main() {
     let args = Args::parse();
     let config = load_config(&args.config);
-    let cores = config.get_all_core_ids();
+    let cores = config.get_all_rx_core_ids();
     let num_cores = cores.len();
-    if num_cores > ARR_LEN {
+    if num_cores > NUM_CORES {
         panic!(
             "Compile-time NUM_CORES ({}) must be <= num cores ({}) in config file",
             NUM_CORES, num_cores
@@ -141,6 +141,9 @@ fn main() {
     }
     if cores.len() > 1 && !cores.windows(2).all(|w| w[1].raw() - w[0].raw() == 1) {
         panic!("Cores in config file should be consecutive for zero-lock indexing");
+    }
+    if cores[0] > 1 {
+        panic!("RX core IDs should start at 0 or 1");
     }
     let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
     runtime.run();
