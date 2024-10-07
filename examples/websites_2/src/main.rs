@@ -115,7 +115,7 @@ fn main() {
     if cores.len() > 1 && !cores.windows(2).all(|w| w[1].raw() - w[0].raw() == 1) {
         panic!("Cores in config file should be consecutive for zero-lock indexing");
     }
-    if cores[0] > 1 {
+    if cores[0].raw() > 1 {
         panic!("RX core IDs should start at 0 or 1");
     }
     let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
