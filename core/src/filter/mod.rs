@@ -31,7 +31,7 @@ use thiserror::Error;
 
 /// Filter types
 pub type PacketContFn = fn(&Mbuf, &CoreId) -> Actions;
-pub type PacketFilterFn = fn(&Mbuf) -> Actions;
+pub type PacketFilterFn<T> = fn(&Mbuf, &T) -> Actions;
 pub type ProtoFilterFn<T> = fn(&ConnData, &T) -> Actions;
 
 // Will apply session filter and potentially deliver or store session
@@ -49,7 +49,7 @@ where
 {
     pub filter_str: String,
     pub packet_continue: PacketContFn,
-    pub packet_filter: PacketFilterFn,
+    pub packet_filter: PacketFilterFn<T>,
     pub proto_filter: ProtoFilterFn<T>,
     pub session_filter: SessionFilterFn<T>,
     pub packet_deliver: PacketDeliverFn<T>,
@@ -63,7 +63,7 @@ where
     pub fn new(
         filter_str: &str,
         packet_continue: PacketContFn,
-        packet_filter: PacketFilterFn,
+        packet_filter: PacketFilterFn<T>,
         proto_filter: ProtoFilterFn<T>,
         session_filter: SessionFilterFn<T>,
         packet_deliver: PacketDeliverFn<T>,

@@ -125,7 +125,7 @@ fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
                 #packet_continue
             }
 
-            fn packet_filter(mbuf: &retina_core::Mbuf) -> Actions {
+            fn packet_filter(mbuf: &retina_core::Mbuf, tracked: &TrackedWrapper) -> Actions {
                 #packet_filter
             }
 

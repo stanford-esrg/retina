@@ -159,7 +159,7 @@ impl Predicate {
                 !matches!(subscription_level, Level::Session) // no delivery req'd
             }
             FilterLayer::ConnectionDeliver => {
-                !matches!(subscription_level, Level::Connection)
+                !matches!(subscription_level, Level::Connection | Level::Static)
             }
         }
     }

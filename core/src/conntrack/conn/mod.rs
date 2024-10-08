@@ -12,7 +12,6 @@ use self::tcp_conn::TcpConn;
 use self::udp_conn::UdpConn;
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::{L4Context, L4Pdu};
-use crate::filter::Actions;
 use crate::lcore::CoreId;
 use crate::protocols::packet::tcp::{ACK, RST, SYN};
 use crate::protocols::stream::ParserRegistry;
@@ -55,7 +54,6 @@ where
     pub(super) fn new_tcp(
         initial_timeout: usize,
         max_ooo: usize,
-        pkt_actions: Actions,
         pdu: &L4Pdu,
         core_id: CoreId,
     ) -> Result<Self> {
@@ -71,7 +69,7 @@ where
             last_seen_ts: Instant::now(),
             inactivity_window: initial_timeout,
             l4conn: L4Conn::Tcp(tcp_conn),
-            info: ConnInfo::new(pdu, core_id, pkt_actions),
+            info: ConnInfo::new(pdu, core_id),
         })
     }
 
@@ -80,7 +78,6 @@ where
     #[allow(clippy::unnecessary_wraps)]
     pub(super) fn new_udp(
         initial_timeout: usize,
-        pkt_actions: Actions,
         pdu: &L4Pdu,
         core_id: CoreId,
     ) -> Result<Self> {
@@ -89,7 +86,7 @@ where
             last_seen_ts: Instant::now(),
             inactivity_window: initial_timeout,
             l4conn: L4Conn::Udp(udp_conn),
-            info: ConnInfo::new(pdu, core_id, pkt_actions),
+            info: ConnInfo::new(pdu, core_id),
         })
     }
 

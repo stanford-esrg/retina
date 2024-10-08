@@ -321,7 +321,7 @@ impl PTree {
             return;
         }
         if matches!(self.filter_layer, FilterLayer::ConnectionDeliver)
-            && !matches!(subscription.level, Level::Connection) {
+            && !matches!(subscription.level, Level::Connection | Level::Static) {
             return;
         }
         self.build_tree(patterns, subscription, deliver);

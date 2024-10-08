@@ -50,7 +50,7 @@ where
     S: Subscribable,
 {
     packet_continue: PacketContFn,
-    packet_filter: PacketFilterFn,
+    packet_filter: PacketFilterFn<S::Tracked>,
     proto_filter: ProtoFilterFn<S::Tracked>,
     session_filter: SessionFilterFn<S::Tracked>,
     packet_deliver: PacketDeliverFn<S::Tracked>,
@@ -102,8 +102,8 @@ where
 
     /// Invokes the five-tuple filter.
     /// Applied to the first packet in the connection.
-    pub fn filter_packet(&self, mbuf: &Mbuf) -> Actions {
-        (self.packet_filter)(mbuf)
+    pub fn filter_packet(&self, mbuf: &Mbuf, tracked: &S::Tracked) -> Actions {
+        (self.packet_filter)(mbuf, tracked)
     }
 
     /// Invokes the end-to-end protocol filter.

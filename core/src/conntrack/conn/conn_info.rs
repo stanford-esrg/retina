@@ -30,13 +30,19 @@ impl<T> ConnInfo<T>
 where
     T: Trackable,
 {
-    pub(super) fn new(pdu: &L4Pdu, core_id: CoreId, pkt_actions: Actions) -> Self {
+    pub(super) fn new(pdu: &L4Pdu, core_id: CoreId) -> Self {
         let five_tuple = FiveTuple::from_ctxt(pdu.ctxt);
         ConnInfo {
-            actions: pkt_actions,
+            actions: Actions::new(),
             cdata: ConnData::new(five_tuple),
             sdata: T::new(pdu, core_id),
         }
+    }
+
+    pub(crate) fn filter_first_packet(&mut self, pdu: &L4Pdu, subscription: &Subscription<T::Subscribed>) {
+        assert!(self.actions.drop());
+        let pkt_actions = subscription.filter_packet(pdu.mbuf_ref(), &self.sdata);
+        self.actions = pkt_actions;
     }
 
     pub(crate) fn consume_pdu(

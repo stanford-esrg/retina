@@ -121,32 +121,26 @@ where
             }
             RawEntryMut::Vacant(_) => {
                 if self.size() < self.config.max_connections {
-                    let pkt_actions = subscription.filter_packet(&mbuf);
-                    if pkt_actions.drop() {
-                        // \note this can be okay, as the rx filter will err
-                        // on the side of caution before dropping packets.
-                        log::debug!("packet continue did not drop {:?}", mbuf);
-                        return;
-                    }
                     let pdu = L4Pdu::new(mbuf, ctxt, true);
                     let conn = match ctxt.proto {
                         TCP_PROTOCOL => Conn::<T>::new_tcp(
                             self.config.tcp_establish_timeout,
                             self.config.max_out_of_order,
-                            pkt_actions,
                             &pdu,
                             self.core_id,
                         ),
                         UDP_PROTOCOL => Conn::<T>::new_udp(
                             self.config.udp_inactivity_timeout,
-                            pkt_actions,
                             &pdu,
                             self.core_id,
                         ),
                         _ => Err(anyhow!("Invalid L4 Protocol")),
                     };
                     if let Ok(mut conn) = conn {
-                        conn.info.consume_pdu(pdu, subscription, &self.registry);
+                        conn.info.filter_first_packet(&pdu, subscription);
+                        if !conn.info.actions.drop() {
+                            conn.info.consume_pdu(pdu, subscription, &self.registry);
+                        }
                         if !conn.remove_from_table() {
                             self.timerwheel.insert(
                                 &conn_id,

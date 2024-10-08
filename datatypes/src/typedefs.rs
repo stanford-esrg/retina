@@ -84,19 +84,6 @@ lazy_static! {
             ("EtherTCI", { DataType::new_static("EtherTCI") }),
             ("EthAddr", { DataType::new_static("EthAddr") }),
             ("FilterStr", { DataType::new_static("FilterStr") }),
-            (
-                "ConnFiveTuple",
-                DataType {
-                    level: Level::Connection,
-                    needs_parse: false,
-                    track_sessions: false,
-                    needs_update: false,
-                    needs_update_reassembled: false,
-                    track_packets: false,
-                    stream_protos: vec![],
-                    as_str: "ConnFiveTuple",
-                },
-            ),
         ])
     };
 }

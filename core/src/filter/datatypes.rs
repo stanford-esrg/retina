@@ -12,7 +12,8 @@ pub enum Level {
     // \note Not tracked - built from session (zero-copy)
     Session,
     // Deliver at any point in the connection
-    // \note Typically used in combination with other datatype(s)
+    // \note Static-only subscriptions are delivered either on first packet
+    // (if possible) or at connection termination (otherwise).
     Static,
 }
 
@@ -113,7 +114,8 @@ impl DataType {
 
     // Returns whether the current filter layer is the earliest where this datatype,
     // with this filter, can be delivered.
-    pub(crate) fn should_deliver(&self, filter_layer: &FilterLayer, pred: &Predicate) -> bool {
+    pub(crate) fn should_deliver(&self, filter_layer: &FilterLayer, pred: &Predicate,
+        subscription_level: &Level) -> bool {
         match self.level {
             Level::Packet => {
                 match filter_layer {
@@ -135,9 +137,18 @@ impl DataType {
                 matches!(filter_layer, FilterLayer::Session)
             }
             Level::Static => {
-                // No single stage at which static data "should" be delivered;
-                // and a full subscription cannot be Static
-                false
+                // Static-only subscription
+                if !matches!(subscription_level, Level::Static) {
+                    return false;
+                }
+                match pred.on_packet() {
+                    // Deliver on first packet in connection (1x/connection)
+                    true => matches!(filter_layer, FilterLayer::Packet),
+                    // Deliver on connection termination (1x/connection)
+                    false => matches!(filter_layer, FilterLayer::ConnectionDeliver)
+                }
+                // Since protocol/session filter could be >1x/connection, can't
+                // deliver in those filters.
             }
         }
     }
@@ -342,13 +353,6 @@ impl SubscriptionSpec {
     }
 
     pub fn validate_spec(&self) {
-        // Basic checks
-        // - Cannot be static
-        assert!(
-            !matches!(self.level, Level::Static),
-            "Static-only subscriptions not allowed: {:?}",
-            self
-        );
 
         // - One packet-level datatype per subscription
         // - Packet-level datatype only permitted with static datatype
@@ -440,7 +444,7 @@ impl SubscriptionSpec {
     pub(crate) fn should_deliver(&self, filter_layer: FilterLayer, pred: &Predicate) -> bool {
         self.datatypes
             .iter()
-            .any(|d| d.should_deliver(&filter_layer, pred))
+            .any(|d| d.should_deliver(&filter_layer, pred, &self.level))
             && self
                 .datatypes
                 .iter()
@@ -486,6 +490,10 @@ impl SubscriptionSpec {
         for datatype in &self.datatypes {
             actions.push(&datatype.proto_filter(&self.level));
         }
+        if matches!(self.level, Level::Static) {
+            actions.if_matched.data |= ActionData::ConnDeliver;
+            actions.if_matched.terminal_actions |= ActionData::ConnDeliver;
+        }
         actions.if_matching.data |= ActionData::SessionFilter;
         actions
     }
@@ -495,6 +503,10 @@ impl SubscriptionSpec {
         let mut actions = MatchingActions::new();
         for datatype in &self.datatypes {
             actions.push(&datatype.session_filter(&self.level));
+        }
+        if matches!(self.level, Level::Static) {
+            actions.if_matched.data |= ActionData::ConnDeliver;
+            actions.if_matched.terminal_actions |= ActionData::ConnDeliver;
         }
         actions
     }

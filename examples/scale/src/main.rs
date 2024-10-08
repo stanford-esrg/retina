@@ -88,7 +88,7 @@ fn packet_cb(_frame: &ZcFrame, core_id: &CoreId, filter_str: &FilterStr) {
     write_result(*filter_str, String::from(""), core_id);
 }
 
-fn conn_cb(core_id: &CoreId, filter_str: &FilterStr, _five_tuple: &ConnFiveTuple) {
+fn conn_cb(core_id: &CoreId, filter_str: &FilterStr) {
     write_result(*filter_str, String::from(""), core_id);
 }
 

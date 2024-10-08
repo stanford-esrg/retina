@@ -14115,7 +14115,6 @@ filter = "udp.port = 19 and udp.port = 7"
 datatypes = [
     "CoreId",
     "FilterStr",
-    "ConnFiveTuple"
 ]
 callback = "conn_cb"
 
@@ -14124,7 +14123,6 @@ filter = "udp.dst_port = 161"
 datatypes = [
     "CoreId",
     "FilterStr",
-    "ConnFiveTuple"
 ]
 callback = "conn_cb"
 
@@ -14133,7 +14131,6 @@ filter = "tcp.src_port = 1010"
 datatypes = [
     "CoreId",
     "FilterStr",
-    "ConnFiveTuple"
 ]
 callback = "conn_cb"
 
@@ -14142,7 +14139,6 @@ filter = "ipv4.dst_addr = 255.255.255.255 and (udp.dst_port = 161 or udp.dst_por
 datatypes = [
     "CoreId",
     "FilterStr",
-    "ConnFiveTuple"
 ]
 callback = "conn_cb"
 
