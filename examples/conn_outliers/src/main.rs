@@ -12,9 +12,9 @@ use std::time::Duration;
 
 use array_init::array_init;
 use clap::Parser;
-use lazy_static::lazy_static;
 use serde::Serialize;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 // Number of cores being used by the runtime; should match config file
 // Should be defined at compile-time so that we can use a
@@ -23,12 +23,16 @@ const NUM_CORES: usize = 16;
 // Add 1 for ARR_LEN to avoid overflow; core 0 is typically used as main_core
 const ARR_LEN: usize = NUM_CORES + 1;
 
-fn init_results() -> [AtomicPtr<Vec<RawConnStats>>; ARR_LEN] {
-    array_init(|_| AtomicPtr::new(Box::into_raw(Box::new(Vec::new()))))
+static RESULTS: OnceLock<[AtomicPtr<Vec<RawConnStats>>; ARR_LEN]> = OnceLock::new();
+
+fn results() -> &'static [AtomicPtr<Vec<RawConnStats>>; ARR_LEN] {
+    RESULTS.get_or_init(|| {
+        array_init(|_| AtomicPtr::new(Box::into_raw(Box::new(Vec::new()))))
+    })
 }
 
-lazy_static! {
-    static ref RESULTS: [AtomicPtr<Vec<RawConnStats>>; ARR_LEN] = init_results();
+fn init() {
+    let _ = results();
 }
 
 #[derive(Debug, Serialize)]
@@ -152,7 +156,7 @@ const HIGH_DURATION_THRESH_MS: u128 = 1_000 * 60 * 5; // 5 mins
 const PKT_CNT_LOW_THRESH: usize = 2;
 
 fn save_record(stats: RawConnStats, core_id: &CoreId) {
-    let ptr = RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
+    let ptr = results()[core_id.raw() as usize].load(Ordering::Relaxed);
     let v = unsafe { &mut *ptr };
     v.push(stats);
 }
@@ -189,22 +193,23 @@ fn record(
 }
 
 fn process_results(outfile: &PathBuf) {
-    let mut results = vec![];
+    let mut outp = vec![];
     for core_id in 0..ARR_LEN {
-        let ptr = RESULTS[core_id as usize].load(Ordering::Relaxed);
+        let ptr = results()[core_id as usize].load(Ordering::Relaxed);
         let v = unsafe { &mut *ptr };
         for mut raw in v.iter_mut() {
-            results.push(ConnStats::from_raw(&mut raw));
+            outp.push(ConnStats::from_raw(&mut raw));
         }
     }
-    println!("Logging {} results", results.len());
+    println!("Logging {} results", outp.len());
     let mut file = std::fs::File::create(outfile).unwrap();
-    let results = serde_json::to_string(&results).unwrap();
-    file.write_all(results.as_bytes()).unwrap();
+    let outp = serde_json::to_string(&outp).unwrap();
+    file.write_all(outp.as_bytes()).unwrap();
 }
 
 #[retina_main(1)]
 fn main() {
+    init();
     let args = Args::parse();
     let config = load_config(&args.config);
     let cores = config.get_all_rx_core_ids();

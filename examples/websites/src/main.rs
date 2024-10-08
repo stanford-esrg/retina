@@ -2,41 +2,41 @@ use array_init::array_init;
 use retina_core::config::load_config;
 use retina_core::{CoreId, Runtime};
 use retina_datatypes::*;
-use retina_filtergen::subscription;
+use retina_filtergen::{filter, retina_main};
 use std::sync::atomic::{AtomicPtr, Ordering};
 
 use clap::Parser;
-use lazy_static::lazy_static;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 // Number of cores being used by the runtime; should match config file
 // Should be defined at compile-time so that we can use a
-// statically-sized array for RESULTS
+// statically-sized array for results()
 const NUM_CORES: usize = 16;
 // Add 1 for ARR_LEN to avoid overflow; one core is used as main_core
 const ARR_LEN: usize = NUM_CORES + 1;
 // Temporary per-core files
 const OUTFILE_PREFIX: &str = "websites_";
 
-lazy_static! {
-    static ref PROTOS: Vec<String> = vec![
-        String::from("dns"),
-        String::from("http"),
-        String::from("quic"),
-        String::from("tls")
-    ];
-    static ref RESULTS: [AtomicPtr<BufWriter<File>>; ARR_LEN] = {
-        let mut results = vec![];
+static RESULTS: OnceLock<[AtomicPtr<BufWriter<File>>; ARR_LEN]> = OnceLock::new();
+
+fn results() -> &'static [AtomicPtr<BufWriter<File>>; ARR_LEN] {
+    RESULTS.get_or_init(|| {
+        let mut outp = vec![];
         for core_id in 0..ARR_LEN {
             let file_name = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";
             let core_wtr = BufWriter::new(File::create(&file_name).unwrap());
             let core_wtr = Box::into_raw(Box::new(core_wtr));
-            results.push(core_wtr);
+            outp.push(core_wtr);
         }
-        array_init(|i| AtomicPtr::new(results[i].clone()))
-    };
+        array_init(|i| AtomicPtr::new(outp[i].clone()))
+    })
+}
+
+fn init() {
+    let _ = results();
 }
 
 #[derive(Parser, Debug)]
@@ -58,26 +58,30 @@ fn write_result(key: &str, value: String, core_id: &CoreId) {
         return;
     } // Would it be helpful to count these?
     let with_proto = format!("\n{}: {}", key, value);
-    let ptr = RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
+    let ptr = results()[core_id.raw() as usize].load(Ordering::Relaxed);
     let wtr = unsafe { &mut *ptr };
     wtr.write_all(with_proto.as_bytes()).unwrap();
 }
 
+#[filter("dns")]
 fn dns_cb(dns: &DnsTransaction, core_id: &CoreId) {
     let query_domain = (*dns).query_domain().to_string();
     write_result("dns", query_domain, core_id);
 }
 
+#[filter("http")]
 fn http_cb(http: &HttpTransaction, core_id: &CoreId) {
     let uri = (*http).uri().to_string();
     write_result("http", uri, core_id);
 }
 
+#[filter("tls")]
 fn tls_cb(tls: &TlsHandshake, core_id: &CoreId) {
     let sni = (*tls).sni().to_string();
     write_result("tls", sni, core_id);
 }
 
+#[filter("quic")]
 fn quic_cb(quic: &QuicStream, core_id: &CoreId) {
     let sni = (*quic).tls.sni().to_string();
     write_result("quic", sni, core_id);
@@ -96,8 +100,9 @@ fn combine_results(outfile: &PathBuf) {
     file.write_all(&results).unwrap();
 }
 
-#[subscription("/home/tcr6/retina/examples/websites/spec.toml")]
+#[retina_main(4)]
 fn main() {
+    init();
     let args = Args::parse();
     let config = load_config(&args.config);
     let cores = config.get_all_rx_core_ids();

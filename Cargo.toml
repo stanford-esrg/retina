@@ -4,7 +4,6 @@ members = [
     "datatypes",
     "examples/basic",
     "examples/websites",
-    "examples/websites_2",
     # "examples/scale",
     "examples/port_counts",
     "examples/filter_stats",

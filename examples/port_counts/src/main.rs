@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 
 use array_init::array_init;
 use clap::Parser;
-use lazy_static::lazy_static;
+use std::sync::OnceLock;
 use std::path::PathBuf;
 
 // Number of cores being used by the runtime; should match config file
@@ -20,6 +20,9 @@ const NUM_CORES: usize = 16;
 // Add 1 for ARR_LEN to avoid overflow; one core is used as main_core
 const ARR_LEN: usize = NUM_CORES + 1;
 
+static UDP_RESULTS: OnceLock<[AtomicPtr<HashMap<u16, usize>>; ARR_LEN]> = OnceLock::new();
+static TCP_RESULTS: OnceLock<[AtomicPtr<HashMap<u16, usize>>; ARR_LEN]> = OnceLock::new();
+
 fn init_results() -> [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
     let mut results = vec![];
     for _ in 0..ARR_LEN {
@@ -28,13 +31,26 @@ fn init_results() -> [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
     array_init(|i| AtomicPtr::new(results[i].clone()))
 }
 
-lazy_static! {
-    static ref UDP_RESULTS: [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] = init_results();
-    static ref TCP_RESULTS: [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] = init_results();
-    static ref WLAN_CNT: AtomicUsize = AtomicUsize::new(0);
-    static ref ETH_CNT: AtomicUsize = AtomicUsize::new(0);
-    static ref UDP_CNT: AtomicUsize = AtomicUsize::new(0);
-    static ref TCP_CNT: AtomicUsize = AtomicUsize::new(0);
+fn udp_results() -> &'static [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
+    UDP_RESULTS.get_or_init( || {
+        init_results()
+    })
+}
+
+fn tcp_results() -> &'static [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
+    TCP_RESULTS.get_or_init( || {
+        init_results()
+    })
+}
+
+static WLAN_CNT: AtomicUsize = AtomicUsize::new(0);
+static ETH_CNT: AtomicUsize = AtomicUsize::new(0);
+static UDP_CNT: AtomicUsize = AtomicUsize::new(0);
+static TCP_CNT: AtomicUsize = AtomicUsize::new(0);
+
+fn init() {
+    let _ = tcp_results();
+    let _ = udp_results();
 }
 
 #[derive(Parser, Debug)]
@@ -68,7 +84,7 @@ fn udp_cb(mbuf: &ZcFrame, core_id: &CoreId) {
             }
         }
     }
-    let ptr = UDP_RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
+    let ptr = udp_results()[core_id.raw() as usize].load(Ordering::Relaxed);
     let dict = unsafe { &mut *ptr };
     *dict.entry(src_port.unwrap()).or_insert(0) += 1;
     *dict.entry(dst_port.unwrap()).or_insert(0) += 1;
@@ -92,7 +108,7 @@ fn tcp_cp(mbuf: &ZcFrame, core_id: &CoreId) {
             }
         }
     }
-    let ptr = TCP_RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
+    let ptr = tcp_results()[core_id.raw() as usize].load(Ordering::Relaxed);
     let dict = unsafe { &mut *ptr };
     *dict.entry(src_port.unwrap()).or_insert(0) += 1;
     *dict.entry(dst_port.unwrap()).or_insert(0) += 1;
@@ -104,21 +120,19 @@ fn wlan_l2t_cb(_mbuf: &ZcFrame) {
     WLAN_CNT.fetch_add(1, Ordering::Relaxed);
 }
 
-/*
 #[filter("")] // all
 fn eth_cb(_mbuf: &ZcFrame) {
     ETH_CNT.fetch_add(1, Ordering::Relaxed);
 }
- */
 
 fn combine_results(outfile: &PathBuf) {
     let mut results = HashMap::from([("udp", HashMap::new()), ("tcp", HashMap::new())]);
     for core_id in 0..ARR_LEN {
-        let ptr = TCP_RESULTS[core_id as usize].load(Ordering::SeqCst);
+        let ptr = tcp_results()[core_id as usize].load(Ordering::SeqCst);
         let dict = unsafe { &mut *ptr };
         results.get_mut("tcp").unwrap().extend(dict);
 
-        let ptr = UDP_RESULTS[core_id as usize].load(Ordering::SeqCst);
+        let ptr = udp_results()[core_id as usize].load(Ordering::SeqCst);
         let dict = unsafe { &mut *ptr };
         results.get_mut("udp").unwrap().extend(dict);
     }
@@ -129,6 +143,7 @@ fn combine_results(outfile: &PathBuf) {
 
 #[retina_main(3)]
 fn main() {
+    init();
     let args = Args::parse();
     let config = load_config(&args.config);
     let cores = config.get_all_rx_core_ids();

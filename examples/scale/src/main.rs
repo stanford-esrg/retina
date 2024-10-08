@@ -21,12 +21,6 @@ const ARR_LEN: usize = NUM_CORES + 1;
 const OUTFILE_PREFIX: &str = "websites_";
 
 lazy_static! {
-    static ref PROTOS: Vec<String> = vec![
-        String::from("dns"),
-        String::from("http"),
-        String::from("quic"),
-        String::from("tls")
-    ];
     static ref RESULTS: [AtomicPtr<BufWriter<File>>; ARR_LEN] = {
         let mut results = vec![];
         for core_id in 0..ARR_LEN {
@@ -37,6 +31,10 @@ lazy_static! {
         }
         array_init(|i| AtomicPtr::new(results[i].clone()))
     };
+}
+
+fn init() {
+    println("Initializing {} results", RESULTS.len());
 }
 
 #[derive(Parser, Debug)]
@@ -107,6 +105,7 @@ fn combine_results(outfile: &PathBuf) {
 
 #[subscription("/home/tcr6/retina/examples/scale/spec.toml")]
 fn main() {
+    init();
     let args = Args::parse();
     let config = load_config(&args.config);
     let cores = config.get_all_rx_core_ids();
