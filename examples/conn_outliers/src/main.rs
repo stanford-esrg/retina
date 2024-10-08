@@ -1,20 +1,20 @@
 use retina_core::config::load_config;
-use retina_core::{CoreId, Runtime, FiveTuple};
+use retina_core::protocols::packet::{tcp::TCP_PROTOCOL, udp::UDP_PROTOCOL};
+use retina_core::protocols::stream::SessionData;
+use retina_core::{CoreId, FiveTuple, Runtime};
 use retina_datatypes::*;
 use retina_filtergen::{filter, retina_main};
-use retina_core::protocols::stream::SessionData;
-use retina_core::protocols::packet::{tcp::TCP_PROTOCOL, udp::UDP_PROTOCOL};
 
 use std::io::Write;
-use std::sync::atomic::{Ordering, AtomicPtr};
-use std::time::Duration;
 use std::net::SocketAddr::{V4, V6};
+use std::sync::atomic::{AtomicPtr, Ordering};
+use std::time::Duration;
 
 use array_init::array_init;
 use clap::Parser;
 use lazy_static::lazy_static;
-use std::path::PathBuf;
 use serde::Serialize;
+use std::path::PathBuf;
 
 // Number of cores being used by the runtime; should match config file
 // Should be defined at compile-time so that we can use a
@@ -71,7 +71,7 @@ struct RawConnStats {
     byte_count: usize,
     pkt_count: usize,
     duration: Duration,
-    protos: Vec<Proto>
+    protos: Vec<Proto>,
 }
 
 #[derive(Serialize)]
@@ -84,7 +84,7 @@ struct ConnStats {
     byte_count: usize,
     pkt_count: usize,
     duration_ms: u128,
-    protos: Vec<Proto>
+    protos: Vec<Proto>,
 }
 
 impl ConnStats {
@@ -151,7 +151,6 @@ struct Args {
 const HIGH_DURATION_THRESH_MS: u128 = 1_000 * 60 * 5; // 5 mins
 const PKT_CNT_LOW_THRESH: usize = 2;
 
-
 fn save_record(stats: RawConnStats, core_id: &CoreId) {
     let ptr = RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
     let v = unsafe { &mut *ptr };
@@ -160,12 +159,19 @@ fn save_record(stats: RawConnStats, core_id: &CoreId) {
 
 #[allow(clippy::too_many_arguments)]
 #[filter("")]
-fn record(core_id: &CoreId, history: &ConnHistory, interarrivals: &InterArrivals,
-          byte_count: &ByteCount, pkt_count: &PktCount, duration: &ConnDuration,
-          sessions: &SessionList, five_tuple: &FiveTuple, ethaddr: &EthAddr) {
-
-    if duration.duration_ms() > HIGH_DURATION_THRESH_MS ||
-       pkt_count.pkt_count < PKT_CNT_LOW_THRESH {
+fn record(
+    core_id: &CoreId,
+    history: &ConnHistory,
+    interarrivals: &InterArrivals,
+    byte_count: &ByteCount,
+    pkt_count: &PktCount,
+    duration: &ConnDuration,
+    sessions: &SessionList,
+    five_tuple: &FiveTuple,
+    ethaddr: &EthAddr,
+) {
+    if duration.duration_ms() > HIGH_DURATION_THRESH_MS || pkt_count.pkt_count < PKT_CNT_LOW_THRESH
+    {
         save_record(
             RawConnStats {
                 five_tuple: *five_tuple,
@@ -177,7 +183,7 @@ fn record(core_id: &CoreId, history: &ConnHistory, interarrivals: &InterArrivals
                 duration: duration.duration(),
                 protos: Proto::from_sessions(sessions),
             },
-            core_id
+            core_id,
         );
     }
 }
@@ -188,9 +194,7 @@ fn process_results(outfile: &PathBuf) {
         let ptr = RESULTS[core_id as usize].load(Ordering::Relaxed);
         let v = unsafe { &mut *ptr };
         for mut raw in v.iter_mut() {
-            results.push(
-                ConnStats::from_raw(&mut raw)
-            );
+            results.push(ConnStats::from_raw(&mut raw));
         }
     }
     println!("Logging {} results", results.len());

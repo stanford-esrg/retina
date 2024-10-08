@@ -9,22 +9,13 @@ use crate::*;
 lazy_static! {
     pub static ref DATATYPES: HashMap<&'static str, DataType> = {
         HashMap::from([
-            (
-                "ConnRecord",
-                DataType::new_default_connection("ConnRecord"),
-            ),
+            ("ConnRecord", DataType::new_default_connection("ConnRecord")),
             (
                 "ConnDuration",
                 DataType::new_default_connection("ConnDuration"),
             ),
-            (
-                "PktCount",
-                DataType::new_default_connection("PktCount"),
-            ),
-            (
-                "ByteCount",
-                DataType::new_default_connection("ByteCount"),
-            ),
+            ("PktCount", DataType::new_default_connection("PktCount")),
+            ("ByteCount", DataType::new_default_connection("ByteCount")),
             (
                 "InterArrivals",
                 DataType::new_default_connection("InterArrivals"),
@@ -35,7 +26,10 @@ lazy_static! {
             ),
             (
                 "HttpTransaction",
-                DataType::new_default_session("HttpTransaction", HttpTransaction::stream_protocols()),
+                DataType::new_default_session(
+                    "HttpTransaction",
+                    HttpTransaction::stream_protocols(),
+                ),
             ),
             (
                 "DnsTransaction",
@@ -49,12 +43,8 @@ lazy_static! {
                 "QuicStream",
                 DataType::new_default_session("QuicStream", QuicStream::stream_protocols()),
             ),
-            (
-                "ZcFrame", DataType::new_default_packet("ZcFrame")
-            ),
-            (
-                "Payload", DataType::new_default_packet("Payload")
-            ),
+            ("ZcFrame", DataType::new_default_packet("ZcFrame")),
+            ("Payload", DataType::new_default_packet("Payload")),
             ("PacketList", {
                 DataType {
                     level: Level::Connection,

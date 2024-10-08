@@ -76,11 +76,7 @@ where
     /// Creates a new UDP connection from `ctxt` with an initial inactivity window of
     /// `initial_timeout`.
     #[allow(clippy::unnecessary_wraps)]
-    pub(super) fn new_udp(
-        initial_timeout: usize,
-        pdu: &L4Pdu,
-        core_id: CoreId,
-    ) -> Result<Self> {
+    pub(super) fn new_udp(initial_timeout: usize, pdu: &L4Pdu, core_id: CoreId) -> Result<Self> {
         let udp_conn = UdpConn;
         Ok(Conn {
             last_seen_ts: Instant::now(),

@@ -39,7 +39,11 @@ where
         }
     }
 
-    pub(crate) fn filter_first_packet(&mut self, pdu: &L4Pdu, subscription: &Subscription<T::Subscribed>) {
+    pub(crate) fn filter_first_packet(
+        &mut self,
+        pdu: &L4Pdu,
+        subscription: &Subscription<T::Subscribed>,
+    ) {
         assert!(self.actions.drop());
         let pkt_actions = subscription.filter_packet(pdu.mbuf_ref(), &self.sdata);
         self.actions = pkt_actions;
@@ -132,8 +136,8 @@ where
     fn on_parse(&mut self, pdu: &L4Pdu, subscription: &Subscription<T::Subscribed>) {
         match self.cdata.conn_parser.parse(pdu) {
             ParseResult::Done(id) => self.handle_session(subscription, id),
-            ParseResult::None => { self.session_done_parse(subscription) },
-            _ => { } //
+            ParseResult::None => self.session_done_parse(subscription),
+            _ => {} //
         }
     }
 

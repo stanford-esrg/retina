@@ -1,5 +1,5 @@
-pub mod typedefs;
 pub mod conn_fts;
+pub mod typedefs;
 pub use conn_fts::*;
 pub mod connection;
 pub use connection::ConnRecord;

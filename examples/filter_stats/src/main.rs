@@ -51,12 +51,8 @@ fn init_results() -> [AtomicPtr<HashMap<String, ConnStats>>; ARR_LEN] {
 
 lazy_static! {
     static ref RESULTS: [AtomicPtr<HashMap<String, ConnStats>>; ARR_LEN] = init_results();
-    static ref BYTES: [AtomicUsize; ARR_LEN] = {
-        array_init(|_| AtomicUsize::new(0))
-    };
-    static ref PKTS: [AtomicUsize; ARR_LEN] = {
-        array_init(|_| AtomicUsize::new(0))
-    };
+    static ref BYTES: [AtomicUsize; ARR_LEN] = { array_init(|_| AtomicUsize::new(0)) };
+    static ref PKTS: [AtomicUsize; ARR_LEN] = { array_init(|_| AtomicUsize::new(0)) };
 }
 
 #[derive(Parser, Debug)]
@@ -76,7 +72,10 @@ struct Args {
 fn record_conn(pkts: &PktCount, bytes: &ByteCount, core_id: &CoreId, filter_str: &FilterStr) {
     let ptr = RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
     let dict = unsafe { &mut *ptr };
-    (*dict.entry(String::from(*filter_str)).or_insert(ConnStats::new())).update(pkts, bytes);
+    (*dict
+        .entry(String::from(*filter_str))
+        .or_insert(ConnStats::new()))
+    .update(pkts, bytes);
 }
 
 fn record_pkt(mbuf: &ZcFrame, core_id: &CoreId) {
@@ -90,14 +89,15 @@ fn combine_results(outfile: &PathBuf) {
         let ptr = RESULTS[core_id as usize].load(Ordering::SeqCst);
         let dict = unsafe { &mut *ptr };
         for (fil, stats) in dict.iter() {
-            results.entry(fil.clone()).or_insert(ConnStats::new()).combine(stats);
+            results
+                .entry(fil.clone())
+                .or_insert(ConnStats::new())
+                .combine(stats);
         }
     }
 
-    let total_pkts = PKTS.iter()
-                         .map(|cnt| cnt.load(Ordering::SeqCst)).sum();
-    let total_bytes = BYTES.iter()
-                           .map(|cnt| cnt.load(Ordering::SeqCst)).sum();
+    let total_pkts = PKTS.iter().map(|cnt| cnt.load(Ordering::SeqCst)).sum();
+    let total_bytes = BYTES.iter().map(|cnt| cnt.load(Ordering::SeqCst)).sum();
 
     let mut all_pkts = ConnStats::new();
     all_pkts.total_pkts = total_pkts;

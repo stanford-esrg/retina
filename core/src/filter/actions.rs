@@ -152,8 +152,7 @@ impl Actions {
     pub fn session_parse(&self) -> bool {
         self.data.intersects(
             ActionData::SessionDeliver | ActionData::SessionFilter | ActionData::SessionTrack,
-        ) &&
-        !self.session_probe() // SessionDeliver/Track but still at probing stage
+        ) && !self.session_probe() // SessionDeliver/Track but still at probing stage
     }
 
     #[inline]
@@ -173,8 +172,10 @@ impl Actions {
     #[inline]
     pub fn session_clear_parse(&mut self) {
         self.clear_mask(
-            ActionData::SessionFilter | ActionData::SessionDeliver |
-            ActionData::SessionTrack | ActionData::ProtoProbe,
+            ActionData::SessionFilter
+                | ActionData::SessionDeliver
+                | ActionData::SessionTrack
+                | ActionData::ProtoProbe,
         );
     }
 
@@ -185,23 +186,23 @@ impl Actions {
         if self.terminal_actions.contains(ActionData::ProtoProbe) {
             // Maintain in terminal actions, but move to parse stage
             self.data &= (ActionData::ProtoProbe).not();
-            assert!(self.data.intersects(ActionData::SessionDeliver |
-                                         ActionData::SessionTrack));
+            assert!(self
+                .data
+                .intersects(ActionData::SessionDeliver | ActionData::SessionTrack));
         }
     }
 
     /// Some app-layer protocols revert to probing after session is parsed
     /// This is done if more sessions are expected
     pub fn session_set_probe(&mut self) {
-
         // If protocol probing was set at the PacketFilter stage (i.e.,
         // terminal match for a subscription that requires parsing sessions),
         // then the ProtoProbe action will be "terminal"
         if self.terminal_actions.contains(ActionData::ProtoProbe) {
             // Clear out session actions set by session_filter or protocol_filter
-            self.data &= (ActionData::SessionFilter |
-                          ActionData::SessionDeliver |
-                          ActionData::SessionTrack).not();
+            self.data &=
+                (ActionData::SessionFilter | ActionData::SessionDeliver | ActionData::SessionTrack)
+                    .not();
 
             // While maintiaining those set by packet filter
             self.data |= self.terminal_actions;

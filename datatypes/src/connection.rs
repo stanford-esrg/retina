@@ -165,7 +165,6 @@ impl ConnRecord {
         if self.orig.nb_pkts + self.resp.nb_pkts == 2 {
             self.second_seen_ts = now;
         }
-
     }
 }
 

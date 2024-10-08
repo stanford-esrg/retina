@@ -56,7 +56,6 @@ pub struct DataType {
 }
 
 impl DataType {
-
     pub fn new_default_connection(as_str: &'static str) -> Self {
         Self {
             level: Level::Connection,
@@ -71,8 +70,7 @@ impl DataType {
     }
 
     // For testing only
-    pub fn new_default_session(as_str: &'static str,
-                                stream_protos: Vec<&'static str>) -> Self {
+    pub fn new_default_session(as_str: &'static str, stream_protos: Vec<&'static str>) -> Self {
         Self {
             level: Level::Session,
             needs_parse: true,
@@ -114,8 +112,12 @@ impl DataType {
 
     // Returns whether the current filter layer is the earliest where this datatype,
     // with this filter, can be delivered.
-    pub(crate) fn should_deliver(&self, filter_layer: &FilterLayer, pred: &Predicate,
-        subscription_level: &Level) -> bool {
+    pub(crate) fn should_deliver(
+        &self,
+        filter_layer: &FilterLayer,
+        pred: &Predicate,
+        subscription_level: &Level,
+    ) -> bool {
         match self.level {
             Level::Packet => {
                 match filter_layer {
@@ -145,7 +147,7 @@ impl DataType {
                     // Deliver on first packet in connection (1x/connection)
                     true => matches!(filter_layer, FilterLayer::Packet),
                     // Deliver on connection termination (1x/connection)
-                    false => matches!(filter_layer, FilterLayer::ConnectionDeliver)
+                    false => matches!(filter_layer, FilterLayer::ConnectionDeliver),
                 }
                 // Since protocol/session filter could be >1x/connection, can't
                 // deliver in those filters.
@@ -201,8 +203,9 @@ impl DataType {
         // SessionTrack should only be terminal if matched at packet layer
         // After parsing is complete, session will be tracked if it matched
         // at any layer. See "on_parse" in conntrack mod.
-        if matches!(sub_level, Level::Connection) &&
-            (matches!(self.level, Level::Session) || self.needs_parse) {
+        if matches!(sub_level, Level::Connection)
+            && (matches!(self.level, Level::Session) || self.needs_parse)
+        {
             actions.if_matched.data |= ActionData::SessionTrack;
         }
     }
@@ -353,7 +356,6 @@ impl SubscriptionSpec {
     }
 
     pub fn validate_spec(&self) {
-
         // - One packet-level datatype per subscription
         // - Packet-level datatype only permitted with static datatype
         if matches!(self.level, Level::Packet) {
@@ -411,7 +413,8 @@ impl SubscriptionSpec {
     pub(crate) fn new_default_connection() -> Self {
         let mut spec = Self::new(String::from("fil"), String::from("cb"));
         spec.level = Level::Connection;
-        spec.datatypes.push(DataType::new_default_connection("Connection"));
+        spec.datatypes
+            .push(DataType::new_default_connection("Connection"));
         spec
     }
 
@@ -420,7 +423,8 @@ impl SubscriptionSpec {
     pub fn new_default_session() -> Self {
         let mut spec = Self::new(String::from("fil"), String::from("cb"));
         spec.level = Level::Session;
-        spec.datatypes.push(DataType::new_default_session("Session", vec![]));
+        spec.datatypes
+            .push(DataType::new_default_session("Session", vec![]));
         spec
     }
 

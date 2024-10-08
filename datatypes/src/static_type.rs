@@ -1,8 +1,8 @@
 use super::{FromSubscription, StaticData};
+use pnet::datalink::MacAddr;
 use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
 use retina_core::filter::SubscriptionSpec;
-use pnet::datalink::MacAddr;
 
 impl StaticData for FiveTuple {
     fn new(first_pkt: &L4Pdu) -> Self {
@@ -47,7 +47,6 @@ impl<'a> FromSubscription for FilterStr<'a> {
     }
 }
 
-
 /// The src/dst MAC of a connection
 #[derive(Clone, Debug)]
 pub struct EthAddr {
@@ -57,7 +56,7 @@ pub struct EthAddr {
 
 impl StaticData for EthAddr {
     fn new(first_pkt: &L4Pdu) -> Self {
-        if let Ok(ethernet) = &Packet::parse_to::<Ethernet,>(first_pkt.mbuf_ref()) {
+        if let Ok(ethernet) = &Packet::parse_to::<Ethernet>(first_pkt.mbuf_ref()) {
             return Self {
                 src: ethernet.src(),
                 dst: ethernet.dst(),

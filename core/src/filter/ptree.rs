@@ -321,7 +321,8 @@ impl PTree {
             return;
         }
         if matches!(self.filter_layer, FilterLayer::ConnectionDeliver)
-            && !matches!(subscription.level, Level::Connection | Level::Static) {
+            && !matches!(subscription.level, Level::Connection | Level::Static)
+        {
             return;
         }
         self.build_tree(patterns, subscription, deliver);
@@ -332,7 +333,7 @@ impl PTree {
         &mut self,
         patterns: &[FlatPattern],
         subscription: &SubscriptionSpec,
-        deliver: &Deliver
+        deliver: &Deliver,
     ) {
         // add each pattern to tree
         let mut added = false;

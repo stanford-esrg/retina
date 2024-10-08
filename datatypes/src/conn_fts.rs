@@ -1,8 +1,8 @@
-use std::time::{Instant, Duration};
+use crate::Tracked;
 use retina_core::protocols::Session;
 use retina_core::L4Pdu;
-use crate::Tracked;
-use serde::ser::{Serialize, Serializer, SerializeStruct, SerializeSeq};
+use serde::ser::{Serialize, SerializeSeq, SerializeStruct, Serializer};
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
 pub struct ConnDuration {
@@ -60,7 +60,6 @@ impl Tracked for ConnDuration {
     }
 }
 
-
 #[derive(Debug, serde::Serialize, Clone)]
 pub struct PktCount {
     pub pkt_count: usize,
@@ -68,9 +67,7 @@ pub struct PktCount {
 
 impl Tracked for PktCount {
     fn new(_first_pkt: &L4Pdu) -> Self {
-        Self {
-            pkt_count: 0,
-        }
+        Self { pkt_count: 0 }
     }
 
     #[inline]
@@ -98,9 +95,7 @@ pub struct ByteCount {
 
 impl Tracked for ByteCount {
     fn new(_first_pkt: &L4Pdu) -> Self {
-        Self {
-            byte_count: 0,
-        }
+        Self { byte_count: 0 }
     }
 
     #[inline]
@@ -154,13 +149,13 @@ impl Tracked for InterArrivals {
             if pdu.dir {
                 self.pkt_count_ctos += 1;
                 if self.pkt_count_ctos > 1 {
-                    self.interarrivals_ctos.push (now - self.last_pkt_ctos);
+                    self.interarrivals_ctos.push(now - self.last_pkt_ctos);
                 }
                 self.last_pkt_stoc = now;
             } else {
                 self.pkt_count_stoc += 1;
                 if self.pkt_count_stoc > 1 {
-                    self.interarrivals_stoc.push (now - self.last_pkt_stoc);
+                    self.interarrivals_stoc.push(now - self.last_pkt_stoc);
                 }
                 self.last_pkt_stoc = now;
             }
@@ -170,7 +165,9 @@ impl Tracked for InterArrivals {
     #[inline]
     fn session_matched(&mut self, _session: &Session) {}
 
-    fn stream_protocols() -> Vec<&'static str> { vec![] }
+    fn stream_protocols() -> Vec<&'static str> {
+        vec![]
+    }
 }
 
 struct DurationVec<'a>(&'a Vec<Duration>);
@@ -211,7 +208,7 @@ pub struct ConnHistory {
 impl Tracked for ConnHistory {
     fn new(_first_pkt: &L4Pdu) -> Self {
         Self {
-            history: Vec::with_capacity(16)
+            history: Vec::with_capacity(16),
         }
     }
 
@@ -232,5 +229,7 @@ impl Tracked for ConnHistory {
     #[inline]
     fn session_matched(&mut self, _session: &Session) {}
 
-    fn stream_protocols() -> Vec<&'static str> { vec![] }
+    fn stream_protocols() -> Vec<&'static str> {
+        vec![]
+    }
 }
