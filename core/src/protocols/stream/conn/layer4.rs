@@ -26,6 +26,10 @@ impl TcpCData {
 }
 
 impl ConnField for TcpCData {
+    fn supported_fields() -> Vec<&'static str> {
+        vec!["src_port", "dst_port"]
+    }
+
     fn parse_from(conn_data: &ConnData) -> Result<Self> {
         if matches!(conn_data.five_tuple.proto, TCP_PROTOCOL) {
             if let SocketAddr::V4(src) = conn_data.five_tuple.orig {
@@ -68,6 +72,11 @@ impl UdpCData {
 }
 
 impl ConnField for UdpCData {
+
+    fn supported_fields() -> Vec<&'static str> {
+        vec!["src_port", "dst_port"]
+    }
+
     fn parse_from(conn_data: &ConnData) -> Result<Self> {
         if matches!(conn_data.five_tuple.proto, UDP_PROTOCOL) {
             if let SocketAddr::V4(src) = conn_data.five_tuple.orig {

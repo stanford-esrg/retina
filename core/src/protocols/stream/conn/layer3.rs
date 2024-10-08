@@ -24,6 +24,11 @@ impl Ipv4CData {
 }
 
 impl ConnField for Ipv4CData {
+
+    fn supported_fields() -> Vec<&'static str> {
+        vec!["src_addr", "dst_addr"]
+    }
+
     fn parse_from(conn_data: &ConnData) -> Result<Self> {
         if let SocketAddr::V4(src) = conn_data.five_tuple.orig {
             if let SocketAddr::V4(dst) = conn_data.five_tuple.resp {
@@ -57,6 +62,10 @@ impl Ipv6CData {
 }
 
 impl ConnField for Ipv6CData {
+    fn supported_fields() -> Vec<&'static str> {
+        vec!["src_addr", "dst_addr"]
+    }
+
     fn parse_from(conn_data: &ConnData) -> Result<Self> {
         if let SocketAddr::V6(src) = conn_data.five_tuple.orig {
             if let SocketAddr::V6(dst) = conn_data.five_tuple.resp {

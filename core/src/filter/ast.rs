@@ -11,6 +11,7 @@ use petgraph::algo;
 use petgraph::graph::Graph;
 use petgraph::graph::NodeIndex;
 use regex::Regex;
+use crate::protocols::stream::ConnData;
 
 use crate::port::Port;
 
@@ -105,6 +106,23 @@ impl Predicate {
     /// i.e., the lowest filter level needed to apply the predicate is a packet filter.
     pub fn on_packet(&self) -> bool {
         !self.needs_conntrack()
+    }
+
+    /// Returns `true` if predicate *requires* raw packets
+    /// (i.e., cannot be connection-level data)
+    pub fn req_packet(&self) -> bool {
+        if !self.on_packet() {
+            return false;
+        }
+        if let Predicate::Binary {
+            protocol: _proto,
+            field: field_name,
+            ..
+        } = self {
+            return field_name.name() != "port" && field_name.name() != "addr" &&
+                    !ConnData::supported_fields().contains(&field_name.name());
+        }
+        !ConnData::supported_protocols().contains(&self.get_protocol().name())
     }
 
     /// Returns `true` if predicate can be satisfied by a connection filter.
@@ -816,6 +834,32 @@ impl fmt::Display for Value {
 mod tests {
     use super::*;
     use std::net::Ipv4Addr;
+
+    #[test]
+    fn core_ast_req_packet() {
+        let pred = Predicate::Binary {
+            protocol: protocol!("tcp"),
+            field: field!("port"),
+            op: BinOp::Eq,
+            value: Value::Int(80),
+        };
+        assert!(!pred.req_packet());
+        let pred = Predicate::Binary {
+            protocol: protocol!("tcp"),
+            field: field!("syn"),
+            op: BinOp::Eq,
+            value: Value::Int(1),
+        };
+        assert!(pred.req_packet());
+        let pred = Predicate::Unary {
+            protocol: protocol!("tcp"),
+        };
+        assert!(!pred.req_packet());
+        let pred = Predicate::Unary {
+            protocol: protocol!("ethernet"),
+        };
+        assert!(pred.req_packet());
+    }
 
     #[test]
     fn core_ast_has_path() {

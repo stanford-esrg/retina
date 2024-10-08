@@ -18,4 +18,6 @@ pub trait ConnField {
     fn parse_from(conn: &ConnData) -> Result<Self>
     where
         Self: Sized;
+
+    fn supported_fields() -> Vec<&'static str>;
 }
