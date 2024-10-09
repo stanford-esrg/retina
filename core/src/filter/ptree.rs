@@ -338,8 +338,17 @@ impl PTree {
         // add each pattern to tree
         let mut added = false;
         for (i, pattern) in patterns.iter().enumerate() {
+            if pattern.is_prev_layer(self.filter_layer, &subscription.level) {
+                continue;
+            }
             added = added || !pattern.predicates.is_empty();
             self.add_pattern(pattern, i, subscription, deliver);
+        }
+
+        if !added {
+            if self.root.pred.is_prev_layer(self.filter_layer, &subscription.level) {
+                return;
+            }
         }
 
         // Need to terminate somewhere
@@ -365,15 +374,6 @@ impl PTree {
         subscription: &SubscriptionSpec,
         deliver: &Deliver,
     ) {
-        // Skip patterns that already terminated
-        if pattern
-            .predicates
-            .iter()
-            .all(|p| p.is_prev_layer(self.filter_layer, &subscription.level))
-        {
-            return;
-        }
-
         let mut node = &mut self.root;
         node.patterns.push(pattern_id);
         for predicate in pattern.predicates.iter() {

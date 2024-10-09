@@ -177,7 +177,10 @@ impl Predicate {
                 !matches!(subscription_level, Level::Session) // no delivery req'd
             }
             FilterLayer::ConnectionDeliver => {
-                !matches!(subscription_level, Level::Connection | Level::Static)
+                // Delivered elsewhere
+                !matches!(subscription_level, Level::Connection | Level::Static) ||
+                    // Delivered in packet filter
+                    (matches!(subscription_level, Level::Static) && self.on_packet())
             }
         }
     }
