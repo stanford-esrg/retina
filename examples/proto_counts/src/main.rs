@@ -255,7 +255,7 @@ struct QuicData {
 }
 
 // Look for QUIC connections on unusual ports
-#[filter("quic")]
+#[filter("quic and udp.port != 443")]
 fn quic_cb(quic: &QuicStream, five_tuple: &FiveTuple, core_id: &CoreId) {
     let data = ProtoData::Quic(QuicData {
         server_subnet: five_tuple.dst_subnet_str(),
