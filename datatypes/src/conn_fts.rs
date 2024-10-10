@@ -65,6 +65,12 @@ pub struct PktCount {
     pub pkt_count: usize,
 }
 
+impl PktCount {
+    pub fn raw(&self) -> usize {
+        self.pkt_count
+    }
+}
+
 impl Tracked for PktCount {
     fn new(_first_pkt: &L4Pdu) -> Self {
         Self { pkt_count: 0 }
@@ -93,6 +99,12 @@ pub struct ByteCount {
     pub byte_count: usize,
 }
 
+impl ByteCount {
+    pub fn raw(&self) -> usize {
+        self.byte_count
+    }
+}
+
 impl Tracked for ByteCount {
     fn new(_first_pkt: &L4Pdu) -> Self {
         Self { byte_count: 0 }
@@ -118,12 +130,12 @@ impl Tracked for ByteCount {
 
 #[derive(Debug, Clone)]
 pub struct InterArrivals {
-    pkt_count_ctos: usize,
-    pkt_count_stoc: usize,
-    last_pkt_ctos: Instant,
-    last_pkt_stoc: Instant,
-    interarrivals_ctos: Vec<Duration>,
-    interarrivals_stoc: Vec<Duration>,
+    pub pkt_count_ctos: usize,
+    pub pkt_count_stoc: usize,
+    pub last_pkt_ctos: Instant,
+    pub last_pkt_stoc: Instant,
+    pub interarrivals_ctos: Vec<Duration>,
+    pub interarrivals_stoc: Vec<Duration>,
 }
 
 impl InterArrivals {

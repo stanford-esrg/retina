@@ -6,16 +6,16 @@ use retina_datatypes::*;
 use retina_filtergen::{filter, retina_main};
 use std::net::{Ipv6Addr, Ipv4Addr};
 
-use std::io::Write;
+use std::io::{BufWriter, Write};
+use std::fs::File;
 use std::net::SocketAddr::{V4, V6};
 use std::sync::atomic::{AtomicPtr, Ordering};
-use std::time::Duration;
+use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use array_init::array_init;
 use clap::Parser;
 use serde::Serialize;
-use std::path::PathBuf;
-use std::sync::OnceLock;
 
 // Number of cores being used by the runtime; should match config file
 // Should be defined at compile-time so that we can use a
@@ -23,12 +23,21 @@ use std::sync::OnceLock;
 const NUM_CORES: usize = 16;
 // Add 1 for ARR_LEN to avoid overflow; core 0 is typically used as main_core
 const ARR_LEN: usize = NUM_CORES + 1;
+// Temp per-core files
+const OUTFILE_PREFIX: &str = "conns_";
 
-static RESULTS: OnceLock<[AtomicPtr<Vec<RawConnStats>>; ARR_LEN]> = OnceLock::new();
+static RESULTS: OnceLock<[AtomicPtr<BufWriter<File>>; ARR_LEN]> = OnceLock::new();
 
-fn results() -> &'static [AtomicPtr<Vec<RawConnStats>>; ARR_LEN] {
+fn results() -> &'static [AtomicPtr<BufWriter<File>>; ARR_LEN] {
     RESULTS.get_or_init(|| {
-        array_init(|_| AtomicPtr::new(Box::into_raw(Box::new(Vec::new()))))
+        let mut outp = vec![];
+        for core_id in 0..ARR_LEN {
+            let file_name = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";
+            let core_wtr = BufWriter::new(File::create(&file_name).unwrap());
+            let core_wtr = Box::into_raw(Box::new(core_wtr));
+            outp.push(core_wtr);
+        }
+        array_init(|i| AtomicPtr::new(outp[i].clone()))
     })
 }
 
@@ -67,16 +76,6 @@ impl Proto {
     }
 }
 
-struct RawConnStats {
-    five_tuple: FiveTuple,
-    #[allow(unused)]
-    history: ConnHistory,
-    interarrivals: InterArrivals,
-    byte_count: usize,
-    pkt_count: usize,
-    duration: Duration,
-    protos: Vec<Proto>,
-}
 
 #[derive(Serialize)]
 struct ConnStats {
@@ -110,23 +109,31 @@ impl ConnStats {
         }
     }
 
-    fn from_raw(stats: &mut RawConnStats) -> Self {
+    #[allow(clippy::too_many_arguments)]
+    fn from_raw(history: &ConnHistory,
+                interarrivals: &InterArrivals,
+                byte_count: &ByteCount,
+                pkt_count: &PktCount,
+                duration: &ConnDuration,
+                sessions: &SessionList,
+                five_tuple: &FiveTuple) -> Self {
+
         let mut output = ConnStats::new();
 
         // Populate protocols with TCP/UDP layer
-        output.protos = std::mem::take(&mut stats.protos);
-        if matches!(stats.five_tuple.proto, TCP_PROTOCOL) {
+        output.protos = Proto::from_sessions(sessions);
+        if matches!(five_tuple.proto, TCP_PROTOCOL) {
             output.protos.push(Proto::Tcp);
-        } else if matches!(stats.five_tuple.proto, UDP_PROTOCOL) {
+        } else if matches!(five_tuple.proto, UDP_PROTOCOL) {
             output.protos.push(Proto::Udp);
         }
 
         // Populate protocols with IP layer
         // Populate src/dst ports
-        if let V4(src) = stats.five_tuple.orig {
+        if let V4(src) = five_tuple.orig {
             output.protos.push(Proto::Ipv4);
             output.src_port = src.port();
-            if let V4(dst) = stats.five_tuple.resp {
+            if let V4(dst) = five_tuple.resp {
                 output.dst_port = dst.port();
                 if dst.ip().is_broadcast() ||
                    dst.ip().is_multicast() {
@@ -138,20 +145,20 @@ impl ConnStats {
             }
             output.client_private = src.ip().is_private();
 
-        } else if let V6(src) = stats.five_tuple.orig {
+        } else if let V6(src) = five_tuple.orig {
             output.protos.push(Proto::Ipv6);
             output.src_port = src.port();
-            if let V6(dst) = stats.five_tuple.resp {
+            if let V6(dst) = five_tuple.resp {
                 output.dst_port = dst.port();
                 let mask = !0u128 << (128 - 64); // Convert to a /64
                 output.server_v6 = Some(Ipv6Addr::from(dst.ip().to_bits() & mask));
             }
         }
-        output.history = std::mem::take(&mut stats.history);
-        output.interarrivals = stats.interarrivals.clone();
-        output.byte_count = stats.byte_count;
-        output.pkt_count = stats.pkt_count;
-        output.duration_ms = stats.duration.as_millis();
+        output.history = history.clone();
+        output.byte_count = byte_count.raw();
+        output.pkt_count = pkt_count.raw();
+        output.duration_ms = duration.duration().as_millis();
+        output.interarrivals = interarrivals.clone();
 
         output
     }
@@ -173,10 +180,11 @@ struct Args {
 
 const HIGH_DURATION_THRESH_MS: u128 = 1_000 * 60 * 5; // 5 mins
 
-fn save_record(stats: RawConnStats, core_id: &CoreId) {
+fn save_record(stats: ConnStats, core_id: &CoreId) {
     let ptr = results()[core_id.raw() as usize].load(Ordering::Relaxed);
-    let v = unsafe { &mut *ptr };
-    v.push(stats);
+    let wtr = unsafe { &mut *ptr };
+    let outp = serde_json::to_string(&stats).unwrap();
+    wtr.write_all(outp.as_bytes()).unwrap();
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -194,33 +202,31 @@ fn record(
     if duration.duration_ms() > HIGH_DURATION_THRESH_MS
     {
         save_record(
-            RawConnStats {
-                five_tuple: *five_tuple,
-                history: history.clone(),
-                interarrivals: interarrivals.clone(),
-                byte_count: byte_count.byte_count,
-                pkt_count: pkt_count.pkt_count,
-                duration: duration.duration(),
-                protos: Proto::from_sessions(sessions),
-            },
+            ConnStats::from_raw(
+                history,
+                interarrivals,
+                byte_count,
+                pkt_count,
+                duration,
+                sessions,
+                five_tuple,
+            ),
             core_id,
         );
     }
 }
 
 fn process_results(outfile: &PathBuf) {
-    let mut outp = vec![];
+    println!("Combining results from {} cores...", NUM_CORES);
+    let mut results = Vec::new();
     for core_id in 0..ARR_LEN {
-        let ptr = results()[core_id as usize].load(Ordering::Relaxed);
-        let v = unsafe { &mut *ptr };
-        for mut raw in v.iter_mut() {
-            outp.push(ConnStats::from_raw(&mut raw));
-        }
+        let fp = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";
+        let content = std::fs::read(fp.clone()).unwrap();
+        results.extend_from_slice(&content);
+        std::fs::remove_file(fp).unwrap();
     }
-    println!("Logging {} results", outp.len());
     let mut file = std::fs::File::create(outfile).unwrap();
-    let outp = serde_json::to_string(&outp).unwrap();
-    file.write_all(outp.as_bytes()).unwrap();
+    file.write_all(&results).unwrap();
 }
 
 #[retina_main(1)]
