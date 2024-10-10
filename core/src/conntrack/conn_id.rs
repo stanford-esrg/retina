@@ -87,7 +87,7 @@ impl FiveTuple {
             _ => "none",
         };
         format!(
-            "{{ proto: {}, src: {}, dst: {} }}",
+            "{{ \"proto\": \"{}\", \"src\": \"{}\", \"dst\": \"{}\" }}",
             proto, src_port, dst_port
         )
     }
