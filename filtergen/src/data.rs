@@ -177,14 +177,14 @@ pub(crate) fn build_packet_params(
     for datatype in &spec.datatypes {
         if matches!(datatype.level, Level::Packet) {
             params.push(quote! { p });
-            type_ident = Some(Ident::new(&datatype.as_str, Span::call_site()));
+            type_ident = Some(Ident::new(datatype.as_str, Span::call_site()));
         }
         // Spacial cases - can't be extracted from the packet data, so are
         // permitted in packet-layer callbacks
 
         // Literal string in code
         else if datatype.as_str == *FILTER_STR {
-            params.push(retina_datatypes::FilterStr::from_subscription(&spec));
+            params.push(retina_datatypes::FilterStr::from_subscription(spec));
         }
         // passed as a parameter to the packet filter, accessed directly
         // or pulled from directly tracked data
@@ -218,7 +218,7 @@ pub(crate) fn build_packet_callback(
         None => quote! { true },
     };
 
-    return match filter_layer {
+    match filter_layer {
         // Deliver packet directly
         FilterLayer::PacketContinue | FilterLayer::PacketDeliver => {
             quote! {
@@ -237,7 +237,7 @@ pub(crate) fn build_packet_callback(
                 }
             }
         }
-    };
+    }
 }
 
 pub(crate) fn build_callback(
@@ -259,12 +259,12 @@ pub(crate) fn build_callback(
             continue;
         }
         if datatype.as_str == *FILTER_STR {
-            params.push(retina_datatypes::FilterStr::from_subscription(&spec));
+            params.push(retina_datatypes::FilterStr::from_subscription(spec));
             continue;
         }
         if matches!(datatype.level, Level::Session) && matches!(filter_layer, FilterLayer::Session)
         {
-            let type_ident = Ident::new(&datatype.as_str, Span::call_site());
+            let type_ident = Ident::new(datatype.as_str, Span::call_site());
             condition = quote! { if let Some(s) = #type_ident::from_session(session) };
             params.push(quote! { s });
         } else if matches!(datatype.level, Level::Static | Level::Connection) {
@@ -274,7 +274,7 @@ pub(crate) fn build_callback(
         } else if matches!(datatype.level, Level::Session)
             && matches!(filter_layer, FilterLayer::ConnectionDeliver)
         {
-            let type_ident = Ident::new(&datatype.as_str, Span::call_site());
+            let type_ident = Ident::new(datatype.as_str, Span::call_site());
             condition =
                 quote! { if let Some(s) = #type_ident::from_sessionlist(tracked.sessions()) };
             params.push(quote! { s });

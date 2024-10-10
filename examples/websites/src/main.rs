@@ -31,7 +31,7 @@ fn results() -> &'static [AtomicPtr<BufWriter<File>>; ARR_LEN] {
             let core_wtr = Box::into_raw(Box::new(core_wtr));
             outp.push(core_wtr);
         }
-        array_init(|i| AtomicPtr::new(outp[i].clone()))
+        array_init(|i| AtomicPtr::new(outp[i]))
     })
 }
 
@@ -83,7 +83,7 @@ fn tls_cb(tls: &TlsHandshake, core_id: &CoreId) {
 
 #[filter("quic")]
 fn quic_cb(quic: &QuicStream, core_id: &CoreId) {
-    let sni = (*quic).tls.sni().to_string();
+    let sni = quic.tls.sni().to_string();
     write_result("quic", sni, core_id);
 }
 
@@ -91,7 +91,7 @@ fn combine_results(outfile: &PathBuf) {
     println!("Combining results from {} cores...", NUM_CORES);
     let mut output = Vec::new();
     for core_id in 0..ARR_LEN {
-        let ptr = results()[core_id as usize].load(Ordering::Relaxed);
+        let ptr = results()[core_id].load(Ordering::Relaxed);
         let wtr = unsafe { &mut *ptr };
         wtr.flush().unwrap();
         let fp = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";

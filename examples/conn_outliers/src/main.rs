@@ -37,7 +37,7 @@ fn results() -> &'static [AtomicPtr<BufWriter<File>>; ARR_LEN] {
             let core_wtr = Box::into_raw(Box::new(core_wtr));
             outp.push(core_wtr);
         }
-        array_init(|i| AtomicPtr::new(outp[i].clone()))
+        array_init(|i| AtomicPtr::new(outp[i]))
     })
 }
 
@@ -137,7 +137,7 @@ impl ConnStats {
                 output.dst_port = dst.port();
                 if dst.ip().is_broadcast() ||
                    dst.ip().is_multicast() {
-                    output.server_v4 = Some(dst.ip().clone());
+                    output.server_v4 = Some(*dst.ip());
                 } else {
                     let mask = !0u32 << (32 - 24); // Convert to a /24
                     output.server_v4 = Some(Ipv4Addr::from(dst.ip().to_bits() & mask));

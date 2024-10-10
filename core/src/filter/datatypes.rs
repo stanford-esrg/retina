@@ -2,7 +2,7 @@ use super::ast::Predicate;
 use super::ptree::FilterLayer;
 use super::{ActionData, Actions};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub enum Level {
     // Deliver per-packet
     Packet,
@@ -233,7 +233,7 @@ impl DataType {
         // Connection- and session-level subscriptions depend on the actions required
         self.needs_update(&mut actions);
         self.track_packets(&mut actions);
-        self.conn_deliver(&sub_level, &mut actions);
+        self.conn_deliver(sub_level, &mut actions);
 
         if self.needs_parse {
             // Framework will need to know it is at probing stage
@@ -275,7 +275,7 @@ impl DataType {
         self.needs_update(&mut actions);
         self.track_packets(&mut actions);
         self.track_sessions(&mut actions, sub_level);
-        self.conn_deliver(&sub_level, &mut actions);
+        self.conn_deliver(sub_level, &mut actions);
 
         if matches!(sub_level, Level::Session) {
             // Deliver session when parsed (done in session filter)
@@ -299,7 +299,7 @@ impl DataType {
         self.needs_update(&mut actions);
         self.track_packets(&mut actions);
         self.track_sessions(&mut actions, sub_level);
-        self.conn_deliver(&sub_level, &mut actions);
+        self.conn_deliver(sub_level, &mut actions);
 
         // Session-level subscriptions will be delivered in session filter
 
@@ -337,8 +337,8 @@ impl SubscriptionSpec {
     pub fn new(filter: String, callback: String) -> Self {
         Self {
             datatypes: vec![],
-            filter: filter,
-            callback: callback,
+            filter,
+            callback,
             level: Level::Static, // Will be overwritten by any future levels
         }
     }

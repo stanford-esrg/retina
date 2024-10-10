@@ -206,10 +206,8 @@ impl PNode {
         if matches!(
             filter_layer,
             FilterLayer::PacketDeliver | FilterLayer::Packet
-        ) {
-            if self.pred.is_unary() && self.children.iter().any(|n| n.pred.is_unary()) {
-                return true;
-            }
+        ) && self.pred.is_unary() && self.children.iter().any(|n| n.pred.is_unary()) {
+            return true;
         }
         self.pred.is_unary()
             && self
@@ -222,7 +220,7 @@ impl PNode {
     // at node `self`.
     fn get_paths(&self, curr_path: &mut Vec<String>, paths: &mut Vec<String>) {
         if self.children.is_empty() && !curr_path.is_empty() {
-            paths.push(format!("{}", curr_path.join(",")));
+            paths.push(curr_path.join(","));
         } else {
             for c in &self.children {
                 curr_path.push(format!("{}", c));
@@ -345,10 +343,10 @@ impl PTree {
             self.add_pattern(pattern, i, subscription, deliver);
         }
 
-        if !added {
-            if self.root.pred.is_prev_layer(self.filter_layer, &subscription.level) {
-                return;
-            }
+        if !added &&
+            self.root.pred.is_prev_layer(self.filter_layer, &subscription.level)
+        {
+            return;
         }
 
         // Need to terminate somewhere
@@ -560,7 +558,7 @@ impl PTree {
             // 3. Repeat for each child
             node.children
                 .iter_mut()
-                .for_each(|child| prune(child, &mut my_actions, &mut my_deliver));
+                .for_each(|child| prune(child, &my_actions, &my_deliver));
 
             // 4. Remove empty children
             let children = std::mem::take(&mut node.children);

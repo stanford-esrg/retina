@@ -57,10 +57,10 @@ pub struct EthAddr {
 impl StaticData for EthAddr {
     fn new(first_pkt: &L4Pdu) -> Self {
         if let Ok(ethernet) = &Packet::parse_to::<Ethernet>(first_pkt.mbuf_ref()) {
-            return Self {
+            Self {
                 src: ethernet.src(),
                 dst: ethernet.dst(),
-            };
+            }
         } else {
             panic!("Non-ethernet packets not supported");
         }

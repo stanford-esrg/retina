@@ -111,7 +111,6 @@ where
                 // Delete stale data for connections no longer matching
                 if conn.remove_from_table() {
                     occupied.remove();
-                    return;
                 } else if conn.drop_pdu() {
                     conn.info.clear();
                 } else if conn.terminated() {

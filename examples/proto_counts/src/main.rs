@@ -33,7 +33,7 @@ fn init_results() -> [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
     for _ in 0..ARR_LEN {
         results.push(Box::into_raw(Box::new(HashMap::new())));
     }
-    array_init(|i| AtomicPtr::new(results[i].clone()))
+    array_init(|i| AtomicPtr::new(results[i]))
 }
 
 fn udp_results() -> &'static [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
@@ -77,7 +77,7 @@ fn core_files() -> &'static [AtomicPtr<BufWriter<File>>; ARR_LEN] {
             let core_wtr = Box::into_raw(Box::new(core_wtr));
             outp.push(core_wtr);
         }
-        array_init(|i| AtomicPtr::new(outp[i].clone()))
+        array_init(|i| AtomicPtr::new(outp[i]))
     })
 }
 
@@ -268,7 +268,7 @@ fn quic_cb(quic: &QuicStream, five_tuple: &FiveTuple, core_id: &CoreId) {
     let data = ProtoData::Quic(QuicData {
         server_subnet: five_tuple.dst_subnet_str(),
         transp_proto: five_tuple.transp_proto_str(),
-        sni: (*quic).tls.sni().to_string(),
+        sni: quic.tls.sni().to_string(),
     });
     let ptr = core_files()[core_id.raw() as usize].load(Ordering::Relaxed);
     let wtr = unsafe { &mut *ptr };
@@ -290,33 +290,32 @@ fn combine_results(outfile: &PathBuf) {
     let mut results = Results::default();
     for core_id in 0..ARR_LEN {
         // TCP per-port packet counts
-        let ptr = tcp_results()[core_id as usize].load(Ordering::SeqCst);
+        let ptr = tcp_results()[core_id].load(Ordering::SeqCst);
         let dict = unsafe { &*ptr };
         results.tcp_pkts.extend(dict);
 
         // TCP per-port conn counts
-        let ptr = tcp_conn_results()[core_id as usize].load(Ordering::SeqCst);
+        let ptr = tcp_conn_results()[core_id].load(Ordering::SeqCst);
         let dict = unsafe { &*ptr };
         results.tcp_conns.extend(dict);
 
         // UDP per-port packet counts
-        let ptr = udp_results()[core_id as usize].load(Ordering::SeqCst);
+        let ptr = udp_results()[core_id].load(Ordering::SeqCst);
         let dict = unsafe { &*ptr };
         results.udp_pkts.extend(dict);
 
         // UDP per-port conn counts
-        let ptr = udp_conn_results()[core_id as usize].load(Ordering::SeqCst);
+        let ptr = udp_conn_results()[core_id].load(Ordering::SeqCst);
         let dict = unsafe { &*ptr };
         results.udp_conns.extend(dict);
 
         // Sessions on unexpected ports
-        let ptr = core_files()[core_id as usize].load(Ordering::Relaxed);
+        let ptr = core_files()[core_id].load(Ordering::Relaxed);
         let wtr = unsafe { &mut *ptr };
         wtr.flush().unwrap();
         let fp = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";
         let rdr = BufReader::new(File::open(fp.clone()).unwrap());
         let sessions: Vec<ProtoData> = rdr.lines()
-                                            .into_iter()
                                             .map(|line| {
                                                 serde_json::from_str(
                                                     &line.unwrap()

@@ -49,7 +49,7 @@ fn filter_subtree(input: &SubscriptionConfig, filter_layer: FilterLayer) -> PTre
             as_str: spec.as_str(),
             must_deliver: spec.datatypes.iter().any(|d| d.as_str == "FilterStr"),
         };
-        ptree.add_filter(&patterns, &spec, &deliver);
+        ptree.add_filter(&patterns, spec, &deliver);
         DELIVER.lock().unwrap().insert(i, spec.clone());
     }
 
@@ -202,7 +202,7 @@ pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     // Otherwise, ready to assemble
-    let config = SubscriptionConfig::from_raw(&*CACHED_SUBSCRIPTIONS.lock().unwrap());
+    let config = SubscriptionConfig::from_raw(&CACHED_SUBSCRIPTIONS.lock().unwrap());
 
     generate(input, config)
 }
@@ -225,7 +225,7 @@ pub fn retina_main(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     // Otherwise, ready to assemble
-    let config = SubscriptionConfig::from_raw(&*CACHED_SUBSCRIPTIONS.lock().unwrap());
+    let config = SubscriptionConfig::from_raw(&CACHED_SUBSCRIPTIONS.lock().unwrap());
 
     generate(input, config)
 }
