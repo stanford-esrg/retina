@@ -126,8 +126,8 @@ pub struct InterArrivals {
     interarrivals_stoc: Vec<Duration>,
 }
 
-impl Tracked for InterArrivals {
-    fn new(_first_pkt: &L4Pdu) -> Self {
+impl InterArrivals {
+    pub fn new_empty() -> Self {
         let now = Instant::now();
         Self {
             pkt_count_ctos: 0,
@@ -137,6 +137,12 @@ impl Tracked for InterArrivals {
             interarrivals_ctos: Vec::new(),
             interarrivals_stoc: Vec::new(),
         }
+    }
+}
+
+impl Tracked for InterArrivals {
+    fn new(_first_pkt: &L4Pdu) -> Self {
+        Self::new_empty()
     }
 
     #[inline]

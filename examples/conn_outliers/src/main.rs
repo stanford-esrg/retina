@@ -4,6 +4,7 @@ use retina_core::protocols::stream::SessionData;
 use retina_core::{CoreId, FiveTuple, Runtime};
 use retina_datatypes::*;
 use retina_filtergen::{filter, retina_main};
+use std::net::{Ipv6Addr, Ipv4Addr};
 
 use std::io::Write;
 use std::net::SocketAddr::{V4, V6};
@@ -69,7 +70,6 @@ impl Proto {
 struct RawConnStats {
     five_tuple: FiveTuple,
     #[allow(unused)]
-    eth: EthAddr,
     history: ConnHistory,
     interarrivals: InterArrivals,
     byte_count: usize,
@@ -80,9 +80,11 @@ struct RawConnStats {
 
 #[derive(Serialize)]
 struct ConnStats {
+    server_v4: Option<Ipv4Addr>,
+    server_v6: Option<Ipv6Addr>,
+    client_private: bool,
     src_port: u16,
     dst_port: u16,
-    iot: Option<String>,
     history: ConnHistory,
     interarrivals: InterArrivals,
     byte_count: usize,
@@ -92,49 +94,66 @@ struct ConnStats {
 }
 
 impl ConnStats {
+    fn new() -> Self {
+        Self {
+            server_v4: None,
+            server_v6: None,
+            client_private: false,
+            src_port: 0,
+            dst_port: 0,
+            history: ConnHistory { history: vec![], },
+            interarrivals: InterArrivals::new_empty(),
+            byte_count: 0,
+            pkt_count: 0,
+            duration_ms: 0,
+            protos: vec![],
+        }
+    }
+
     fn from_raw(stats: &mut RawConnStats) -> Self {
-        let mut src_port = 0;
-        let mut dst_port = 0;
+        let mut output = ConnStats::new();
 
         // Populate protocols with TCP/UDP layer
-        let mut protos = std::mem::take(&mut stats.protos);
+        output.protos = std::mem::take(&mut stats.protos);
         if matches!(stats.five_tuple.proto, TCP_PROTOCOL) {
-            protos.push(Proto::Tcp);
+            output.protos.push(Proto::Tcp);
         } else if matches!(stats.five_tuple.proto, UDP_PROTOCOL) {
-            protos.push(Proto::Udp);
+            output.protos.push(Proto::Udp);
         }
 
         // Populate protocols with IP layer
         // Populate src/dst ports
         if let V4(src) = stats.five_tuple.orig {
-            protos.push(Proto::Ipv4);
-            src_port = src.port();
+            output.protos.push(Proto::Ipv4);
+            output.src_port = src.port();
             if let V4(dst) = stats.five_tuple.resp {
-                dst_port = dst.port();
+                output.dst_port = dst.port();
+                if dst.ip().is_broadcast() ||
+                   dst.ip().is_multicast() {
+                    output.server_v4 = Some(dst.ip().clone());
+                } else {
+                    let mask = !0u32 << (32 - 24); // Convert to a /24
+                    output.server_v4 = Some(Ipv4Addr::from(dst.ip().to_bits() & mask));
+                }
             }
-        } else if let V6(src) = stats.five_tuple.orig {
-            protos.push(Proto::Ipv6);
-            src_port = src.port();
-            if let V6(dst) = stats.five_tuple.resp {
-                dst_port = dst.port();
-            }
-        }
-        // Don't write raw MAC addresses to disk
-        // Just check for known IoT devices
-        // TODO
-        // let iot = lookup_iot(&stats.eth.src, &stats.eth.dst);
+            output.client_private = src.ip().is_private();
 
-        Self {
-            src_port,
-            dst_port,
-            iot: None,
-            history: std::mem::take(&mut stats.history),
-            interarrivals: stats.interarrivals.clone(),
-            byte_count: stats.byte_count,
-            pkt_count: stats.pkt_count,
-            duration_ms: stats.duration.as_millis(),
-            protos,
+        } else if let V6(src) = stats.five_tuple.orig {
+            output.protos.push(Proto::Ipv6);
+            output.src_port = src.port();
+            if let V6(dst) = stats.five_tuple.resp {
+                output.dst_port = dst.port();
+                let mask = !0u128 << (128 - 64); // Convert to a /64
+                output.server_v6 = Some(Ipv6Addr::from(dst.ip().to_bits() & mask));
+            }
         }
+        output.history = std::mem::take(&mut stats.history);
+        output.interarrivals = stats.interarrivals.clone();
+        output.byte_count = stats.byte_count;
+        output.pkt_count = stats.pkt_count;
+        output.duration_ms = stats.duration.as_millis();
+
+        output
     }
 }
 
@@ -172,14 +191,12 @@ fn record(
     duration: &ConnDuration,
     sessions: &SessionList,
     five_tuple: &FiveTuple,
-    ethaddr: &EthAddr,
 ) {
     if duration.duration_ms() > HIGH_DURATION_THRESH_MS || pkt_count.pkt_count < PKT_CNT_LOW_THRESH
     {
         save_record(
             RawConnStats {
                 five_tuple: *five_tuple,
-                eth: ethaddr.clone(),
                 history: history.clone(),
                 interarrivals: interarrivals.clone(),
                 byte_count: byte_count.byte_count,
