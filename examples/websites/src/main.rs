@@ -89,15 +89,18 @@ fn quic_cb(quic: &QuicStream, core_id: &CoreId) {
 
 fn combine_results(outfile: &PathBuf) {
     println!("Combining results from {} cores...", NUM_CORES);
-    let mut results = Vec::new();
+    let mut output = Vec::new();
     for core_id in 0..ARR_LEN {
+        let ptr = results()[core_id as usize].load(Ordering::Relaxed);
+        let wtr = unsafe { &mut *ptr };
+        wtr.flush().unwrap();
         let fp = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";
         let content = std::fs::read(fp.clone()).unwrap();
-        results.extend_from_slice(&content);
+        output.extend_from_slice(&content);
         std::fs::remove_file(fp).unwrap();
     }
     let mut file = std::fs::File::create(outfile).unwrap();
-    file.write_all(&results).unwrap();
+    file.write_all(&output).unwrap();
 }
 
 #[retina_main(4)]

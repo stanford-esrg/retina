@@ -6,7 +6,9 @@ use crate::conntrack::L4Context;
 
 use std::cmp;
 use std::fmt;
-use std::net::SocketAddr;
+use std::net::{Ipv6Addr, Ipv4Addr, SocketAddr, SocketAddr::V6, SocketAddr::V4};
+use crate::protocols::packet::tcp::TCP_PROTOCOL;
+use crate::protocols::packet::udp::UDP_PROTOCOL;
 
 use serde::Serialize;
 
@@ -38,6 +40,57 @@ impl FiveTuple {
     pub fn conn_id(&self) -> ConnId {
         ConnId::new(self.orig, self.resp, self.proto)
     }
+
+    /// Utility for returning a string representation of the dst. subnet
+    /// /24 for IPv4, /64 for IPv6; no mask for broadcast
+    pub fn dst_subnet_str(&self) -> String {
+        if let V4(_) = self.orig {
+            if let V4(dst) = self.resp {
+                if dst.ip().is_broadcast() ||
+                   dst.ip().is_multicast() {
+                    return dst.ip().to_string();
+                } else {
+                    let mask = !0u32 << (32 - 24); // Convert to a /24
+                    return Ipv4Addr::from(dst.ip().to_bits() & mask).to_string();
+                }
+            }
+
+        } else if let V6(_) = self.orig {
+            if let V6(dst) = self.resp {
+                let mask = !0u128 << (128 - 64); // Convert to a /64
+                return Ipv6Addr::from(dst.ip().to_bits() & mask).to_string();
+            }
+        }
+        String::new()
+    }
+
+    /// Utility for returning a string representation of the dst. IP
+    pub fn dst_ip_str(&self) -> String {
+        if let V4(_) = self.orig {
+            if let V4(dst) = self.resp {
+                return dst.ip().to_string();
+            }
+        } else if let V6(_) = self.orig {
+            if let V6(dst) = self.resp {
+                return dst.ip().to_string();
+            }
+        }
+        String::new()
+    }
+
+    /// Utility for returning a string representation of the transport
+    /// protocol and source/destination ports
+    pub fn transp_proto_str(&self) -> String {
+        let src_port = self.orig.port();
+        let dst_port = self.resp.port();
+        let proto = match self.proto {
+            UDP_PROTOCOL => "udp",
+            TCP_PROTOCOL => "tcp",
+            _ => "none"
+        };
+        format!("{{ proto: {}, src: {}, dst: {} }}", proto, src_port, dst_port)
+    }
+
 }
 
 impl fmt::Display for FiveTuple {

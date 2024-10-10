@@ -30,4 +30,43 @@ impl Dns {
         }
         ""
     }
+
+    /// Returns a string representation of the answers
+    pub fn answers(&self) -> String {
+        if let Some(resp) = &self.response {
+            if !resp.answers.is_empty() {
+                return serde_json::to_string(&resp.answers).unwrap_or(String::new());
+            }
+        }
+        String::new()
+    }
+
+    /// Returns a string representation of the response nameservers
+    pub fn nameservers(&self) -> String {
+        if let Some(resp) = &self.response {
+            if !resp.nameservers.is_empty() {
+                return serde_json::to_string(&resp.nameservers).unwrap_or(String::new());
+            }
+        }
+        String::new()
+    }
+
+    /// Returns a string representation of the response additionals
+    pub fn additionals(&self) -> String {
+        if let Some(resp) = &self.response {
+            if !resp.additionals.is_empty() {
+                return serde_json::to_string(&resp.additionals).unwrap_or(String::new());
+            }
+        }
+        String::new()
+    }
+
+    /// Returns a string representation of the response
+    pub fn response(&self) -> String {
+        if let Some(resp) = &self.response {
+            return serde_json::to_string(&resp).unwrap_or(String::new());
+        }
+        String::new()
+    }
+
 }
