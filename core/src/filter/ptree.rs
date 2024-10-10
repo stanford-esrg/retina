@@ -587,12 +587,18 @@ impl PTree {
     // We only do this for packet-level conditions, as connection-level
     // conditions are needed to extract sessions.
     fn prune_packet_conditions(&mut self) {
-        fn prune_packet_conditions(node: &mut PNode, filter_layer: FilterLayer) {
+        fn prune_packet_conditions(node: &mut PNode, filter_layer: FilterLayer, can_prune: bool) {
             if !node.pred.on_packet() {
                 return;
             }
+            // Can only safely remove children if
+            // current branches are mutually exclusive
+            let can_prune_next = node.children.windows(2).all(|w| w[0].pred.is_excl(&w[1].pred));
             for child in &mut node.children {
-                prune_packet_conditions(child, filter_layer);
+                prune_packet_conditions(child, filter_layer, can_prune_next);
+            }
+            if !can_prune {
+                return;
             }
             // Tree layer is only drop/keep (i.e., one condition),
             // and condition checked at prev. layer
@@ -616,7 +622,8 @@ impl PTree {
         if matches!(self.filter_layer, FilterLayer::PacketContinue) {
             return;
         }
-        prune_packet_conditions(&mut self.root, self.filter_layer);
+        let can_prune_next = self.root.children.windows(2).all(|w| w[0].pred.is_excl(&w[1].pred));
+        prune_packet_conditions(&mut self.root, self.filter_layer, can_prune_next);
     }
 
     // Avoid applying conditions that (1) are not needed for filtering *out*
@@ -625,12 +632,20 @@ impl PTree {
     // Example: two different IP addresses in a packet filter followed by
     // a TCP/UDP disambiguation.
     fn prune_redundant_branches(&mut self) {
-        fn prune_redundant_branches(node: &mut PNode, filter_layer: FilterLayer) {
+        fn prune_redundant_branches(node: &mut PNode, filter_layer: FilterLayer, can_prune: bool) {
             if !node.pred.is_prev_layer_pred(filter_layer) {
                 return;
             }
+
+            // Can only safely remove children if
+            // current branches are mutually exclusive
+            let can_prune_next = node.children.windows(2).all(|w| w[0].pred.is_excl(&w[1].pred));
+
             for child in &mut node.children {
-                prune_redundant_branches(child, filter_layer);
+                prune_redundant_branches(child, filter_layer, can_prune_next);
+            }
+            if !can_prune {
+                return;
             }
 
             let (must_keep, could_drop): (Vec<PNode>, Vec<PNode>) =
@@ -659,7 +674,8 @@ impl PTree {
         if matches!(self.filter_layer, FilterLayer::PacketContinue) {
             return;
         }
-        prune_redundant_branches(&mut self.root, self.filter_layer);
+        let can_prune_next = self.root.children.windows(2).all(|w| w[0].pred.is_excl(&w[1].pred));
+        prune_redundant_branches(&mut self.root, self.filter_layer, can_prune_next);
     }
 
     /// Apply all filter tree optimizations.
@@ -1154,5 +1170,25 @@ mod tests {
         ptree.collapse();
         // One subscription, no disambiguation
         assert!(ptree.size == 1);
+    }
+
+    #[test]
+    fn core_ptree_neq() {
+        let filters = vec![
+            "tcp.dst_port != 80 and tcp.dst_port != 8080 and http",
+            "dns and ((tcp and tcp.dst_port != 53 and tcp.dst_port != 5353) or (udp and udp.dst_port != 53 and udp.dst_port != 5353))",
+        ];
+        let mut ptree = PTree::new_empty(FilterLayer::Session);
+        for f in &filters {
+            let mut spec = SubscriptionSpec::new(String::from(*f), String::from("callback"));
+            spec.add_datatype(DataType::new_default_session("S", vec![]));
+            let filter = Filter::new(f).unwrap();
+            ptree.add_filter(&filter.get_patterns_flat(), &spec, &DELIVER);
+        }
+        ptree.collapse();
+        assert!(ptree.size == 10);
+        // eth -> tcp -> tcp.dst_port != 80 -> tcp.dst_port != 8080
+        // make sure tcp.dst_port != 8080 is still there
+        assert!(ptree.get_subtree(2).unwrap().children.len() == 1);
     }
 }
