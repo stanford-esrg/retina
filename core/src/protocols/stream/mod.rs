@@ -11,10 +11,10 @@ pub mod quic;
 pub mod tls;
 
 use self::conn::ConnField;
+use self::conn::{Ipv4CData, Ipv6CData, TcpCData, UdpCData};
 use self::dns::{parser::DnsParser, Dns};
 use self::http::{parser::HttpParser, Http};
 use self::quic::parser::QuicParser;
-use self::conn::{TcpCData, UdpCData, Ipv4CData, Ipv6CData};
 use self::tls::{parser::TlsParser, Tls};
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
@@ -148,25 +148,19 @@ pub struct ConnData {
 }
 
 impl ConnData {
-
     pub(crate) fn supported_fields() -> Vec<&'static str> {
-        let mut v: Vec<_> =
-            TcpCData::supported_fields().into_iter()
-                                        .chain(UdpCData::supported_fields())
-                                        .chain(Ipv4CData::supported_fields())
-                                        .chain(Ipv6CData::supported_fields())
-                                        .collect();
+        let mut v: Vec<_> = TcpCData::supported_fields()
+            .into_iter()
+            .chain(UdpCData::supported_fields())
+            .chain(Ipv4CData::supported_fields())
+            .chain(Ipv6CData::supported_fields())
+            .collect();
         v.dedup();
         v
     }
 
     pub(crate) fn supported_protocols() -> Vec<&'static str> {
-        vec![
-            "ipv4",
-            "ipv6",
-            "tcp",
-            "udp"
-        ]
+        vec!["ipv4", "ipv6", "tcp", "udp"]
     }
 
     /// Create a new `ConnData` from the connection `five_tuple` and the ID of the last matched node

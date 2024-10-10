@@ -4,13 +4,13 @@ use retina_core::protocols::stream::SessionData;
 use retina_core::{CoreId, FiveTuple, Runtime};
 use retina_datatypes::*;
 use retina_filtergen::{filter, retina_main};
-use std::net::{Ipv6Addr, Ipv4Addr};
+use std::net::{Ipv4Addr, Ipv6Addr};
 
-use std::io::{BufWriter, Write};
 use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::net::SocketAddr::{V4, V6};
-use std::sync::atomic::{AtomicPtr, Ordering};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::OnceLock;
 
 use array_init::array_init;
@@ -76,7 +76,6 @@ impl Proto {
     }
 }
 
-
 #[derive(Serialize)]
 struct ConnStats {
     server_v4: Option<Ipv4Addr>,
@@ -100,7 +99,7 @@ impl ConnStats {
             client_private: false,
             src_port: 0,
             dst_port: 0,
-            history: ConnHistory { history: vec![], },
+            history: ConnHistory { history: vec![] },
             interarrivals: InterArrivals::new_empty(),
             byte_count: 0,
             pkt_count: 0,
@@ -110,14 +109,15 @@ impl ConnStats {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn from_raw(history: &ConnHistory,
-                interarrivals: &InterArrivals,
-                byte_count: &ByteCount,
-                pkt_count: &PktCount,
-                duration: &ConnDuration,
-                sessions: &SessionList,
-                five_tuple: &FiveTuple) -> Self {
-
+    fn from_raw(
+        history: &ConnHistory,
+        interarrivals: &InterArrivals,
+        byte_count: &ByteCount,
+        pkt_count: &PktCount,
+        duration: &ConnDuration,
+        sessions: &SessionList,
+        five_tuple: &FiveTuple,
+    ) -> Self {
         let mut output = ConnStats::new();
 
         // Populate protocols with TCP/UDP layer
@@ -135,8 +135,7 @@ impl ConnStats {
             output.src_port = src.port();
             if let V4(dst) = five_tuple.resp {
                 output.dst_port = dst.port();
-                if dst.ip().is_broadcast() ||
-                   dst.ip().is_multicast() {
+                if dst.ip().is_broadcast() || dst.ip().is_multicast() {
                     output.server_v4 = Some(*dst.ip());
                 } else {
                     let mask = !0u32 << (32 - 24); // Convert to a /24
@@ -144,7 +143,6 @@ impl ConnStats {
                 }
             }
             output.client_private = src.ip().is_private();
-
         } else if let V6(src) = five_tuple.orig {
             output.protos.push(Proto::Ipv6);
             output.src_port = src.port();
@@ -202,9 +200,7 @@ fn record(
     five_tuple: &FiveTuple,
 ) {
     // Look for connections that send few packets over high amt of time
-    if duration.duration_ms() > HIGH_DURATION_THRESH_MS &&
-       pkt_count.pkt_count < LOW_PKT_THRESH
-    {
+    if duration.duration_ms() > HIGH_DURATION_THRESH_MS && pkt_count.pkt_count < LOW_PKT_THRESH {
         save_record(
             ConnStats::from_raw(
                 history,

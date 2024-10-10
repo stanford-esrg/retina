@@ -24,7 +24,6 @@ impl Ipv4CData {
 }
 
 impl ConnField for Ipv4CData {
-
     fn supported_fields() -> Vec<&'static str> {
         vec!["src_addr", "dst_addr"]
     }

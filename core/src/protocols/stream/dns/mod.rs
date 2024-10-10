@@ -68,5 +68,4 @@ impl Dns {
         }
         String::new()
     }
-
 }

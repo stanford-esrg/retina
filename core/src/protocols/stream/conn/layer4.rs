@@ -72,7 +72,6 @@ impl UdpCData {
 }
 
 impl ConnField for UdpCData {
-
     fn supported_fields() -> Vec<&'static str> {
         vec!["src_port", "dst_port"]
     }

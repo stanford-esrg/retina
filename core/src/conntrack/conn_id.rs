@@ -4,11 +4,11 @@
 
 use crate::conntrack::L4Context;
 
-use std::cmp;
-use std::fmt;
-use std::net::{Ipv6Addr, Ipv4Addr, SocketAddr, SocketAddr::V6, SocketAddr::V4};
 use crate::protocols::packet::tcp::TCP_PROTOCOL;
 use crate::protocols::packet::udp::UDP_PROTOCOL;
+use std::cmp;
+use std::fmt;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddr::V4, SocketAddr::V6};
 
 use serde::Serialize;
 
@@ -46,15 +46,13 @@ impl FiveTuple {
     pub fn dst_subnet_str(&self) -> String {
         if let V4(_) = self.orig {
             if let V4(dst) = self.resp {
-                if dst.ip().is_broadcast() ||
-                   dst.ip().is_multicast() {
+                if dst.ip().is_broadcast() || dst.ip().is_multicast() {
                     return dst.ip().to_string();
                 } else {
                     let mask = !0u32 << (32 - 24); // Convert to a /24
                     return Ipv4Addr::from(dst.ip().to_bits() & mask).to_string();
                 }
             }
-
         } else if let V6(_) = self.orig {
             if let V6(dst) = self.resp {
                 let mask = !0u128 << (128 - 64); // Convert to a /64
@@ -86,11 +84,13 @@ impl FiveTuple {
         let proto = match self.proto {
             UDP_PROTOCOL => "udp",
             TCP_PROTOCOL => "tcp",
-            _ => "none"
+            _ => "none",
         };
-        format!("{{ proto: {}, src: {}, dst: {} }}", proto, src_port, dst_port)
+        format!(
+            "{{ proto: {}, src: {}, dst: {} }}",
+            proto, src_port, dst_port
+        )
     }
-
 }
 
 impl fmt::Display for FiveTuple {

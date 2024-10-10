@@ -5,13 +5,13 @@ use super::Level;
 use std::collections::HashSet;
 use std::fmt;
 
+use crate::protocols::stream::ConnData;
 use bimap::BiMap;
 use ipnet::{Ipv4Net, Ipv6Net};
 use petgraph::algo;
 use petgraph::graph::Graph;
 use petgraph::graph::NodeIndex;
 use regex::Regex;
-use crate::protocols::stream::ConnData;
 
 use crate::port::Port;
 
@@ -118,9 +118,11 @@ impl Predicate {
             protocol: _proto,
             field: field_name,
             ..
-        } = self {
-            return field_name.name() != "port" && field_name.name() != "addr" &&
-                    !ConnData::supported_fields().contains(&field_name.name());
+        } = self
+        {
+            return field_name.name() != "port"
+                && field_name.name() != "addr"
+                && !ConnData::supported_fields().contains(&field_name.name());
         }
         !ConnData::supported_protocols().contains(&self.get_protocol().name())
     }

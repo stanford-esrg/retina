@@ -1,20 +1,20 @@
 use retina_core::config::load_config;
 use retina_core::protocols::packet::{ethernet::*, ipv4::*, ipv6::*, tcp::*, udp::*, Packet};
+use retina_core::FiveTuple;
 use retina_core::{CoreId, Runtime};
 use retina_datatypes::*;
 use retina_filtergen::{filter, retina_main};
-use retina_core::FiveTuple;
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 use std::fs::File;
-use std::io::{BufWriter, BufReader, Write, BufRead};
-use std::sync::OnceLock;
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+use std::sync::OnceLock;
 
 use array_init::array_init;
 use clap::Parser;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 // Number of cores being used by the runtime; should match config file
 // Should be defined at compile-time so that we can use a
@@ -37,27 +37,19 @@ fn init_results() -> [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
 }
 
 fn udp_results() -> &'static [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
-    UDP_RESULTS.get_or_init( || {
-        init_results()
-    })
+    UDP_RESULTS.get_or_init(|| init_results())
 }
 
 fn tcp_results() -> &'static [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
-    TCP_RESULTS.get_or_init( || {
-        init_results()
-    })
+    TCP_RESULTS.get_or_init(|| init_results())
 }
 
 fn udp_conn_results() -> &'static [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
-    UDP_CONN_RESULTS.get_or_init( || {
-        init_results()
-    })
+    UDP_CONN_RESULTS.get_or_init(|| init_results())
 }
 
 fn tcp_conn_results() -> &'static [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
-    TCP_CONN_RESULTS.get_or_init( || {
-        init_results()
-    })
+    TCP_CONN_RESULTS.get_or_init(|| init_results())
 }
 
 static UDP_CNT: AtomicUsize = AtomicUsize::new(0);
@@ -315,12 +307,10 @@ fn combine_results(outfile: &PathBuf) {
         wtr.flush().unwrap();
         let fp = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";
         let rdr = BufReader::new(File::open(fp.clone()).unwrap());
-        let sessions: Vec<ProtoData> = rdr.lines()
-                                            .map(|line| {
-                                                serde_json::from_str(
-                                                    &line.unwrap()
-                                                ).unwrap()
-                                            }).collect();
+        let sessions: Vec<ProtoData> = rdr
+            .lines()
+            .map(|line| serde_json::from_str(&line.unwrap()).unwrap())
+            .collect();
         results.sessions.extend_from_slice(&sessions);
         std::fs::remove_file(fp).unwrap();
     }

@@ -206,7 +206,9 @@ impl PNode {
         if matches!(
             filter_layer,
             FilterLayer::PacketDeliver | FilterLayer::Packet
-        ) && self.pred.is_unary() && self.children.iter().any(|n| n.pred.is_unary()) {
+        ) && self.pred.is_unary()
+            && self.children.iter().any(|n| n.pred.is_unary())
+        {
             return true;
         }
         self.pred.is_unary()
@@ -343,8 +345,11 @@ impl PTree {
             self.add_pattern(pattern, i, subscription, deliver);
         }
 
-        if !added &&
-            self.root.pred.is_prev_layer(self.filter_layer, &subscription.level)
+        if !added
+            && self
+                .root
+                .pred
+                .is_prev_layer(self.filter_layer, &subscription.level)
         {
             return;
         }
