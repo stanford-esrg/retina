@@ -179,6 +179,7 @@ struct Args {
 }
 
 const HIGH_DURATION_THRESH_MS: u128 = 1_000 * 60 * 5; // 5 mins
+const LOW_PKT_THRESH: usize = 50; // Low packets
 
 fn save_record(stats: ConnStats, core_id: &CoreId) {
     let ptr = results()[core_id.raw() as usize].load(Ordering::Relaxed);
@@ -200,7 +201,9 @@ fn record(
     sessions: &SessionList,
     five_tuple: &FiveTuple,
 ) {
-    if duration.duration_ms() > HIGH_DURATION_THRESH_MS
+    // Look for connections that send few packets over high amt of time
+    if duration.duration_ms() > HIGH_DURATION_THRESH_MS &&
+       pkt_count.pkt_count < LOW_PKT_THRESH
     {
         save_record(
             ConnStats::from_raw(
