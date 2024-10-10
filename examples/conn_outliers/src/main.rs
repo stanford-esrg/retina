@@ -172,7 +172,6 @@ struct Args {
 }
 
 const HIGH_DURATION_THRESH_MS: u128 = 1_000 * 60 * 5; // 5 mins
-const PKT_CNT_LOW_THRESH: usize = 2;
 
 fn save_record(stats: RawConnStats, core_id: &CoreId) {
     let ptr = results()[core_id.raw() as usize].load(Ordering::Relaxed);
@@ -192,7 +191,7 @@ fn record(
     sessions: &SessionList,
     five_tuple: &FiveTuple,
 ) {
-    if duration.duration_ms() > HIGH_DURATION_THRESH_MS || pkt_count.pkt_count < PKT_CNT_LOW_THRESH
+    if duration.duration_ms() > HIGH_DURATION_THRESH_MS
     {
         save_record(
             RawConnStats {
