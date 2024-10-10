@@ -187,8 +187,9 @@ fn save_record(stats: ConnStats, core_id: &CoreId) {
     wtr.write_all(outp.as_bytes()).unwrap();
 }
 
+// Ignore Zoom
 #[allow(clippy::too_many_arguments)]
-#[filter("")]
+#[filter("(tcp and tcp.port != 8801 and tcp.port != 8802) or (udp and udp.port < 8801 and udp.port > 8810)")]
 fn record(
     core_id: &CoreId,
     history: &ConnHistory,
