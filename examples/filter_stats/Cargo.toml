@@ -16,3 +16,5 @@ serde_json = "1.0.96"
 lazy_static = "1.4.0"
 array-init = "2.0"
 serde = { version = "1.0", features = ["derive"] }
+ipcrypt = "0.1.0"
+regex = "1.7.3"

@@ -43,8 +43,6 @@ fn tcp_results() -> &'static [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
     })
 }
 
-static WLAN_CNT: AtomicUsize = AtomicUsize::new(0);
-static ETH_CNT: AtomicUsize = AtomicUsize::new(0);
 static UDP_CNT: AtomicUsize = AtomicUsize::new(0);
 static TCP_CNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -115,16 +113,6 @@ fn tcp_cp(mbuf: &ZcFrame, core_id: &CoreId) {
     TCP_CNT.fetch_add(1, Ordering::Relaxed);
 }
 
-#[filter("udp and udp.port = 5247")] // capwap
-fn wlan_l2t_cb(_mbuf: &ZcFrame) {
-    WLAN_CNT.fetch_add(1, Ordering::Relaxed);
-}
-
-#[filter("")] // all
-fn eth_cb(_mbuf: &ZcFrame) {
-    ETH_CNT.fetch_add(1, Ordering::Relaxed);
-}
-
 fn combine_results(outfile: &PathBuf) {
     let mut results = HashMap::from([("udp", HashMap::new()), ("tcp", HashMap::new())]);
     for core_id in 0..ARR_LEN {
@@ -141,7 +129,7 @@ fn combine_results(outfile: &PathBuf) {
     file.write_all(results.as_bytes()).unwrap();
 }
 
-#[retina_main(3)]
+#[retina_main(2)]
 fn main() {
     init();
     let args = Args::parse();
@@ -164,8 +152,7 @@ fn main() {
     runtime.run();
     combine_results(&args.outfile);
     println!(
-        "Got {} wlan, {} tcp, {} udp packets",
-        WLAN_CNT.load(Ordering::SeqCst),
+        "Got {} tcp, {} udp packets",
         TCP_CNT.load(Ordering::SeqCst),
         UDP_CNT.load(Ordering::SeqCst)
     );

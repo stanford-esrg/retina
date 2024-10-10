@@ -1,76 +1,40 @@
+use array_init::array_init;
 use retina_core::config::load_config;
 use retina_core::{CoreId, Runtime};
 use retina_datatypes::*;
 use retina_filtergen::subscription;
-use serde::Serialize;
+use std::sync::atomic::{AtomicPtr, Ordering};
 
-use std::collections::HashMap;
-use std::io::Write;
-use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-
-use array_init::array_init;
 use clap::Parser;
+use lazy_static::lazy_static;
+use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::path::PathBuf;
-use std::sync::OnceLock;
 
+// Number of cores being used by the runtime; should match config file
+// Should be defined at compile-time so that we can use a
+// statically-sized array for RESULTS
 const NUM_CORES: usize = 16;
+// Add 1 for ARR_LEN to avoid overflow; one core is used as main_core
 const ARR_LEN: usize = NUM_CORES + 1;
+// Temporary per-core files
+const OUTFILE_PREFIX: &str = "websites_";
 
-#[derive(Serialize)]
-struct ConnStats {
-    pub total_pkts: usize,
-    pub total_bytes: usize,
-    pub conn_count: Option<usize>,
-}
-
-impl ConnStats {
-    pub fn new() -> Self {
-        Self {
-            total_pkts: 0,
-            total_bytes: 0,
-            conn_count: Some(0),
+lazy_static! {
+    static ref RESULTS: [AtomicPtr<BufWriter<File>>; ARR_LEN] = {
+        let mut results = vec![];
+        for core_id in 0..ARR_LEN {
+            let file_name = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";
+            let core_wtr = BufWriter::new(File::create(&file_name).unwrap());
+            let core_wtr = Box::into_raw(Box::new(core_wtr));
+            results.push(core_wtr);
         }
-    }
-
-    pub fn update(&mut self, pkts: &PktCount, bytes: &ByteCount) {
-        self.conn_count.map(|cnt| cnt + 1);
-        self.total_pkts += pkts.pkt_count;
-        self.total_bytes += bytes.byte_count;
-    }
-
-    pub fn combine(&mut self, other: &ConnStats) {
-        self.total_pkts += other.total_pkts;
-        self.total_bytes += other.total_bytes;
-        self.conn_count.map(|cnt| cnt + other.conn_count.unwrap());
-    }
-}
-
-static RESULTS: OnceLock<[AtomicPtr<HashMap<String, ConnStats>>; ARR_LEN]> = OnceLock::new();
-static BYTES: OnceLock<[AtomicUsize; ARR_LEN]> = OnceLock::new();
-static PKTS: OnceLock<[AtomicUsize; ARR_LEN]> = OnceLock::new();
-
-fn results() -> &'static [AtomicPtr<HashMap<String, ConnStats>>; ARR_LEN] {
-    RESULTS.get_or_init( || {
-        array_init(|_| AtomicPtr::new(Box::into_raw(Box::new(HashMap::new()))))
-    })
-}
-
-fn bytes() -> &'static [AtomicUsize; ARR_LEN] {
-    BYTES.get_or_init( || {
-        array_init(|_| AtomicUsize::new(0))
-    })
-}
-
-fn pkts() -> &'static [AtomicUsize; ARR_LEN] {
-    PKTS.get_or_init( || {
-        array_init(|_| AtomicUsize::new(0))
-    })
+        array_init(|i| AtomicPtr::new(results[i].clone()))
+    };
 }
 
 fn init() {
-    let _ = results();
-    let _ = bytes();
-    let _ = pkts();
+    println("Initializing {} results", RESULTS.len());
 }
 
 #[derive(Parser, Debug)]
@@ -82,52 +46,64 @@ struct Args {
         long,
         parse(from_os_str),
         value_name = "FILE",
-        default_value = "filter_stats.jsonl"
+        default_value = "websites.jsonl"
     )]
     outfile: PathBuf,
 }
 
-fn record_conn(pkts: &PktCount, bytes: &ByteCount, core_id: &CoreId, filter_str: &FilterStr) {
-    let ptr = results()[core_id.raw() as usize].load(Ordering::Relaxed);
-    let dict = unsafe { &mut *ptr };
-    (*dict
-        .entry(String::from(*filter_str))
-        .or_insert(ConnStats::new()))
-    .update(pkts, bytes);
+fn write_result(key: &str, value: String, core_id: &CoreId) {
+    if value.is_empty() {
+        return;
+    } // Would it be helpful to count these?
+    let with_proto = format!("\n{}: {}", key, value);
+    let ptr = RESULTS[core_id.raw() as usize].load(Ordering::Relaxed);
+    let wtr = unsafe { &mut *ptr };
+    wtr.write_all(with_proto.as_bytes()).unwrap();
 }
 
-fn record_pkt(mbuf: &ZcFrame, core_id: &CoreId) {
-    pkts()[core_id.raw() as usize].fetch_add(1, Ordering::Relaxed);
-    bytes()[core_id.raw() as usize].fetch_add(mbuf.data_len(), Ordering::Relaxed);
+fn dns_cb(dns: &DnsTransaction, core_id: &CoreId, filter_str: &FilterStr) {
+    let query_domain = (*dns).query_domain().to_string();
+    write_result(*filter_str, query_domain, core_id);
+}
+
+fn http_cb(http: &HttpTransaction, core_id: &CoreId, filter_str: &FilterStr) {
+    let uri = (*http).uri().to_string();
+    write_result(*filter_str, uri, core_id);
+}
+
+fn tls_cb(tls: &TlsHandshake, core_id: &CoreId, filter_str: &FilterStr) {
+    let sni = (*tls).sni().to_string();
+    write_result(*filter_str, sni, core_id);
+}
+
+#[allow(dead_code)]
+fn quic_cb(quic: &QuicStream, core_id: &CoreId, filter_str: &FilterStr) {
+    let sni = (*quic).tls.sni().to_string();
+    write_result(*filter_str, sni, core_id);
+}
+
+fn packet_cb(_frame: &ZcFrame, core_id: &CoreId, filter_str: &FilterStr) {
+    write_result(*filter_str, String::from(""), core_id);
+}
+
+fn conn_cb(core_id: &CoreId, filter_str: &FilterStr) {
+    write_result(*filter_str, String::from(""), core_id);
 }
 
 fn combine_results(outfile: &PathBuf) {
-    let mut outp = HashMap::new();
+    println!("Combining results from {} cores...", NUM_CORES);
+    let mut results = Vec::new();
     for core_id in 0..ARR_LEN {
-        let ptr = results()[core_id as usize].load(Ordering::SeqCst);
-        let dict = unsafe { &mut *ptr };
-        for (fil, stats) in dict.iter() {
-            outp
-                .entry(fil.clone())
-                .or_insert(ConnStats::new())
-                .combine(stats);
-        }
+        let fp = String::from(OUTFILE_PREFIX) + &format!("{}", core_id) + ".jsonl";
+        let content = std::fs::read(fp.clone()).unwrap();
+        results.extend_from_slice(&content);
+        std::fs::remove_file(fp).unwrap();
     }
-
-    let total_pkts = pkts().iter().map(|cnt| cnt.load(Ordering::SeqCst)).sum();
-    let total_bytes = bytes().iter().map(|cnt| cnt.load(Ordering::SeqCst)).sum();
-
-    let mut all_pkts = ConnStats::new();
-    all_pkts.total_pkts = total_pkts;
-    all_pkts.total_bytes = total_bytes;
-    outp.insert("all_traffic".into(), all_pkts);
-
     let mut file = std::fs::File::create(outfile).unwrap();
-    let outp = serde_json::to_string(&outp).unwrap();
-    file.write_all(outp.as_bytes()).unwrap();
+    file.write_all(&results).unwrap();
 }
 
-#[subscription("/home/tcr6/retina/examples/filter_stats/spec.toml")]
+#[subscription("./examples/scale/spec.toml")]
 fn main() {
     init();
     let args = Args::parse();
