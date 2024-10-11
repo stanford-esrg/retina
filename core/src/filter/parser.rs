@@ -123,7 +123,7 @@ impl FilterParser {
                         let src_node = Node::Predicate(Predicate::Binary {
                             protocol: FilterParser::parse_protocol(protocol.clone()),
                             field: FieldName(src_field),
-                            op: op.clone(),
+                            op,
                             value: FilterParser::parse_value(value.clone())?,
                         });
 
@@ -132,7 +132,7 @@ impl FilterParser {
                         let dst_node = Node::Predicate(Predicate::Binary {
                             protocol: FilterParser::parse_protocol(protocol.clone()),
                             field: FieldName(dst_field),
-                            op: op.clone(),
+                            op,
                             value: FilterParser::parse_value(value.clone())?,
                         });
                         match op {

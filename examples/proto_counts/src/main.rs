@@ -37,19 +37,19 @@ fn init_results() -> [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
 }
 
 fn udp_results() -> &'static [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
-    UDP_RESULTS.get_or_init(|| init_results())
+    UDP_RESULTS.get_or_init(init_results)
 }
 
 fn tcp_results() -> &'static [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
-    TCP_RESULTS.get_or_init(|| init_results())
+    TCP_RESULTS.get_or_init(init_results)
 }
 
 fn udp_conn_results() -> &'static [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
-    UDP_CONN_RESULTS.get_or_init(|| init_results())
+    UDP_CONN_RESULTS.get_or_init(init_results)
 }
 
 fn tcp_conn_results() -> &'static [AtomicPtr<HashMap<u16, usize>>; ARR_LEN] {
-    TCP_CONN_RESULTS.get_or_init(|| init_results())
+    TCP_CONN_RESULTS.get_or_init(init_results)
 }
 
 static UDP_CNT: AtomicUsize = AtomicUsize::new(0);
