@@ -139,10 +139,7 @@ impl FilterParser {
                             BinOp::Ne => {
                                 // && condition
                                 // e.g., "tcp.port != 80" -> tcp.src_port != 80 and tcp.dst_port != 80"
-                                Ok(vec![
-                                    src_node,
-                                    dst_node,
-                                ])
+                                Ok(vec![src_node, dst_node])
                             }
                             _ => {
                                 // || condition

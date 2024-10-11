@@ -593,7 +593,10 @@ impl PTree {
             }
             // Can only safely remove children if
             // current branches are mutually exclusive
-            let can_prune_next = node.children.windows(2).all(|w| w[0].pred.is_excl(&w[1].pred));
+            let can_prune_next = node
+                .children
+                .windows(2)
+                .all(|w| w[0].pred.is_excl(&w[1].pred));
             for child in &mut node.children {
                 prune_packet_conditions(child, filter_layer, can_prune_next);
             }
@@ -622,7 +625,11 @@ impl PTree {
         if matches!(self.filter_layer, FilterLayer::PacketContinue) {
             return;
         }
-        let can_prune_next = self.root.children.windows(2).all(|w| w[0].pred.is_excl(&w[1].pred));
+        let can_prune_next = self
+            .root
+            .children
+            .windows(2)
+            .all(|w| w[0].pred.is_excl(&w[1].pred));
         prune_packet_conditions(&mut self.root, self.filter_layer, can_prune_next);
     }
 
@@ -639,7 +646,10 @@ impl PTree {
 
             // Can only safely remove children if
             // current branches are mutually exclusive
-            let can_prune_next = node.children.windows(2).all(|w| w[0].pred.is_excl(&w[1].pred));
+            let can_prune_next = node
+                .children
+                .windows(2)
+                .all(|w| w[0].pred.is_excl(&w[1].pred));
 
             for child in &mut node.children {
                 prune_redundant_branches(child, filter_layer, can_prune_next);
@@ -674,7 +684,11 @@ impl PTree {
         if matches!(self.filter_layer, FilterLayer::PacketContinue) {
             return;
         }
-        let can_prune_next = self.root.children.windows(2).all(|w| w[0].pred.is_excl(&w[1].pred));
+        let can_prune_next = self
+            .root
+            .children
+            .windows(2)
+            .all(|w| w[0].pred.is_excl(&w[1].pred));
         prune_redundant_branches(&mut self.root, self.filter_layer, can_prune_next);
     }
 
@@ -1211,6 +1225,5 @@ mod tests {
             // || conditions
             ptree_2.get_subtree(3).unwrap().children.is_empty()
         );
-
     }
 }
