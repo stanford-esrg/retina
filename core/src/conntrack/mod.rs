@@ -1,4 +1,4 @@
-//! Connection state management.
+//! Per-core connection state management.
 //!
 //! Most of this module's functionality is maintained internally by Retina and is not meant to be
 //! directly managed by users. However, it publicly exposes some useful connection identifiers for

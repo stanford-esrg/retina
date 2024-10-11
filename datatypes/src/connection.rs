@@ -1,3 +1,6 @@
+//! A sample connection record that provides various TCP and/or UDP connection
+//! information, statistics, and state history. It does not deliver payload data.
+
 use retina_core::conntrack::conn::tcp_conn::reassembly::wrapping_lt;
 use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
@@ -58,6 +61,12 @@ impl ConnRecord {
         String::from_utf8_lossy(&self.history).into_owned()
     }
 
+    /// Returns te duration of the connection.
+    ///
+    /// ## Remarks
+    /// This does not represent the actual duration of the connection in offline analysis. It
+    /// approximates the elapsed time between observation of the first and last observed packet in
+    /// the connection.
     #[inline]
     pub fn duration(&self) -> Duration {
         if self.orig.nb_pkts + self.resp.nb_pkts == 1 {
@@ -66,6 +75,7 @@ impl ConnRecord {
         self.last_seen_ts - self.first_seen_ts
     }
 
+    /// The duration (approximate) between the first and second packets.
     #[inline]
     pub fn time_to_second_packet(&self) -> Duration {
         if self.orig.nb_pkts + self.resp.nb_pkts == 1 {
@@ -106,14 +116,40 @@ impl fmt::Display for ConnRecord {
 /// public. Documentation is hidden by default to avoid confusing users.
 #[derive(Debug)]
 pub struct ConnRecord {
-    five_tuple: FiveTuple,
-    first_seen_ts: Instant,
-    second_seen_ts: Instant,
-    last_seen_ts: Instant,
-    max_inactivity: Duration,
-    history: Vec<u8>,
-    orig: Flow,
-    resp: Flow,
+    /// The connection 5-tuple.
+    pub five_tuple: FiveTuple,
+    /// Timestamp of the first packet.
+    ///
+    /// ## Remarks
+    /// This represents the time Retina observed the first packet in the connection, and does not
+    /// reflect timestamps read from a packet capture in offline analysis.
+    pub first_seen_ts: Instant,
+    /// Timestamp of the second packet (approximate).
+    pub second_seen_ts: Instant,
+    /// Timestamp of the last packet (approximate).
+    pub last_seen_ts: Instant,
+    /// Maximum duration of inactivity (the maximum time between observed segments).
+    pub max_inactivity: Duration,
+    // Connection history.
+    ///
+    /// This represents a summary of the connection history in the order the packets were observed,
+    /// with letters encoded as a vector of bytes. This is a simplified version of [state history in
+    /// Zeek](https://docs.zeek.org/en/v5.0.0/scripts/base/protocols/conn/main.zeek.html), and the
+    /// meanings of each letter are similar: If the event comes from the originator, the letter is
+    /// uppercase; if the event comes from the responder, the letter is lowercase.
+    /// - S: a pure SYN with only the SYN bit set (may have payload)
+    /// - H: a pure SYNACK with only the SYN and ACK bits set (may have payload)
+    /// - A: a pure ACK with only the ACK bit set and no payload
+    /// - D: segment contains non-zero payload length
+    /// - F: the segment has the FIN bit set (may have other flags and/or payload)
+    /// - R: segment has the RST bit set (may have other flags and/or payload)
+    ///
+    /// Each letter is recorded a maximum of once in either direction.
+    pub history: Vec<u8>,
+    /// Originator flow.
+    pub orig: Flow,
+    /// Responder flow.
+    pub resp: Flow,
 }
 
 #[inline]

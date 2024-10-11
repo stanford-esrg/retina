@@ -1,3 +1,6 @@
+//! A DNS transaction.
+//! Subscribable alias for [`retina_core::protocols::stream::dns::Dns`]
+
 use retina_core::protocols::stream::dns::Dns;
 use retina_core::protocols::stream::{Session, SessionData};
 

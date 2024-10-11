@@ -1,3 +1,6 @@
+//! An Http transaction.
+//! Subscribable alias for [`retina_core::protocols::stream::http::Http`]
+
 use retina_core::protocols::stream::http::Http;
 use retina_core::protocols::stream::{Session, SessionData};
 

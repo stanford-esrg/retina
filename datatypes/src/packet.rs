@@ -1,7 +1,9 @@
+//! Raw packet-level datatypes.
+
 use super::FromMbuf;
 use retina_core::{conntrack::pdu::L4Context, Mbuf};
 
-// Alias for Mbuf
+/// Subscribable alias for [`retina_core::Mbuf`]
 pub type ZcFrame = Mbuf;
 
 impl FromMbuf for ZcFrame {
@@ -10,7 +12,7 @@ impl FromMbuf for ZcFrame {
     }
 }
 
-// Payload after TCP/UDP headers
+/// Payload after TCP/UDP headers
 pub type Payload = [u8];
 
 impl FromMbuf for Payload {

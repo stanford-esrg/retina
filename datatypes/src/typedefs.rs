@@ -1,3 +1,6 @@
+//! New datatypes are defined in this module.
+//! Newly-defined datatypes must be added to the DATATYPES map in this module.
+
 use lazy_static::lazy_static;
 use retina_core::filter::{DataType, Level};
 use std::collections::HashMap;
@@ -99,7 +102,7 @@ lazy_static! {
     ]);
 
     // Another special case -- datatype is the matched filter as a string literal.
-    // \TODO ideally this would be a map to from_subscription function pointers.
+    // \TODO ideally this would be a map to from_subscription function pointers
     pub static ref FILTER_STR: &'static str = "FilterStr";
 }
 

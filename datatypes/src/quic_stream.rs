@@ -1,3 +1,6 @@
+//! A Quic stream.
+//! Subscribable alias for [`retina_core::protocols::stream::quic::QuicConn`]
+
 use retina_core::protocols::stream::quic::QuicConn;
 use retina_core::protocols::stream::{Session, SessionData};
 

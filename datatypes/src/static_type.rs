@@ -1,9 +1,14 @@
+//! Static-level datatypes.
+//! A data type is considered "static" if it can be inferred at or before
+//! the first packet in a connection and it stays constant throughout a connection.
+
 use super::{FromSubscription, StaticData};
 use pnet::datalink::MacAddr;
 use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
 use retina_core::filter::SubscriptionSpec;
 
+/// Subscribable alias for [`retina_core::FiveTuple`]
 impl StaticData for FiveTuple {
     fn new(first_pkt: &L4Pdu) -> Self {
         FiveTuple::from_ctxt(first_pkt.ctxt)
@@ -12,6 +17,7 @@ impl StaticData for FiveTuple {
 
 use retina_core::protocols::packet::{ethernet::Ethernet, Packet};
 
+/// Tag Control Information field on the first packet, or none
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EtherTCI(Option<u16>);
 
@@ -29,15 +35,7 @@ impl StaticData for EtherTCI {
 use proc_macro2::Span;
 use quote::quote;
 
-/// When used as a subscribable datatype, this will be the string literal
-/// representing the filter that matched.
-///
-/// Note that, as usual, if multiple filters are assigned to the same callback,
-/// the callback may not be invoked for each matched filter due to filter
-/// optimization. Optimization includes early return (mutual exclusion) and
-/// parent/child collapse.
-/// For example: if `http` and `http.user_agent = x` are both associated with the
-/// same callback, then the callback will only be invoked for the `http` filter.
+/// The string literal representing a matched filter.
 pub type FilterStr<'a> = &'a str;
 
 impl<'a> FromSubscription for FilterStr<'a> {

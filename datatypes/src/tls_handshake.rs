@@ -1,3 +1,6 @@
+//! A TLS handshake.
+//! Subscribable alias for [`retina_core::protocols::stream::tls::Tls`]
+
 use retina_core::protocols::stream::tls::Tls;
 use retina_core::protocols::stream::{Session, SessionData};
 

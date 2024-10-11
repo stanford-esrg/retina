@@ -1,4 +1,4 @@
-//! State management for connections.
+//! Per-connection state management.
 //!
 //! Tracks a TCP or UDP connection, performs stream reassembly, and (via ConnInfo)
 //! manages protocol parser state throughout the duration of the connection.

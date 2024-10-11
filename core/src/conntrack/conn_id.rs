@@ -1,6 +1,7 @@
 //! Bidirectional connection identifiers.
 //!
 //! Provides endpoint-specific (distinguishes originator and responder) and generic identifiers for bi-directional connections.
+//! Retina defines a "connection" by five tuple (source/destination addresses, ports, and transport protocol).
 
 use crate::conntrack::L4Context;
 

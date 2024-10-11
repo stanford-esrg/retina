@@ -11,6 +11,7 @@
 //! - Individual packets
 //! - Reassembled connections
 //! - Parsed application-layer sessions
+//! - Static (inferrable at first packet and constant throughout the connection)
 //!
 //! Retina is designed with a focus on performance in real-world, high-volume network environments
 //! (e.g., full-network or full-uplink analysis). It employs an efficient filtering mechanism to
@@ -19,10 +20,10 @@
 //! for filter syntax and usage.
 //!
 //! The framework currently comes with built-in support for several [subscribable
-//! types](crate::subscription). Additional modules are welcome and encouraged.
+//! datatypes](../datatypes). Additional datatypes are welcome and encouraged.
 //!
-//! The following example shows a simple Retina application that prints parsed TLS handshakes to
-//! stdout:
+//! The following example shows a simple Retina application with two subscriptions, which print
+//! (1) parsed TLS handshakes and (2) parsed DNS transactions to stdout:
 //!
 //! ```rust
 //! /*
@@ -32,16 +33,25 @@
 //! use retina_filtergen::filter;
 //!
 //! #[filter("tls.sni ~ '^.*\\.com$'")]
+//! fn log_tls(tls: &TlsHandshake) {
+//!      println!("{:?}", tls);
+//! }
+//!
+//! #[filter("dns")]
+//! fn log_tls(dns: &DnsTransaction) {
+//!      println!("{:?}", dns);
+//! }
+//!
+//! #[retina_main(2)] // Framework expects callbacks
 //! fn main() {
 //!     let cfg = default_config();
-//!     let callback = |tls: TlsHandshake| {
-//!         println!("{:?}", tls);
-//!     };
-//!     let mut runtime = Runtime::new(cfg, filter, callback).unwrap();
+//!     let mut runtime<SubscribedWrapper> = Runtime::new(cfg, filter, callback).unwrap();
 //!     runtime.run();
 //! }
 //!  */
 //! ```
+//!
+//! For more on writing Retina programs, see [GitHub](https://github.com/stanford-esrg/retina).
 //!
 
 #[macro_use]

@@ -1,9 +1,14 @@
+//! Various individual connection-level subscribable types for TCP and/or UDP
+//! connection information, statistics, and state history.
+
 use crate::Tracked;
 use retina_core::protocols::Session;
 use retina_core::L4Pdu;
 use serde::ser::{Serialize, SerializeSeq, SerializeStruct, Serializer};
 use std::time::{Duration, Instant};
 
+/// Tracks the start (first packet seen) and end (last packet seen)
+/// times of a connection
 #[derive(Debug, Clone)]
 pub struct ConnDuration {
     pub start_ts: Instant,
@@ -24,10 +29,12 @@ impl Serialize for ConnDuration {
 }
 
 impl ConnDuration {
+    /// The duration of the connection in milliseconds
     pub fn duration_ms(&self) -> u128 {
         (self.last_ts - self.start_ts).as_millis()
     }
 
+    /// The duration of the connection as std::time::Duration
     pub fn duration(&self) -> Duration {
         self.last_ts - self.start_ts
     }
@@ -60,6 +67,7 @@ impl Tracked for ConnDuration {
     }
 }
 
+/// The number of packets observed in a connection
 #[derive(Debug, serde::Serialize, Clone)]
 pub struct PktCount {
     pub pkt_count: usize,
@@ -94,6 +102,7 @@ impl Tracked for PktCount {
     }
 }
 
+/// The number of bytes, including headers, observed in a connection
 #[derive(Debug, serde::Serialize, Clone)]
 pub struct ByteCount {
     pub byte_count: usize,
@@ -128,13 +137,15 @@ impl Tracked for ByteCount {
     }
 }
 
+/// Tracked data for packet inter-arrival times
 #[derive(Debug, Clone)]
 pub struct InterArrivals {
-    pub pkt_count_ctos: usize,
-    pub pkt_count_stoc: usize,
-    pub last_pkt_ctos: Instant,
-    pub last_pkt_stoc: Instant,
+    pkt_count_ctos: usize,
+    pkt_count_stoc: usize,
+    last_pkt_ctos: Instant,
+    last_pkt_stoc: Instant,
     pub interarrivals_ctos: Vec<Duration>,
+    /// Interarrival durations server-to-client (resp.) flow
     pub interarrivals_stoc: Vec<Duration>,
 }
 
@@ -208,8 +219,6 @@ impl Serialize for InterArrivals {
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("InterArrivals", 4)?;
-        state.serialize_field("pkt_count_ctos", &self.pkt_count_ctos)?;
-        state.serialize_field("pkt_count_stoc", &self.pkt_count_stoc)?;
         state.serialize_field("interarrivals_ctos", &DurationVec(&self.interarrivals_ctos))?;
         state.serialize_field("interarrivals_stoc", &DurationVec(&self.interarrivals_stoc))?;
         state.end()
@@ -218,6 +227,21 @@ impl Serialize for InterArrivals {
 
 use crate::connection::update_history;
 
+/// Connection history.
+///
+/// This represents a summary of the connection history in the order the packets were observed,
+/// with letters encoded as a vector of bytes. This is a simplified version of [state history in
+/// Zeek](https://docs.zeek.org/en/v5.0.0/scripts/base/protocols/conn/main.zeek.html), and the
+/// meanings of each letter are similar: If the event comes from the originator, the letter is
+/// uppercase; if the event comes from the responder, the letter is lowercase.
+/// - S: a pure SYN with only the SYN bit set (may have payload)
+/// - H: a pure SYNACK with only the SYN and ACK bits set (may have payload)
+/// - A: a pure ACK with only the ACK bit set and no payload
+/// - D: segment contains non-zero payload length
+/// - F: the segment has the FIN bit set (may have other flags and/or payload)
+/// - R: segment has the RST bit set (may have other flags and/or payload)
+///
+/// Each letter is recorded a maximum of once in either direction.
 #[derive(Default, Debug, serde::Serialize, Clone)]
 pub struct ConnHistory {
     pub history: Vec<u8>,

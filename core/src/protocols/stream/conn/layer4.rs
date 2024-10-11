@@ -5,7 +5,7 @@ use crate::protocols::stream::ConnData;
 use anyhow::{bail, Result};
 use std::net::SocketAddr;
 
-/// TCP Connection Metadata.
+/// TCP Connection Metadata, parsed from ConnData.
 #[derive(Debug)]
 pub struct TcpCData {
     src_port: u16,
