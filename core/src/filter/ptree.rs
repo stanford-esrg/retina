@@ -1191,4 +1191,26 @@ mod tests {
         // make sure tcp.dst_port != 8080 is still there
         assert!(ptree.get_subtree(2).unwrap().children.len() == 1);
     }
+
+    #[test]
+    fn core_parser_combined() {
+        let filter = Filter::new("tcp.port != 80").unwrap();
+        let filter_2 = Filter::new("ipv4.addr = 1.1.1.1").unwrap();
+        let datatype_conn = SubscriptionSpec::new_default_connection();
+
+        let mut ptree = PTree::new_empty(FilterLayer::PacketContinue);
+        ptree.add_filter(&filter.get_patterns_flat(), &datatype_conn, &DELIVER);
+        ptree.collapse();
+        let mut ptree_2 = PTree::new_empty(FilterLayer::PacketContinue);
+        ptree_2.add_filter(&filter_2.get_patterns_flat(), &datatype_conn, &DELIVER);
+        ptree_2.collapse();
+
+        assert!(
+            // && conditions
+            !ptree.get_subtree(3).unwrap().children.is_empty() &&
+            // || conditions
+            ptree_2.get_subtree(3).unwrap().children.is_empty()
+        );
+
+    }
 }

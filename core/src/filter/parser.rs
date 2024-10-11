@@ -94,14 +94,14 @@ impl FilterParser {
         for pair in inner {
             match pair.as_rule() {
                 Rule::expr => terms.push(FilterParser::parse_disjunct(pair)?),
-                Rule::predicate => terms.push(FilterParser::parse_predicate(pair)?),
+                Rule::predicate => terms.extend(FilterParser::parse_predicate(pair)?),
                 _ => (),
             }
         }
         Ok(Node::Conjunct(terms))
     }
 
-    fn parse_predicate(pair: Pair<Rule>) -> Result<Node> {
+    fn parse_predicate(pair: Pair<Rule>) -> Result<Vec<Node>> {
         let mut inner = pair.into_inner();
         let protocol = inner.next().unwrap();
         match inner.next() {
@@ -110,19 +110,20 @@ impl FilterParser {
                 let value = inner.next().unwrap();
 
                 match field.as_rule() {
-                    Rule::field => Ok(Node::Predicate(Predicate::Binary {
+                    Rule::field => Ok(vec![Node::Predicate(Predicate::Binary {
                         protocol: FilterParser::parse_protocol(protocol),
                         field: FilterParser::parse_field(field),
                         op: FilterParser::parse_binop(op)?,
                         value: FilterParser::parse_value(value)?,
-                    })),
+                    })]),
                     Rule::combined_field => {
                         let mut src_field = "src_".to_owned();
                         src_field.push_str(field.as_str());
+                        let op = FilterParser::parse_binop(op.clone())?;
                         let src_node = Node::Predicate(Predicate::Binary {
                             protocol: FilterParser::parse_protocol(protocol.clone()),
                             field: FieldName(src_field),
-                            op: FilterParser::parse_binop(op.clone())?,
+                            op: op.clone(),
                             value: FilterParser::parse_value(value.clone())?,
                         });
 
@@ -131,22 +132,36 @@ impl FilterParser {
                         let dst_node = Node::Predicate(Predicate::Binary {
                             protocol: FilterParser::parse_protocol(protocol.clone()),
                             field: FieldName(dst_field),
-                            op: FilterParser::parse_binop(op.clone())?,
+                            op: op.clone(),
                             value: FilterParser::parse_value(value.clone())?,
                         });
-
-                        let terms = vec![
-                            Node::Conjunct(vec![src_node]),
-                            Node::Conjunct(vec![dst_node]),
-                        ];
-                        Ok(Node::Disjunct(terms))
+                        match op {
+                            BinOp::Ne => {
+                                // && condition
+                                // e.g., "tcp.port != 80" -> tcp.src_port != 80 and tcp.dst_port != 80"
+                                Ok(vec![
+                                    src_node,
+                                    dst_node,
+                                ])
+                            }
+                            _ => {
+                                // || condition
+                                // e.g., "tcp.port = 80" -> tcp.src_port = 80 or tcp.dst_port = 80"
+                                // e.g., "tcp.port > 80" -> tcp.src_port > 80 or tcp.dst_port > 80"
+                                let terms = vec![
+                                    Node::Conjunct(vec![src_node]),
+                                    Node::Conjunct(vec![dst_node]),
+                                ];
+                                Ok(vec![Node::Disjunct(terms)])
+                            }
+                        }
                     }
                     _ => bail!(FilterError::InvalidFormat),
                 }
             }
-            None => Ok(Node::Predicate(Predicate::Unary {
+            None => Ok(vec![Node::Predicate(Predicate::Unary {
                 protocol: FilterParser::parse_protocol(protocol),
-            })),
+            })]),
         }
     }
 
