@@ -1,28 +1,56 @@
+/// For each connectionn, the Retina framework applies multiple filtering stages as
+/// packets are received in order to determine (1) whether packets from that connection
+/// should continue to be processed and (2) what to do with these packets.
+///
+/// Each connection is associated with a set of Actions. These actions specify the
+/// operations the framework will perform for the connection *now or in the future*:
+/// e.g., probe for the application-layer protocol (until it is identified), deliver
+/// the connection (when it has terminated), deliver all subsequent packets in the
+/// connection, etc. An empty Actions struct will cause the connection to be dropped.
+///
+/// Each filter stage returns a set of actions and a set of terminal actions.
+/// The terminal actions are the subset of actions that are maintained through
+/// the next filter stage.
+
 use bitmask_enum::bitmask;
 
 #[bitmask]
 #[bitmask_config(vec_debug)]
 pub enum ActionData {
     // Packet actions //
-    PacketContinue, // Forward new packet to connection tracker
-    PacketDeliver,  // Deliver packet to CB
+
+    /// Forward new packet to connection tracker
+    /// Should only be used in the PacketContinue filter
+    PacketContinue,
+
+    /// Deliver future packet data (via the PacketDelivery filter) in this connection to a callback
+    PacketDeliver,
+
+    /// Store future packets in this connection in tracked data
+    PacketTrack,
 
     // Connection/session actions //
-    ProtoProbe,  // Probe application-layer protocol
-    ProtoFilter, // Apply protocol-level filter
 
-    SessionFilter,  // Apply session-level filter
-    SessionDeliver, // Deliver session when parsed
-    SessionTrack,   // Store session in tracked data
-    // Deliver or use to check a filter at conn. termination
-    UpdatePDU,            // `Update` method should be invoked pre-reassembly
-    ReassembledUpdatePDU, // `Update` method should be invoked post-reassembly
-    PacketTrack,          // Buffer frames for future possible delivery
+    /// Probe for (identify) the application-layer protocol
+    ProtoProbe,
+    /// Once the application-layer protocl is identified, apply the ProtocolFilter.
+    ProtoFilter,
 
-    ConnDeliver, // Deliver connection on termination
+    /// Once the application-layer session has been parsed, apply the SessionFilter
+    SessionFilter,
+    /// Once the application-layer session has been parsed, deliver it (by applying
+    /// the SessionFilter).
+    SessionDeliver,
+    /// Once the application-layer session has been parsed, store it in tracked data.
+    SessionTrack,
 
-                 // \note Session and packet delivery happen within filters.
-                 // \note This assumes that each callback has exactly one "layer"
+    /// The subscribable type "update" methods should be invoked (for TCP: pre-reassembly)
+    UpdatePDU,
+    /// The subscribable type "update" methods should be invoked post-reassembly (TCP only)
+    ReassembledUpdatePDU,
+
+    /// Deliver connection data (via the ConnectionDelivery filter) when it terminates
+    ConnDeliver,
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -62,50 +90,46 @@ impl Actions {
     }
 
     /// Combine terminal and non-terminal actions
-    /// Used for building a filter
+    /// Used for building a filter tree at compile time and when
+    /// applying a filter at runtime if additional conditions are met.
     #[inline]
     pub fn push(&mut self, actions: &Actions) {
         self.data |= actions.data;
         self.terminal_actions |= actions.terminal_actions;
     }
 
-    /// Update self to contain only actions not in `actions`
+    /// Returns true if no actions are set (i.e., the connection can
+    /// be dropped by the framework).
     #[inline]
-    pub fn clear_intersection(&mut self, actions: &Actions) {
+    pub fn drop(&self) -> bool {
+        self.data.is_none() && self.terminal_actions.is_none()
+    }
+
+    /// Update `self` to contain only actions not in `actions`
+    #[inline]
+    pub(crate) fn clear_intersection(&mut self, actions: &Actions) {
         self.data &= actions.data.not();
         self.terminal_actions &= actions.data.not();
     }
 
-    /// Add actions during (while applying) a filter
-    #[inline]
-    pub fn add_actions(&mut self, actions: &Actions) {
-        self.data |= actions.data;
-        self.terminal_actions |= actions.terminal_actions;
-    }
-
-    /// Packet action handler must deliver this to conn tracker
-    #[inline]
-    pub fn needs_conntrack(&self) -> bool {
-        self.data.intersects(ActionData::PacketContinue)
-    }
-
     /// Conn tracker must deliver PDU to tracked data
     #[inline]
-    pub fn update_pdu(&self, reassembled: bool) -> bool {
+    pub(crate) fn update_pdu(&self, reassembled: bool) -> bool {
         match reassembled {
             false => self.data.intersects(ActionData::UpdatePDU),
             true => self.data.intersects(ActionData::ReassembledUpdatePDU),
         }
     }
 
+    /// True if the framework should track (buffer) mbufs for this connection
     #[inline]
-    pub fn buffer_frame(&self) -> bool {
+    pub(crate) fn buffer_frame(&self) -> bool {
         self.data.intersects(ActionData::PacketTrack)
     }
 
-    /// App-layer probing or parsing should be applied
+    /// True if application-layer probing or parsing should be applied
     #[inline]
-    pub fn parse_any(&self) -> bool {
+    pub(crate) fn parse_any(&self) -> bool {
         self.data.intersects(
             ActionData::ProtoProbe
                 | ActionData::ProtoFilter
@@ -115,53 +139,57 @@ impl Actions {
         )
     }
 
+    /// True if the framework should reassemble data
     #[inline]
-    pub fn reassemble(&self) -> bool {
+    pub(crate) fn reassemble(&self) -> bool {
         self.parse_any() || self.buffer_frame() || self.update_pdu(true)
     }
 
+    /// True if nothing except delivery is required
+    /// Allows delivering and dropping the connection to happen early
     #[inline]
-    pub fn drop(&self) -> bool {
-        self.data.is_none() && self.terminal_actions.is_none()
-    }
-
-    #[inline]
-    pub fn conn_deliver_only(&self) -> bool {
+    pub(crate) fn conn_deliver_only(&self) -> bool {
         self.data == ActionData::ConnDeliver
     }
 
+    /// True if the session filter should be applied
     #[inline]
-    pub fn apply_session_filter(&mut self) -> bool {
+    pub(crate) fn apply_session_filter(&mut self) -> bool {
         // \note deliver filter is in session filter
         self.data
             .intersects(ActionData::SessionFilter | ActionData::SessionDeliver)
     }
 
+    /// True if the protocol filter should be applied
     #[inline]
-    pub fn apply_proto_filter(&mut self) -> bool {
+    pub(crate) fn apply_proto_filter(&mut self) -> bool {
         self.data.contains(ActionData::ProtoFilter)
     }
 
+    /// True if the framework should probe for the app-layer protocol
     #[inline]
-    pub fn session_probe(&self) -> bool {
+    pub(crate) fn session_probe(&self) -> bool {
         self.data
             .intersects(ActionData::ProtoProbe | ActionData::ProtoFilter)
     }
 
+    /// True if the framework should parse application-layer data
     #[inline]
-    pub fn session_parse(&self) -> bool {
+    pub(crate) fn session_parse(&self) -> bool {
         self.data.intersects(
             ActionData::SessionDeliver | ActionData::SessionFilter | ActionData::SessionTrack,
-        ) && !self.session_probe() // SessionDeliver/Track but still at probing stage
+        ) && !self.session_probe() // still at probing stage
     }
 
+    /// True if the framework should buffer parsed sessions
     #[inline]
-    pub fn session_track(&self) -> bool {
+    pub(crate) fn session_track(&self) -> bool {
         self.data.intersects(ActionData::SessionTrack)
     }
 
+    /// True if the framework should deliver future packets in this connection
     #[inline]
-    pub fn packet_deliver(&self) -> bool {
+    pub(crate) fn packet_deliver(&self) -> bool {
         self.data.intersects(ActionData::PacketDeliver)
     }
 
@@ -170,7 +198,7 @@ impl Actions {
     /// If no further parsing is required (e.g., TLS Handshake), this method
     /// should be invoked.
     #[inline]
-    pub fn session_clear_parse(&mut self) {
+    pub(crate) fn session_clear_parse(&mut self) {
         self.clear_mask(
             ActionData::SessionFilter
                 | ActionData::SessionDeliver
@@ -179,10 +207,10 @@ impl Actions {
         );
     }
 
-    // Subscription requires protocol probe/parse but matched at packet stage
-    // Update action to reflect state transition to protocol parsing
+    /// Subscription requires protocol probe/parse but matched at packet stage
+    /// Update action to reflect state transition to protocol parsing
     #[inline]
-    pub fn session_done_probe(&mut self) {
+    pub(crate) fn session_done_probe(&mut self) {
         if self.terminal_actions.contains(ActionData::ProtoProbe) {
             // Maintain in terminal actions, but move to parse stage
             self.data &= (ActionData::ProtoProbe).not();
@@ -194,7 +222,7 @@ impl Actions {
 
     /// Some app-layer protocols revert to probing after session is parsed
     /// This is done if more sessions are expected
-    pub fn session_set_probe(&mut self) {
+    pub(crate) fn session_set_probe(&mut self) {
         // If protocol probing was set at the PacketFilter stage (i.e.,
         // terminal match for a subscription that requires parsing sessions),
         // then the ProtoProbe action will be "terminal"
@@ -220,24 +248,22 @@ impl Actions {
          */
     }
 
+    /// True if the connection should be delivered at termination
     #[inline]
-    pub fn session_clear_deliver(&mut self) {
-        self.clear_mask(ActionData::SessionDeliver);
-    }
-
-    #[inline]
-    pub fn connection_matched(&self) -> bool {
+    pub(crate) fn connection_matched(&self) -> bool {
         self.terminal_actions.intersects(ActionData::ConnDeliver)
     }
 
+    /// Clear all actions
     #[inline]
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.terminal_actions = ActionData::none();
         self.data = ActionData::none();
     }
 
+    /// Clear a subset of actions
     #[inline]
-    pub fn clear_mask(&mut self, mask: ActionData) {
+    pub(crate) fn clear_mask(&mut self, mask: ActionData) {
         self.data &= mask.not();
         self.terminal_actions &= mask.not();
     }

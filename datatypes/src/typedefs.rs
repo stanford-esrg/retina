@@ -72,11 +72,11 @@ lazy_static! {
                     as_str: "SessionList",
                 }
             }),
-            ("CoreId", { DataType::new_static("CoreId") }),
-            ("FiveTuple", { DataType::new_static("FiveTuple") }),
-            ("EtherTCI", { DataType::new_static("EtherTCI") }),
-            ("EthAddr", { DataType::new_static("EthAddr") }),
-            ("FilterStr", { DataType::new_static("FilterStr") }),
+            ("CoreId", { DataType::new_default_static("CoreId") }),
+            ("FiveTuple", { DataType::new_default_static("FiveTuple") }),
+            ("EtherTCI", { DataType::new_default_static("EtherTCI") }),
+            ("EthAddr", { DataType::new_default_static("EthAddr") }),
+            ("FilterStr", { DataType::new_default_static("FilterStr") }),
         ])
     };
 }

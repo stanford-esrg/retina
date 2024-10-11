@@ -76,7 +76,7 @@ where
     }
 
     /// Process a single incoming packet `mbuf` with layer-4 context `ctxt`.
-    pub fn process(
+    pub(crate) fn process(
         &mut self,
         mbuf: Mbuf,
         ctxt: L4Context,

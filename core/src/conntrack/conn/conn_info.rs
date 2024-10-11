@@ -183,7 +183,7 @@ where
         }
     }
 
-    pub fn handle_terminate(&mut self, subscription: &Subscription<T::Subscribed>) {
+    pub(crate) fn handle_terminate(&mut self, subscription: &Subscription<T::Subscribed>) {
         // Session parsing is ongoing: drain any remaining sessions
         if self.actions.session_parse() {
             for session in self.cdata.conn_parser.drain_sessions() {

@@ -166,7 +166,7 @@ pub(crate) fn update_body(
 ) {
     if !node.actions.drop() {
         let actions = node.actions.clone();
-        body.push(quote! { result.add_actions(&#actions); });
+        body.push(quote! { result.push(&#actions); });
     }
     if !node.deliver.is_empty() {
         for d in &node.deliver {

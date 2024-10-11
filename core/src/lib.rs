@@ -5,7 +5,7 @@
 //!
 //! Retina provides a simple filter and callback interface that lets users subscribe to network
 //! traffic in real-time and run user-defined analysis code in a standard software environment. It
-//! is a passive analysis framework that supports access to network traffic at one of three
+//! is a passive analysis framework that supports access to network traffic at one of four
 //! abstraction levels:
 //!
 //! - Individual packets

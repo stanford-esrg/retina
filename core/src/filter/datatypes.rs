@@ -1,61 +1,72 @@
+//! Utilities for defining how a subscribed datatype is tracked and delivered.
+
 use super::ast::Predicate;
 use super::ptree::FilterLayer;
 use super::{ActionData, Actions};
 
+/// The abstraction levels for subscribable datatypes
+/// These essentially dictate at what point a datatype can/should be delivered
 #[derive(Clone, Debug, Copy)]
 pub enum Level {
-    // Deliver per-packet
+    /// Deliver per-packet
+    /// If needed, packets will be cached by the framework until filter match
     Packet,
-    // Deliver at termination
+    /// Deliver at (UDP/TCP) connection termination
     Connection,
-    // Deliver when session is parsed
-    // \note Not tracked - built from session (zero-copy)
+    /// Deliver when session is parsed
+    /// Note: only one session-level datatype is permitted per subscription.
     Session,
-    // Deliver at any point in the connection
-    // \note Static-only subscriptions are delivered either on first packet
-    // (if possible) or at connection termination (otherwise).
+    /// Deliver at any point in the connection
+    /// Static-only subscriptions are delivered either on first packet
+    /// (if possible) or at connection termination (otherwise).
     Static,
 }
 
-// Specification for one subscription (filter, CB, one or more datatypes)
+#[doc(hidden)]
+/// Specification for one complete subscription
+/// A subscription is defined as a filter, callback, and one or more datatypes
+/// This is public to be accessible by the filtergen crate.
 #[derive(Debug, Clone)]
 pub struct SubscriptionSpec {
-    // Datatype(s) invoked in callback
+    /// Datatype(s) invoked in callback
     pub datatypes: Vec<DataType>,
-    // Pre-parsed filter, used in filtergen
+    /// String representation of the filter used in this subscription.
     pub filter: String,
-    // Callback as string, used in codegen
+    /// Callback as string.
+    /// This is used in code generation and for displaying PTrees.
     pub callback: String,
-    // When the full subscription is ready to be delivered
-    // Because all data must be delivered simultaneously, this is
-    // set based on latest delivery stage. Data is buffered until
-    // all datatypes are ready to be delivered.
-    // For example: a callback requesting "packets" and "connection records"
-    // is a connection-level subscription
+    /// The Level of the full subscription, indicating the earliest stage
+    /// at which, if the filter has matched, all datatypes can be delivered.
+    /// If needed, data is buffered until the full subscription can be delivered.
     pub level: Level,
 }
 
-// Describes a single subscribable datatype
+/// Describes a single subscribable datatype and the operations it requires
 #[derive(Clone, Debug)]
 pub struct DataType {
-    // Indicates when delivery can start, dictates per-stage actions
+    /// The Level of this DataType
     pub level: Level,
-    // Datatype requires parsing application-level sessions
+    /// True if  the datatype requires parsing application-level sessions
     pub needs_parse: bool,
-    // Datatype requires the framework to track ("cache") matched sessions.
+    /// True if the datatype requires the framework to buffer matched sessions
     pub track_sessions: bool,
-    // Datatype requires invoking `update` method
-    pub needs_update: bool,             // Before reassembly
-    pub needs_update_reassembled: bool, // After reassembly
-    // Datatype requires tracking packet data
+    /// True if the datatype requires invoking `update` method before reassembly
+    pub needs_update: bool,
+    /// True if the datatype requires invoking `update` method after reassembly
+    pub needs_update_reassembled: bool,
+    /// True if the datatype requires the framework to buffer matched packets
     pub track_packets: bool,
-    // Application-layer protocols required
+    /// A vector of the application-layer parsers required by this datatype
+    /// Retina loads the union of parsers required by all datatypes and filters
     pub stream_protos: Vec<&'static str>,
-    // As string, used in filtergen
+    /// The name of the datatype as a string, used in code generation and Display.
     pub as_str: &'static str,
 }
 
 impl DataType {
+
+    /// Creates a typical datatype for tracking per-connection statistics.
+    /// (Connection-level, no parsing, pre-reassembly updates required)
     pub fn new_default_connection(as_str: &'static str) -> Self {
         Self {
             level: Level::Connection,
@@ -69,7 +80,8 @@ impl DataType {
         }
     }
 
-    // For testing only
+    /// Creates a typical datatype for parsed application-layer data
+    /// (Session-level, parsing required)
     pub fn new_default_session(as_str: &'static str, stream_protos: Vec<&'static str>) -> Self {
         Self {
             level: Level::Session,
@@ -83,7 +95,8 @@ impl DataType {
         }
     }
 
-    // For testing only
+    /// Creates a typical datatype for packet data
+    /// (Packet-level, no operations required)
     pub fn new_default_packet(as_str: &'static str) -> Self {
         Self {
             level: Level::Packet,
@@ -97,7 +110,9 @@ impl DataType {
         }
     }
 
-    pub fn new_static(as_str: &'static str) -> Self {
+    /// Creates a typical datatype for static data
+    /// (Static-level, no operations required)
+    pub fn new_default_static(as_str: &'static str) -> Self {
         Self {
             level: Level::Static,
             needs_parse: false,
@@ -155,6 +170,8 @@ impl DataType {
         }
     }
 
+    // Returns whether, at the current filter layer, this datatype with this filter predicate
+    // *could* be delivered.
     pub(crate) fn can_deliver(&self, filter_layer: &FilterLayer, pred: &Predicate) -> bool {
         match self.level {
             Level::Packet => match filter_layer {
@@ -312,28 +329,29 @@ impl DataType {
 
 // Helper type to track possible actions for a subscription
 #[derive(Debug, Clone)]
-pub struct MatchingActions {
+pub(crate) struct MatchingActions {
     // Actions the subscription requires on terminal match
-    pub if_matched: Actions,
+    pub(crate) if_matched: Actions,
     // Actions the subscription requires on non-terminal match
-    pub if_matching: Actions,
+    pub(crate) if_matching: Actions,
 }
 
 impl MatchingActions {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             if_matched: Actions::new(),
             if_matching: Actions::new(),
         }
     }
 
-    fn push(&mut self, actions: &MatchingActions) {
+    pub(crate) fn push(&mut self, actions: &MatchingActions) {
         self.if_matched.push(&actions.if_matched);
         self.if_matching.push(&actions.if_matching);
     }
 }
 
 impl SubscriptionSpec {
+    // Create a new specification with no datatypes
     pub fn new(filter: String, callback: String) -> Self {
         Self {
             datatypes: vec![],
@@ -355,9 +373,11 @@ impl SubscriptionSpec {
         }
     }
 
+    /// Perform basic checks on the subscription specification
+    /// - One packet-level datatype per subscription
+    /// - Packet-level datatype only permitted with static datatype
+    /// - At most one session-level datatype per subscription
     pub fn validate_spec(&self) {
-        // - One packet-level datatype per subscription
-        // - Packet-level datatype only permitted with static datatype
         if matches!(self.level, Level::Packet) {
             if self.datatypes.len() > 1 {
                 assert!(
@@ -391,7 +411,6 @@ impl SubscriptionSpec {
             );
         }
 
-        // - At most one session-level datatype per subscription
         assert!(
             self.datatypes
                 .iter()
@@ -403,6 +422,7 @@ impl SubscriptionSpec {
         );
     }
 
+    /// Add a new datatype to the subscription
     pub fn add_datatype(&mut self, datatype: DataType) {
         self.update_level(&datatype.level);
         self.datatypes.push(datatype);
@@ -420,7 +440,7 @@ impl SubscriptionSpec {
 
     // For testing only
     #[allow(dead_code)]
-    pub fn new_default_session() -> Self {
+    pub(crate) fn new_default_session() -> Self {
         let mut spec = Self::new(String::from("fil"), String::from("cb"));
         spec.level = Level::Session;
         spec.datatypes
@@ -430,20 +450,20 @@ impl SubscriptionSpec {
 
     // For testing only
     #[allow(dead_code)]
-    pub fn new_default_packet() -> Self {
+    pub(crate) fn new_default_packet() -> Self {
         let mut spec = Self::new(String::from("fil"), String::from("cb"));
         spec.level = Level::Packet;
         spec.datatypes.push(DataType::new_default_packet("Packet"));
         spec
     }
 
-    // Format subscription as "callback(datatypes)"
+    /// Format subscription as "callback(datatypes)"
     pub fn as_str(&self) -> String {
         let datatype_str: Vec<&'static str> = self.datatypes.iter().map(|d| d.as_str).collect();
         format!("{}({})", self.callback, datatype_str.join(", ")).to_string()
     }
 
-    // Should this datatype be delivered if the filter matched
+    // Should this subscription be delivered if the filter matched
     // This should return true for the first filter at which all datatypes can be delivered
     pub(crate) fn should_deliver(&self, filter_layer: FilterLayer, pred: &Predicate) -> bool {
         self.datatypes
@@ -455,7 +475,7 @@ impl SubscriptionSpec {
                 .all(|d| d.can_deliver(&filter_layer, pred))
     }
 
-    // Actions for filter applied for each packet
+    // Actions for the PacketContinue filter stage
     pub(crate) fn packet_continue(&self) -> MatchingActions {
         let mut if_matched = Actions::new();
         let mut if_matching = Actions::new();
@@ -478,7 +498,7 @@ impl SubscriptionSpec {
         }
     }
 
-    // Actions for first packet in connection
+    // Actions for PacketFilter stage
     pub(crate) fn packet_filter(&self) -> MatchingActions {
         let mut actions = MatchingActions::new();
         for datatype in &self.datatypes {
@@ -488,7 +508,7 @@ impl SubscriptionSpec {
         actions
     }
 
-    // Actions for when app-layer protocol identified
+    // Actions for ProtocolFilter stage
     pub(crate) fn proto_filter(&self) -> MatchingActions {
         let mut actions = MatchingActions::new();
         for datatype in &self.datatypes {
@@ -502,7 +522,7 @@ impl SubscriptionSpec {
         actions
     }
 
-    // Actions for when session fully parsed
+    // Actions for the SessionFilter stage
     pub(crate) fn session_filter(&self) -> MatchingActions {
         let mut actions = MatchingActions::new();
         for datatype in &self.datatypes {
