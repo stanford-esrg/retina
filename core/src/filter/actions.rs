@@ -11,14 +11,12 @@
 /// Each filter stage returns a set of actions and a set of terminal actions.
 /// The terminal actions are the subset of actions that are maintained through
 /// the next filter stage.
-
 use bitmask_enum::bitmask;
 
 #[bitmask]
 #[bitmask_config(vec_debug)]
 pub enum ActionData {
     // Packet actions //
-
     /// Forward new packet to connection tracker
     /// Should only be used in the PacketContinue filter
     PacketContinue,
@@ -30,7 +28,6 @@ pub enum ActionData {
     PacketTrack,
 
     // Connection/session actions //
-
     /// Probe for (identify) the application-layer protocol
     ProtoProbe,
     /// Once the application-layer protocl is identified, apply the ProtocolFilter.

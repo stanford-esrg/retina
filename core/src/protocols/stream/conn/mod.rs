@@ -1,7 +1,6 @@
 /// Types for parsing FiveTuple data from a Conn struct.
 /// This is used by retina-filtergen if a packet-level field must be checked when the raw
 /// packet is not available, but connection data is.
-
 pub mod layer3;
 pub mod layer4;
 

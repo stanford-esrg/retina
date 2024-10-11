@@ -64,7 +64,6 @@ pub struct DataType {
 }
 
 impl DataType {
-
     /// Creates a typical datatype for tracking per-connection statistics.
     /// (Connection-level, no parsing, pre-reassembly updates required)
     pub fn new_default_connection(as_str: &'static str) -> Self {
