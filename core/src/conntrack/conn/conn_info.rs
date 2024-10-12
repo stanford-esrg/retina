@@ -10,6 +10,7 @@ use crate::lcore::CoreId;
 use crate::protocols::stream::{
     ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, SessionState,
 };
+use crate::protocols::packet::tcp::TCP_PROTOCOL;
 use crate::subscription::{Subscription, Trackable};
 use crate::FiveTuple;
 
@@ -65,7 +66,8 @@ where
         }
 
         // Post-reassembly `update`
-        if self.actions.update_pdu(true) {
+        if self.actions.update_pdu_reassembled() &&
+            pdu.ctxt.proto == TCP_PROTOCOL {
             // Forward PDU to any subscriptions that require
             // tracking ongoing connection data post-reassembly
             self.sdata.update(&pdu, true);

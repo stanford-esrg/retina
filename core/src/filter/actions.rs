@@ -22,9 +22,13 @@ pub enum ActionData {
     PacketContinue,
 
     /// Deliver future packet data (via the PacketDelivery filter) in this connection to a callback
+    /// TCP packets are delivered with the following specifications:
+    /// - Packet-level filters (can match at packet stage): in the order received (pre-reassembly)
+    /// - All other filters: post-reassembly
     PacketDeliver,
 
     /// Store future packets in this connection in tracked data
+    /// TCP packets are tracked post-reassembly
     PacketTrack,
 
     // Connection/session actions //
@@ -109,13 +113,15 @@ impl Actions {
         self.terminal_actions &= actions.data.not();
     }
 
-    /// Conn tracker must deliver PDU to tracked data
+    /// Conn tracker must deliver each PDU to tracked data when received
     #[inline]
-    pub(crate) fn update_pdu(&self, reassembled: bool) -> bool {
-        match reassembled {
-            false => self.data.intersects(ActionData::UpdatePDU),
-            true => self.data.intersects(ActionData::ReassembledUpdatePDU),
-        }
+    pub(crate) fn update_pdu(&self) -> bool {
+        self.data.intersects(ActionData::UpdatePDU)
+    }
+
+    /// Conn tracker must deliver PDU to tracked data after reassembly
+    pub(crate) fn update_pdu_reassembled(&self) -> bool {
+        self.data.intersects(ActionData::ReassembledUpdatePDU)
     }
 
     /// True if the framework should track (buffer) mbufs for this connection
@@ -136,10 +142,14 @@ impl Actions {
         )
     }
 
-    /// True if the framework should reassemble data
+    /// True if the framework should consume PDUs for reassembly (TCP),
+    /// parsing, or operations that require ownership of packets.
     #[inline]
-    pub(crate) fn reassemble(&self) -> bool {
-        self.parse_any() || self.buffer_frame() || self.update_pdu(true)
+    pub(crate) fn update_conn(&self) -> bool {
+        self.parse_any() ||
+            self.update_pdu_reassembled() ||
+            self.buffer_frame() ||
+            self.packet_deliver()
     }
 
     /// True if nothing except delivery is required

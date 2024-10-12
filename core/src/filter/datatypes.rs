@@ -10,6 +10,9 @@ use super::{ActionData, Actions};
 pub enum Level {
     /// Deliver per-packet
     /// If needed, packets will be cached by the framework until filter match
+    /// Important: packet-level subscriptions are delivered as follows for TCP:
+    /// - For filters that can match at the packet layer: pre-reassembly
+    /// - For all other filters: post-reassembly
     Packet,
     /// Deliver at (UDP/TCP) connection termination
     Connection,

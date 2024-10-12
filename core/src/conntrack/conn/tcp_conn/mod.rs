@@ -53,8 +53,7 @@ impl TcpConn {
     /// Updates connection termination flags
     // Useful if desired to track TCP connections without reassembly
     #[inline]
-    #[allow(dead_code)]
-    pub(super) fn update_term_condition(&mut self, flags: u8, dir: bool) {
+    pub(super) fn update_flags(&mut self, flags: u8, dir: bool) {
         if dir {
             self.ctos.consumed_flags |= flags;
         } else {

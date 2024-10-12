@@ -101,6 +101,14 @@ where
         }
     }
 
+    /// Updates flags
+    #[inline]
+    pub(super) fn update_tcp_flags(&mut self, flags: u8, dir: bool) {
+        if let L4Conn::Tcp(tcp_conn) = &mut self.l4conn {
+            tcp_conn.update_flags(flags, dir);
+        }
+    }
+
     /// Returns the connection 5-tuple.
     pub(super) fn five_tuple(&self) -> FiveTuple {
         self.info.cdata.five_tuple

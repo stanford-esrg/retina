@@ -100,13 +100,14 @@ where
                     return;
                 }
                 let pdu = L4Pdu::new(mbuf, ctxt, dir);
-                if conn.info.actions.update_pdu(false) {
+                if conn.info.actions.update_pdu() {
                     conn.info.sdata.update(&pdu, false);
                 }
-                if !conn.info.actions.reassemble() {
-                    return;
+                if conn.info.actions.update_conn() {
+                    conn.update(pdu, subscription, &self.registry);
+                } else {
+                    conn.update_tcp_flags(pdu.flags(), pdu.dir);
                 }
-                conn.update(pdu, subscription, &self.registry);
 
                 // Delete stale data for connections no longer matching
                 if conn.remove_from_table() {
