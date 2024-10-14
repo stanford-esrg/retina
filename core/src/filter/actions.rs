@@ -146,10 +146,10 @@ impl Actions {
     /// parsing, or operations that require ownership of packets.
     #[inline]
     pub(crate) fn update_conn(&self) -> bool {
-        self.parse_any() ||
-            self.update_pdu_reassembled() ||
-            self.buffer_frame() ||
-            self.packet_deliver()
+        self.parse_any()
+            || self.update_pdu_reassembled()
+            || self.buffer_frame()
+            || self.packet_deliver()
     }
 
     /// True if nothing except delivery is required

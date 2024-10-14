@@ -23,15 +23,19 @@ optimizes for:
 - **Security:** Retina leverages compile-time memory safety guarantees offered
   by Rust to safely and efficiently process network traffic.
 
+Retina v0.1.0 supported subscribing to a single, pre-defined datatype.
+v1.1.0 (2024) introduces significant framework changes that allow a user to
+specify multiple subscriptions. That is, users can now request multiple callbacks,
+each associated with a filter and one or more datatypes.
+
 ## Documentation
 
-A detailed description of Retina's architecture and its performance can be
+A detailed description of Retina's (v0.1.0) architecture and its performance can be
 found in our SIGCOMM'22 paper: *[Retina: Analyzing 100 GbE Traffic on Commodity
 Hardware](https://thegwan.github.io/files/retina.pdf)*.
 
 Documentation for using and developing against Retina can be found
-[here](https://stanford-esrg.github.io/retina/retina_core/). It includes a
-comprehensive description of supported filter syntax and subscribable types.
+[here](https://stanford-esrg.github.io/retina/retina_core/).
 
 
 ## Getting Started
@@ -46,23 +50,7 @@ Fork or clone the main git repository:
 
 `git clone git@github.com:stanford-esrg/retina.git`
 
-Write your first Retina application (see [examples](https://github.com/stanford-esrg/retina/tree/main/examples)):
-```rust
-use retina_core::config::default_config;
-use retina_core::subscription::TlsHandshake;
-use retina_core::Runtime;
-use retina_filtergen::filter;
-
-#[filter("tls.sni ~ '^.*\\.com$'")]
-fn main() {
-    let cfg = default_config();
-    let callback = |tls: TlsHandshake| {
-        println!("{:?}", tls);
-    };
-    let mut runtime = Runtime::new(cfg, filter, callback).unwrap();
-    runtime.run();
-}
-```
+Write your first Retina application (see [examples](https://github.com/stanford-esrg/retina/tree/main/examples)).
 
 Build all examples in release mode:
 
