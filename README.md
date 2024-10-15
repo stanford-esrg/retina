@@ -63,6 +63,7 @@ fn main() {
     runtime.run();
 }
 ```
+Writing a Retina application consists of defining subscriptions. A subscription is defined by (1) [writing a filter](https://stanford-esrg.github.io/retina/retina_filtergen/index.html) to describe what subset of network traffic you're interested in, (2) choosing [data types to subscribe to](https://stanford-esrg.github.io/retina/retina_core/subscription/index.html), and (3) defining a callback function that takes in a subscribable data type and performs operations on the filtered data. 
 
 Build all examples in release mode:
 
