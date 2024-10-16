@@ -162,4 +162,4 @@ When running applications using the provided offline config file, a mempool crea
 ```sh
 Error: Mempool mempool_0 creation failed
 ```
-This can be resolved by reducing the mempool capacity.
+This can be resolved by reducing the mempool capacity in the config file.
