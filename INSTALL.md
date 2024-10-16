@@ -157,3 +157,9 @@ meson setup configure -Dplatform=generic
 export LD_LIBRARY_PATH=$DPDK_PATH/lib/aarch64-linux-gnu
 ```
 
+#### Troubleshooting: Mempool Capacity
+When running applications using the provided offline config file, a mempool creation error may occur:
+```sh
+Error: Mempool mempool_0 creation failed
+```
+This can be resolved by reducing the mempool capacity in the config file.
