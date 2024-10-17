@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  
 
 jobs:
   build:
@@ -70,16 +69,16 @@ jobs:
       run: cargo clippy --manifest-path core/Cargo.toml --no-default-features --features timing
     - name: Clippy retina-filtergen (no mlx5)
       run: cargo clippy --manifest-path filtergen/Cargo.toml --no-default-features -- --deny warnings
-    
+
   format:
     runs-on: ubuntu-latest
-    steps: 
+    steps:
     - name: Check out repo
       uses: actions/checkout@v3
     - name: cargo fmt
       run: cargo fmt --all -- --check
-  
-  
+
+
 
 
 

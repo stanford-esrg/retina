@@ -2,7 +2,7 @@ name: rustdoc
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, v0.1.0 ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,7 +19,7 @@ jobs:
         toolchain: 1.75.0
         override: true
         components: rustfmt, clippy
-    - name: Set up Python ${{ matrix.python-version }}  
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
         python-version: 3.7
@@ -59,13 +59,26 @@ jobs:
     - name: Remove LLVM and Clang 13/14
       run: sudo apt remove --auto-remove clang-14 llvm-14 && sudo apt remove --auto-remove clang-13 llvm-13;
 
+    - name: Build Documentation (v0.1.0)
+      run: git checkout v0.1.0 && cargo doc --lib --no-deps
+
+    - name: Move Documentation (v0.1.0)
+      run: |
+        mkdir -p docs/v0.1.0
+        cp -r target/doc/* docs/v0.1.0/
+
     - name: Build Documentation
-      run: cargo doc --lib --no-deps
+      run: git checkout main && cargo doc --lib --no-deps
+
+    - name: Move Documentation
+      run: |
+        mkdir -p docs/v1.0.0
+        cp -r target/doc/* docs/v1.0.0/
 
     - name: Deploy Documentation
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_branch: gh-pages
-        publish_dir: ./target/doc
+        publish_dir: ./docs
         force_orphan: true
