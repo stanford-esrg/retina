@@ -1,4 +1,4 @@
-pub(crate) mod reassembly;
+pub mod reassembly;
 
 use self::reassembly::TcpFlow;
 use crate::conntrack::conn::conn_info::ConnInfo;
@@ -51,8 +51,9 @@ impl TcpConn {
     }
 
     /// Updates connection termination flags
+    // Useful if desired to track TCP connections without reassembly
     #[inline]
-    pub(super) fn update_term_condition(&mut self, flags: u8, dir: bool) {
+    pub(super) fn update_flags(&mut self, flags: u8, dir: bool) {
         if dir {
             self.ctos.consumed_flags |= flags;
         } else {

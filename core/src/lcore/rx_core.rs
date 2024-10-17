@@ -2,10 +2,8 @@ use super::CoreId;
 use crate::config::ConnTrackConfig;
 use crate::conntrack::{ConnTracker, TrackerConfig};
 use crate::dpdk;
-use crate::filter::Filter;
 use crate::memory::mbuf::Mbuf;
 use crate::port::{RxQueue, RxQueueType};
-use crate::protocols::stream::ParserRegistry;
 use crate::subscription::*;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,34 +13,31 @@ use itertools::Itertools;
 
 /// A RxCore polls from `rxqueues` and reduces the stream of packets into
 /// a stream of higher-level network events to be processed by the user.
-pub(crate) struct RxCore<'a, S>
+pub(crate) struct RxCore<S>
 where
     S: Subscribable,
 {
     pub(crate) id: CoreId,
     pub(crate) rxqueues: Vec<RxQueue>,
-    pub(crate) filter: Filter,
     pub(crate) conntrack: ConnTrackConfig,
-    pub(crate) subscription: Arc<Subscription<'a, S>>,
+    pub(crate) subscription: Arc<Subscription<S>>,
     pub(crate) is_running: Arc<AtomicBool>,
 }
 
-impl<'a, S> RxCore<'a, S>
+impl<S> RxCore<S>
 where
     S: Subscribable,
 {
     pub(crate) fn new(
         core_id: CoreId,
         rxqueues: Vec<RxQueue>,
-        filter: Filter,
         conntrack: ConnTrackConfig,
-        subscription: Arc<Subscription<'a, S>>,
+        subscription: Arc<Subscription<S>>,
         is_running: Arc<AtomicBool>,
     ) -> Self {
         RxCore {
             id: core_id,
             rxqueues,
-            filter,
             conntrack,
             subscription,
             is_running,
@@ -87,9 +82,9 @@ where
         let mut nb_bytes = 0;
 
         let config = TrackerConfig::from(&self.conntrack);
-        let registry = ParserRegistry::build::<S>(&self.filter).expect("Unable to build registry");
+        let registry = S::Tracked::parsers();
         log::debug!("{:#?}", registry);
-        let mut conn_table = ConnTracker::<S::Tracked>::new(config, registry);
+        let mut conn_table = ConnTracker::<S::Tracked>::new(config, registry, self.id);
 
         while self.is_running.load(Ordering::Relaxed) {
             for rxqueue in self.rxqueues.iter() {
@@ -106,7 +101,12 @@ where
                     // );
                     nb_pkts += 1;
                     nb_bytes += mbuf.data_len() as u64;
-                    S::process_packet(mbuf, &self.subscription, &mut conn_table);
+
+                    let actions = self.subscription.continue_packet(&mbuf, &self.id);
+                    if !actions.drop() {
+                        self.subscription
+                            .process_packet(mbuf, &mut conn_table, actions);
+                    }
                 }
             }
             conn_table.check_inactive(&self.subscription);

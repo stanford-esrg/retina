@@ -10,7 +10,7 @@ use tls_parser::{
 };
 
 /// A parsed TLS ClientHello message.
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct ClientHello {
     pub version: TlsVersion,
     #[serde(with = "base64")]
@@ -30,7 +30,7 @@ pub struct ClientHello {
 }
 
 /// A parsed TLS ServerHello message.
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct ServerHello {
     pub version: TlsVersion,
     #[serde(with = "base64")]
@@ -47,7 +47,7 @@ pub struct ServerHello {
 }
 
 /// A raw X509 certificate.
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct Certificate {
     #[serde(with = "base64")]
     pub raw: Vec<u8>,
@@ -55,7 +55,7 @@ pub struct Certificate {
 }
 
 /// Key data sent by the server in a ServerKeyExchange message.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ServerKeyExchange {
     Ecdh(ServerECDHParams),
@@ -73,7 +73,7 @@ impl Default for ServerKeyExchange {
 }
 
 /// Key data sent by the client in a ClientKeyExchange message.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ClientKeyExchange {
     Ecdh(ClientECDHParams),
@@ -90,7 +90,7 @@ impl Default for ClientKeyExchange {
 }
 
 /// RSA parameters sent by the server in a ServerKeyExchange message. (RSA_EXPORT cipher suites).
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct ServerRSAParams {
     #[serde(with = "base64")]
     pub modulus: Vec<u8>,
@@ -100,14 +100,14 @@ pub struct ServerRSAParams {
 
 /// Stores the encrypted premaster secret sent by the client in a ClientKeyExchange message in an
 /// RSA handshake.
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct ClientRSAParams {
     #[serde(with = "base64")]
     pub encrypted_pms: Vec<u8>,
 }
 
 /// Finite-field Diffie-Hellman parameters sent by the server in a ServerKeyExchange message.
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct ServerDHParams {
     #[serde(with = "base64")]
     pub prime: Vec<u8>,
@@ -118,14 +118,14 @@ pub struct ServerDHParams {
 }
 
 /// Finite-field Diffie-Hellman parameters sent by the client in a ClientKeyExchange message.
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct ClientDHParams {
     #[serde(with = "base64")]
     pub kx_data: Vec<u8>,
 }
 
 /// Elliptic-curve Diffie-Hellman parameters sent by the server in a ServerKeyExchange message.
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct ServerECDHParams {
     pub curve: NamedGroup,
     #[serde(with = "base64")]
@@ -133,7 +133,7 @@ pub struct ServerECDHParams {
 }
 
 /// Elliptic-curve Diffie-Hellman parameters sent by the client in a ClientKeyExchange message.
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct ClientECDHParams {
     #[serde(with = "base64")]
     pub kx_data: Vec<u8>,
@@ -146,7 +146,7 @@ pub struct ClientECDHParams {
 /// `kx_data` contains the DH public value. For ECDH, `kx_data` contains the uncompressed x,y EC
 /// point prepended with the value 0x4. See [Key
 /// Share](https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8) for details.
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct KeyShareEntry {
     pub group: NamedGroup,
     #[serde(with = "base64")]

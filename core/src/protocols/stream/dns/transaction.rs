@@ -6,7 +6,7 @@ use dns_parser::{Packet, ResponseCode};
 use serde::Serialize;
 
 /// A DNS Query.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct DnsQuery {
     pub num_questions: u16,
     pub recursion_desired: bool, // appears in query & answer
@@ -29,7 +29,7 @@ impl DnsQuery {
 }
 
 /// A DNS Response.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct DnsResponse {
     pub response_code: ResponseCode,
     pub authoritative: bool, // if the DNS server is authoritative for the queried hostname, appear in answer
@@ -87,7 +87,7 @@ impl DnsResponse {
 }
 
 /// A DNS Record.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct DnsRecord {
     pub name: String,
     pub data: Data,
@@ -95,7 +95,7 @@ pub struct DnsRecord {
 }
 
 /// RData types.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub enum Data {
     A(A),
     Aaaa(Aaaa),
@@ -150,7 +150,7 @@ pub struct Mx {
 }
 
 /// A DNS start of authority (SOA) record.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Soa {
     pub primary_ns: String,
     pub mailbox: String,
@@ -162,7 +162,7 @@ pub struct Soa {
 }
 
 /// A DNS service (SRV) record.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Srv {
     pub priority: u16,
     pub weight: u16,

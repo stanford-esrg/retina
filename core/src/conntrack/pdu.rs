@@ -11,14 +11,14 @@ use anyhow::{bail, Result};
 use std::net::{IpAddr, SocketAddr};
 
 /// Transport-layer protocol data unit for stream reassembly and application-layer protocol parsing.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct L4Pdu {
     /// Internal packet buffer containing frame data.
-    pub(crate) mbuf: Mbuf,
+    pub mbuf: Mbuf,
     /// Transport layer context.
-    pub(crate) ctxt: L4Context,
+    pub ctxt: L4Context,
     /// `true` if segment is in the direction of orig -> resp.
-    pub(crate) dir: bool,
+    pub dir: bool,
 }
 
 impl L4Pdu {
@@ -27,32 +27,32 @@ impl L4Pdu {
     }
 
     #[inline]
-    pub(crate) fn mbuf_own(self) -> Mbuf {
+    pub fn mbuf_own(self) -> Mbuf {
         self.mbuf
     }
 
     #[inline]
-    pub(crate) fn mbuf_ref(&self) -> &Mbuf {
+    pub fn mbuf_ref(&self) -> &Mbuf {
         &self.mbuf
     }
 
     #[inline]
-    pub(crate) fn offset(&self) -> usize {
+    pub fn offset(&self) -> usize {
         self.ctxt.offset
     }
 
     #[inline]
-    pub(crate) fn length(&self) -> usize {
+    pub fn length(&self) -> usize {
         self.ctxt.length
     }
 
     #[inline]
-    pub(crate) fn seq_no(&self) -> u32 {
+    pub fn seq_no(&self) -> u32 {
         self.ctxt.seq_no
     }
 
     #[inline]
-    pub(crate) fn flags(&self) -> u8 {
+    pub fn flags(&self) -> u8 {
         self.ctxt.flags
     }
 }
@@ -61,25 +61,23 @@ impl L4Pdu {
 #[derive(Debug, Clone, Copy)]
 pub struct L4Context {
     /// Source socket address.
-    pub(crate) src: SocketAddr,
+    pub src: SocketAddr,
     /// Destination socket address.
-    pub(crate) dst: SocketAddr,
+    pub dst: SocketAddr,
     /// L4 protocol.
-    pub(crate) proto: usize,
-    /// Index of the predicate that was last matched in the packet filter.
-    pub(crate) idx: usize,
+    pub proto: usize,
     /// Offset into the mbuf where payload begins.
-    pub(crate) offset: usize,
+    pub offset: usize,
     /// Length of the payload in bytes.
-    pub(crate) length: usize,
+    pub length: usize,
     /// Raw sequence number of segment.
-    pub(crate) seq_no: u32,
+    pub seq_no: u32,
     /// TCP flags.
-    pub(crate) flags: u8,
+    pub flags: u8,
 }
 
 impl L4Context {
-    pub(crate) fn new(mbuf: &Mbuf, idx: usize) -> Result<Self> {
+    pub fn new(mbuf: &Mbuf) -> Result<Self> {
         if let Ok(eth) = mbuf.parse_to::<Ethernet>() {
             if let Ok(ipv4) = eth.parse_to::<Ipv4>() {
                 if let Ok(tcp) = ipv4.parse_to::<Tcp>() {
@@ -90,7 +88,6 @@ impl L4Context {
                             src: SocketAddr::new(IpAddr::V4(ipv4.src_addr()), tcp.src_port()),
                             dst: SocketAddr::new(IpAddr::V4(ipv4.dst_addr()), tcp.dst_port()),
                             proto: TCP_PROTOCOL,
-                            idx,
                             offset: tcp.next_header_offset(),
                             length: payload_size,
                             seq_no: tcp.seq_no(),
@@ -107,7 +104,6 @@ impl L4Context {
                             src: SocketAddr::new(IpAddr::V4(ipv4.src_addr()), udp.src_port()),
                             dst: SocketAddr::new(IpAddr::V4(ipv4.dst_addr()), udp.dst_port()),
                             proto: UDP_PROTOCOL,
-                            idx,
                             offset: udp.next_header_offset(),
                             length: payload_size,
                             seq_no: 0,
@@ -128,7 +124,6 @@ impl L4Context {
                             src: SocketAddr::new(IpAddr::V6(ipv6.src_addr()), tcp.src_port()),
                             dst: SocketAddr::new(IpAddr::V6(ipv6.dst_addr()), tcp.dst_port()),
                             proto: TCP_PROTOCOL,
-                            idx,
                             offset: tcp.next_header_offset(),
                             length: payload_size,
                             seq_no: tcp.seq_no(),
@@ -145,7 +140,6 @@ impl L4Context {
                             src: SocketAddr::new(IpAddr::V6(ipv6.src_addr()), udp.src_port()),
                             dst: SocketAddr::new(IpAddr::V6(ipv6.dst_addr()), udp.dst_port()),
                             proto: UDP_PROTOCOL,
-                            idx,
                             offset: udp.next_header_offset(),
                             length: payload_size,
                             seq_no: 0,
