@@ -42,6 +42,7 @@ impl Timers {
         Timers(timers)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn record(&self, which: &str, value: u64, sample: u64) {
         if let Some(timer) = self.0.get(which) {
             timer

@@ -27,9 +27,9 @@
 //!
 //! ```rust
 //! use retina_core::config::default_config;
-//! use retina_core::subscription::TlsHandshake;
 //! use retina_core::Runtime;
-//! use retina_filtergen::filter;
+//! use retina_filtergen::{retina_main, filter};
+//! use retina_datatypes::*;
 //!
 //! // Specify a subscription: filter, datatype(s), and callback. The filter determines what
 //! // subset of traffic is delivered to the callback. The datatype(s) determine what data is
@@ -46,7 +46,7 @@
 //! // A Retina application consists of one or more subscriptions.
 //! // Define other subscriptions in the same file.
 //! #[filter("dns")]
-//! fn log_tls(dns: &DnsTransaction) {
+//! fn log_dns(dns: &DnsTransaction) {
 //!      println!("{:?}", dns);
 //! }
 //!
@@ -58,7 +58,7 @@
 //!     let cfg = default_config();
 //!     // SubscribedWrapper is the type generated at compile-time to "wrap" all
 //!     // data tracking and delivering functionality, while `filter` wraps all filtering.
-//!     let mut runtime<SubscribedWrapper> = Runtime::new(cfg, filter, callback).unwrap();
+//!     let runtime::<SubscribedWrapper> = Runtime::new(cfg, filter).unwrap();
 //!     // Starts Retina
 //!     runtime.run();
 //! }

@@ -4,7 +4,8 @@ members = [
     "datatypes",
     "examples/websites",
     "examples/port_count",
-    "examples/filter_stats",
+    # Exclude from compilation; many subscriptions takes a long time to compile
+    # "examples/filter_stats",
     "examples/protocols",
 ]
 resolver = "2"

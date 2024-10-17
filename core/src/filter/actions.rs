@@ -1,3 +1,4 @@
+use bitmask_enum::bitmask;
 /// For each connectionn, the Retina framework applies multiple filtering stages as
 /// packets are received in order to determine (1) whether packets from that connection
 /// should continue to be processed and (2) what to do with these packets.
@@ -11,7 +12,7 @@
 /// Each filter stage returns a set of actions and a set of terminal actions.
 /// The terminal actions are the subset of actions that are maintained through
 /// the next filter stage.
-use bitmask_enum::bitmask;
+use std::fmt;
 
 #[bitmask]
 #[bitmask_config(vec_debug)]
@@ -280,7 +281,6 @@ use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use std::str::FromStr;
 
-#[allow(clippy::to_string_trait_impl)]
 impl FromStr for ActionData {
     type Err = core::fmt::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -301,23 +301,23 @@ impl FromStr for ActionData {
     }
 }
 
-#[allow(clippy::to_string_trait_impl)]
-impl ToString for ActionData {
-    fn to_string(&self) -> String {
-        match *self {
-            ActionData::PacketContinue => "PacketContinue".into(),
-            ActionData::PacketDeliver => "PacketDeliver".into(),
-            ActionData::ProtoProbe => "ProtoProbe".into(),
-            ActionData::ProtoFilter => "ProtoFilter".into(),
-            ActionData::SessionFilter => "SessionFilter".into(),
-            ActionData::SessionDeliver => "SessionDeliver".into(),
-            ActionData::SessionTrack => "SessionTrack".into(),
-            ActionData::UpdatePDU => "UpdatePDU".into(),
-            ActionData::ReassembledUpdatePDU => "ReassembledUpdatePDU".into(),
-            ActionData::PacketTrack => "PacketTrack".into(),
-            ActionData::ConnDeliver => "ConnDeliver".into(),
+impl fmt::Display for ActionData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match *self {
+            ActionData::PacketContinue => "PacketContinue",
+            ActionData::PacketDeliver => "PacketDeliver",
+            ActionData::ProtoProbe => "ProtoProbe",
+            ActionData::ProtoFilter => "ProtoFilter",
+            ActionData::SessionFilter => "SessionFilter",
+            ActionData::SessionDeliver => "SessionDeliver",
+            ActionData::SessionTrack => "SessionTrack",
+            ActionData::UpdatePDU => "UpdatePDU",
+            ActionData::ReassembledUpdatePDU => "ReassembledUpdatePDU",
+            ActionData::PacketTrack => "PacketTrack",
+            ActionData::ConnDeliver => "ConnDeliver",
             _ => panic!("Unknown ActionData"),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
