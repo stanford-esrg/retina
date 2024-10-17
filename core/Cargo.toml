@@ -1,6 +1,6 @@
 [package]
 name = "retina-core"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -46,6 +46,11 @@ thiserror = "1.0"
 tls-parser = { git = "https://github.com/stanford-esrg/tls-parser" }
 toml = "0.5.11"
 x509-parser = "0.13.2"
+bitmask-enum = "2.2.4"
+quote = "1.0.26"
+proc-macro2 = "1.0.56"
+syn = { version = "2.0.15" }
+regex = "1.7.3"
 ring = "0.17.8"
 aes-gcm = "0.10.3"
 

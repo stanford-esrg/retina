@@ -6,8 +6,8 @@ filter = _{ SOI ~ expr? ~ EOI }
 raw_predicates = _{ SOI ~ ( (non_identifier)* ~ predicate ~ (non_identifier)* )* ~ EOI }
 
 // encodes operator precedence (AND over OR)
-expr = { sub_expr ~ (or_op ~ sub_expr)* }   
-sub_expr = { term ~ (and_op ~ term)* }      
+expr = { sub_expr ~ (or_op ~ sub_expr)* }
+sub_expr = { term ~ (and_op ~ term)* }
 term = _{ predicate | "(" ~ expr ~ ")" }
 predicate = { protocol ~ ("." ~ (combined_field | field) ~ bin_op ~ value)? }
 
@@ -20,14 +20,14 @@ combined_field = @{ "addr" | "port" }
 // order matters! Parser will try from left to right
 value = { ipv4_lit | ipv6_lit | int_range | int_lit | str_lit }
 
-ipv4_addr = @{ 
-    ASCII_DIGIT{1,3} ~ ("." ~ ASCII_DIGIT{1,3}){3} 
+ipv4_addr = @{
+    ASCII_DIGIT{1,3} ~ ("." ~ ASCII_DIGIT{1,3}){3}
 }
 ipv4_prefix = @{ ASCII_DIGIT{1,2} }
 ipv4_lit = ${ ipv4_addr ~ ("/" ~ ipv4_prefix)? }
 
-ipv6_addr = @{ 
-    (":" | ASCII_ALPHANUMERIC{1,4}) ~ ":" ~ (ipv4_addr | ASCII_ALPHANUMERIC{1,4} | ":")* 
+ipv6_addr = @{
+    (":" | ASCII_ALPHANUMERIC{1,4}) ~ ":" ~ (ipv4_addr | ASCII_ALPHANUMERIC{1,4} | ":")*
 }
 ipv6_prefix = @{ ASCII_DIGIT{1,3} }
 ipv6_lit = ${ ipv6_addr ~ ("/" ~ ipv6_prefix)? }

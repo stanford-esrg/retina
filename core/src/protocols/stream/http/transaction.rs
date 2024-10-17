@@ -9,7 +9,7 @@ use httparse::{Request, Response, EMPTY_HEADER};
 use serde::Serialize;
 
 /// An HTTP Request
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, Clone)]
 pub struct HttpRequest {
     pub method: Option<String>,
     pub uri: Option<String>,
@@ -89,7 +89,7 @@ impl HttpRequest {
 }
 
 /// An HTTP Response
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, Clone)]
 pub struct HttpResponse {
     pub version: Option<String>,
     pub status_code: Option<u16>,

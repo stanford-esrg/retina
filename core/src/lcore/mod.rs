@@ -1,3 +1,5 @@
+//! Utilities for managing and monitoring Retina cores.
+
 pub(crate) mod monitor;
 // pub(crate) mod ring;
 pub(crate) mod rx_core;
@@ -26,6 +28,7 @@ impl fmt::Display for SocketId {
 
 /* --------------------------------------------------------------------------------- */
 
+/// An identifier for a core running Retina (sink, monitoring, or RX).
 #[derive(Debug, Copy, Clone, Hash, Ord, Eq, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub struct CoreId(pub u32);
 
@@ -34,7 +37,7 @@ impl CoreId {
         unsafe { SocketId(dpdk::rte_lcore_to_socket_id(self.0)) }
     }
 
-    /// For DPDK functions
+    /// The core ID as u32, primarily for DPDK functions
     pub fn raw(&self) -> u32 {
         self.0
     }

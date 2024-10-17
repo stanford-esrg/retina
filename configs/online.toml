@@ -1,52 +1,41 @@
-# This configuration is an example to show Retina in "online" mode, which
-# polls the specified network interface(s) for live traffic.
-# 
-# See https://stanford-esrg.github.io/retina/retina_core/config/index.html
-# for configuration options.
-
 main_core = 0
 nb_memory_channels = 6
 
 [mempool]
-    capacity = 8_388_608
-    cache_size = 512
+capacity = 8388608
+cache_size = 512
 
 [online]
-    duration = 60
-    nb_rxd = 32_768
-    promiscuous = true
-    mtu = 1500
-    hardware_assist = true
+duration = 120
+nb_rxd = 32768
+promiscuous = true
+mtu = 1500
+hardware_assist = false
+[[online.ports]]
+device = "0000:3b:00.0"
+cores = [ 1, 2, 3, 4, 5, 6, 7, 8 ]
 
-    [online.monitor.display]
-        throughput = true
-        mempool_usage = true
-        port_stats = ["rx_good_packets",
-                        "rx_good_bytes",
-                        "rx_phy_packets",
-                        "rx_phy_bytes",
-                        "rx_mbuf_allocation_errors", 
-                        "rx_phy_discard_packets", 
-                        "rx_missed_errors",
-                        ]
-    [online.monitor.log]
-        directory = "./log"
-        interval = 1000
+#[online.ports.sink]
+#core = 17
+#nb_buckets = 16
 
-    [[online.ports]]
-        device = "0000:3b:00.0"
-        cores = [1,2,3,4,5,6,7,8]
+[[online.ports]]
+device = "0000:d8:00.0"
+cores = [ 9, 10, 11, 12, 13, 14, 15, 16 ]
 
-    [[online.ports]]
-        device = "0000:d8:00.0"
-        cores = [9,10,11,12,13,14,15,16]
+#[online.ports.sink]
+#core = 18
+#nb_buckets = 16
 
 [conntrack]
-    max_connections = 10_000_000
-    max_out_of_order = 500
-    timeout_resolution = 100
-    udp_inactivity_timeout = 60_000
-    tcp_inactivity_timeout = 300_000
-    tcp_establish_timeout = 5000
+max_connections = 10000000
+max_out_of_order = 500
+timeout_resolution = 100
+udp_inactivity_timeout = 60000
+tcp_inactivity_timeout = 300000
+tcp_establish_timeout = 5000
 
-
+[online.monitor.display]
+throughput = true
+mempool_usage = true
+port_stats = [ "rx_good_packets", "rx_good_bytes", "rx_phy_packets", "rx_phy_bytes", "rx_mbuf_allocation_errors", "rx_phy_discard_packets", "rx_missed_errors",]

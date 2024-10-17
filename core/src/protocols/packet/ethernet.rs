@@ -48,6 +48,23 @@ impl<'a> Ethernet<'a> {
     pub fn ether_type(&self) -> u16 {
         self.next_header().unwrap_or(0) as u16
     }
+
+    /// Returns the Tag Control Information field from a 802.1Q (single-tagged)
+    /// frame, if available.
+    pub fn tci(&self) -> Option<u16> {
+        let ether_type: u16 = u16::from(self.header.ether_type);
+        match ether_type {
+            VLAN_802_1Q => {
+                if let Ok(dot1q) = self.mbuf.get_data(HDR_SIZE) {
+                    let dot1q: Dot1q = unsafe { *dot1q };
+                    Some(dot1q.tci.into())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
 }
 
 impl<'a> Packet<'a> for Ethernet<'a> {

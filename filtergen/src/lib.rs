@@ -1,30 +1,95 @@
 #![allow(clippy::needless_doctest_main)]
-//! A macro for defining filters in Retina.
+//! A macro for defining subscriptions in Retina.
+//!
+//! # Specifying Subscriptions in a .rs File
 //!
 //! [`filter`](macro@self::filter) is an attribute macro that parses a user-defined filter
 //! expression to generate sub-filters that are statically inlined at each processing layer. This
 //! verifies filter expressions at compile time and avoids overheads associated with interpreting
-//! filters at runtime.
+//! filters at runtime. The `filter` attribute macro must be tied to the callback requested.
 //!
-//! # Usage
+//! [`retina_main`](macro@self::retina_main) is an attribute macro that must be used alongside
+//! [`filter`](macro@self::filter). It indicates to the framework how many subscriptions to expect.
+//!
+//! ## Usage
 //! ```rust
 //! use retina_core::config::default_config;
 //! use retina_core::Runtime;
-//! use retina_core::subscription::Connection;
-//! use retina_filtergen::filter;
+//! use retina_filtergen::{filter, retina_main};
+//! use retina_datatypes::*;
 //!
-//! #[filter("(ipv4 and tcp.port >= 100 and tls.sni ~ 'netflix') or http")]
+//! #[filter("ipv4 and tcp.port >= 100")]
+//! fn log_tcp(conn: &ConnRecord) { // Callback; datatype(s) by reference
+//!    println!("{:#?}", conn);
+//! }
+//!
+//! #[filter("tls.sni ~ 'netflix'")]
+//! fn log_tls(conn: &ConnRecord, tls: &TlsHandshake) {
+//!    println!("{:#?}, {:#?}", conn, tls);
+//! }
+//!
+//! #[retina_main(2)] // 2 subscriptions expected
 //! fn main() {
 //!    let cfg = default_config();
-//!    let callback = |conn: Connection| {
-//!        println!("{:#?}", conn);
-//!    };
-//!    let mut runtime = Runtime::new(cfg, filter, callback).unwrap();
+//!    // \note SubscribedWrapper is the structure built at compile-time to
+//!    // 'wrap' all requested data. It must be specified as the generic parameter to Runtime.
+//!    let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(cfg, filter).unwrap();
 //!    runtime.run();
 //! }
 //! ```
 //!
-//! # Syntax
+//! # Specifying Subscriptions in TOML File
+//!
+//! [`subscription`](macro@self::subscription) is an attribute macro that allows users to specify
+//! a list of subscriptions from an input file. This may be useful, for example, for programs that require
+//! a large number of filters to be applied to the same callback.
+//!
+//! Input TOML files should be a list of `subscriptions`, each of which has `filter`, `datatypes`,
+//! and `callback` specified. The datatypes in the TOML file must match the order and names of the
+//! datatypes in the callbacks in code.
+//!
+//! ## Usage
+//! ```toml
+//![[subscriptions]]
+//! filter = "(http.user_agent = '/mm.jpg') and (tcp.dst_port = 80 or tcp.dst_port = 8080)"
+//! datatypes = [
+//!     "HttpTransaction",
+//!     "FilterStr",
+//! ]
+//! callback = "http_cb"
+//!
+//![[subscriptions]]
+//! filter = "http.user_agent = 'HttpBrowser/1.0'"
+//! datatypes = [
+//!     "HttpTransaction",
+//!     "FilterStr",
+//! ]
+//! callback = "http_cb"
+//! ```
+//!
+//! ```rust
+//! use retina_core::config::default_config;
+//! use retina_core::Runtime;
+//! use retina_filtergen::subscription;
+//! use retina_datatypes::*;
+//!
+//! fn http_cb(http: &HttpTransaction, matched_filter: &FilterStr) {
+//!    println!("Matched {} with {:#?}", matched_filter, http);
+//! }
+//!
+//! #[subscription("examples/XX/spec.toml")]
+//! fn main() {
+//!    let cfg = default_config();
+//!    let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(cfg, filter).unwrap();
+//!    runtime.run();
+//! }
+//! ```
+//!
+//! # Datatype syntax
+//! All subscribed datatypes -- parameters to callbacks -- must be requested by reference.
+//! Supported datatypes are defined in the [retina_datatypes](../datatypes) crate.
+//!
+//! # Filter syntax
 //! The Retina filter syntax is similar to that of [Wireshark display
 //! filters](https://wiki.wireshark.org/DisplayFilters). However, Retina is capable of filtering on
 //! live traffic for online analysis, whereas display filters can only be applied for offline
@@ -117,105 +182,236 @@
 //! approximated using the `!=` binary comparison operator, taking the above mentioned pitfall into
 //! consideration.
 
-mod connection_filter;
-mod packet_filter;
-mod session_filter;
-mod util;
-
 use proc_macro::TokenStream;
 use quote::quote;
+use retina_core::filter::ptree::*;
+use retina_core::filter::*;
+use std::str::FromStr;
 use syn::parse_macro_input;
+use utils::DELIVER;
 
-use retina_core::filter::Filter;
+#[macro_use]
+extern crate lazy_static;
 
-use crate::connection_filter::gen_connection_filter;
+mod cache;
+mod data;
+mod deliver_filter;
+mod packet_filter;
+mod parse;
+mod proto_filter;
+mod session_filter;
+mod utils;
+
+use crate::cache::*;
+use crate::data::*;
+use crate::deliver_filter::gen_deliver_filter;
 use crate::packet_filter::gen_packet_filter;
+use crate::parse::*;
+use crate::proto_filter::gen_proto_filter;
 use crate::session_filter::gen_session_filter;
 
-/// Macro for generating filters.
-///
-/// ## Examples
-/// ```
-/// #[filter("")] // no filter
-/// fn main() {}
-/// ```
-///
-/// ```
-/// #[filter("tcp.port = 80")]
-/// fn main() {}
-/// ```
-///
-/// ```
-/// #[filter("http.method = 'GET'")]
-/// fn main() {}
-/// ```
-///
-/// ```
-/// #[filter("(ipv4 and tcp.port >= 100 and tls.sni ~ 'netflix') or http")]
-/// fn main() {}
-/// ```
-#[proc_macro_attribute]
-pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
-    let filter_str = parse_macro_input!(args as syn::LitStr).value();
-    let input = parse_macro_input!(input as syn::ItemFn);
-    // let input_sig = &input.sig.ident;
+// Build a string that can be used to generate a hardware (NIC) filter at runtime.
+fn get_hw_filter(packet_continue: &PTree) -> String {
+    let ret = packet_continue.to_filter_string();
+    let _flat_ptree =
+        Filter::new(&ret).unwrap_or_else(|err| panic!("Invalid HW filter {}: {:?}", &ret, err));
+    ret
+}
 
-    let filter = Filter::from_str(&filter_str, false).unwrap();
+// Returns a PTree from the given config
+fn filter_subtree(input: &SubscriptionConfig, filter_layer: FilterLayer) -> PTree {
+    let mut ptree = PTree::new_empty(filter_layer);
 
-    let mut ptree = filter.to_ptree();
-    ptree.prune_branches();
-    // Displays the predicate trie during compilation.
+    for i in 0..input.subscriptions.len() {
+        let spec = &input.subscriptions[i];
+        let filter = Filter::new(&spec.filter)
+            .unwrap_or_else(|err| panic!("Failed to parse filter {}: {:?}", spec.filter, err));
+
+        let patterns = filter.get_patterns_flat();
+        let deliver = Deliver {
+            id: i,
+            as_str: spec.as_str(),
+            must_deliver: spec.datatypes.iter().any(|d| d.as_str == "FilterStr"),
+        };
+        ptree.add_filter(&patterns, spec, &deliver);
+        DELIVER.lock().unwrap().insert(i, spec.clone());
+    }
+
+    ptree.collapse();
     println!("{}", ptree);
+    ptree
+}
 
-    // store lazily evaluated statics like pre-compiled Regex
+// Generate code from the given config (all subscriptions)
+// Also includes the original input (typically a callback or main function)
+fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
 
-    let (packet_filter_body, pt_nodes) = gen_packet_filter(&ptree, &mut statics);
-    let (connection_filter_body, ct_nodes) = gen_connection_filter(&ptree, &mut statics, pt_nodes);
-    let session_filter_body = gen_session_filter(&ptree, &mut statics, ct_nodes);
+    let packet_cont_ptree = filter_subtree(&config, FilterLayer::PacketContinue);
+    let packet_continue = gen_packet_filter(
+        &packet_cont_ptree,
+        &mut statics,
+        FilterLayer::PacketContinue,
+    );
+
+    let packet_ptree = filter_subtree(&config, FilterLayer::Packet);
+    let packet_filter = gen_packet_filter(&packet_ptree, &mut statics, FilterLayer::Packet);
+
+    let conn_ptree = filter_subtree(&config, FilterLayer::Protocol);
+    let proto_filter = gen_proto_filter(&conn_ptree, &mut statics);
+
+    let session_ptree = filter_subtree(&config, FilterLayer::Session);
+    let session_filter = gen_session_filter(&session_ptree, &mut statics);
+
+    let conn_deliver_ptree = filter_subtree(&config, FilterLayer::ConnectionDeliver);
+    let conn_deliver_filter = gen_deliver_filter(
+        &conn_deliver_ptree,
+        &mut statics,
+        FilterLayer::ConnectionDeliver,
+    );
+    let packet_deliver_ptree = filter_subtree(&config, FilterLayer::PacketDeliver);
+    let packet_deliver_filter = gen_deliver_filter(
+        &packet_deliver_ptree,
+        &mut statics,
+        FilterLayer::PacketDeliver,
+    );
+
+    let mut tracked_data = TrackedDataBuilder::new(&config);
+    let subscribable = tracked_data.subscribable_wrapper();
+    let tracked = tracked_data.tracked();
+
+    let filter_str = get_hw_filter(&packet_cont_ptree); // Packet-level keep/drop filter
 
     let lazy_statics = if statics.is_empty() {
         quote! {}
     } else {
         quote! {
-            lazy_static::lazy_static! {
-                #( #statics )*
+        lazy_static::lazy_static! {
+            #( #statics )*
             }
         }
     };
 
-    let packet_filter_fn = quote! {
-        #[inline]
-        fn packet_filter(mbuf: &retina_core::Mbuf) -> retina_core::filter::FilterResult {
-            #packet_filter_body
-        }
-    };
+    quote! {
+        use retina_core::filter::actions::*;
+        use retina_core::subscription::{Trackable, Subscribable};
 
-    let connection_filter_fn = quote! {
-        #[inline]
-        fn connection_filter(conn: &retina_core::protocols::stream::ConnData) -> retina_core::filter::FilterResult {
-            #connection_filter_body
-        }
-    };
+        #subscribable
 
-    let session_filter_fn = quote! {
-        #[inline]
-        fn session_filter(session: &retina_core::protocols::stream::Session, idx: usize) -> bool {
-            #session_filter_body
-        }
-    };
-
-    let filtergen = quote! {
-        fn filter() -> retina_core::filter::FilterFactory {
-            #packet_filter_fn
-            #connection_filter_fn
-            #session_filter_fn
-            retina_core::filter::FilterFactory::new(#filter_str, packet_filter, connection_filter, session_filter)
-        }
+        #tracked
 
         #lazy_statics
+
+        pub fn filter() -> retina_core::filter::FilterFactory<TrackedWrapper> {
+
+            fn packet_continue(mbuf: &retina_core::Mbuf,
+                               core_id: &retina_core::CoreId) -> Actions {
+                #packet_continue
+            }
+
+            fn packet_filter(mbuf: &retina_core::Mbuf, tracked: &TrackedWrapper) -> Actions {
+                #packet_filter
+            }
+
+            fn protocol_filter(conn: &retina_core::protocols::ConnData,
+                               tracked: &TrackedWrapper) -> Actions {
+                #proto_filter
+            }
+
+            fn session_filter(session: &retina_core::protocols::Session,
+                              conn: &retina_core::protocols::ConnData,
+                              tracked: &TrackedWrapper) -> Actions
+            {
+                #session_filter
+            }
+
+            fn packet_deliver(mbuf: &retina_core::Mbuf,
+                              conn: &retina_core::protocols::ConnData,
+                              tracked: &TrackedWrapper)
+            {
+                #packet_deliver_filter
+            }
+
+            fn connection_deliver(conn: &retina_core::protocols::ConnData,
+                                  tracked: &TrackedWrapper)
+            {
+                #conn_deliver_filter
+            }
+
+            retina_core::filter::FilterFactory::new(
+                #filter_str,
+                packet_continue,
+                packet_filter,
+                protocol_filter,
+                session_filter,
+                packet_deliver,
+                connection_deliver,
+            )
+        }
+
         #input
 
-    };
-    filtergen.into()
+    }
+    .into()
+}
+
+/// Generate a Retina program from a specification file.
+/// This expects an input TOML file with the subscription specifications.
+#[proc_macro_attribute]
+pub fn subscription(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::ItemFn);
+    let inp_file = parse_macro_input!(args as syn::LitStr).value();
+    let config = SubscriptionConfig::from_file(&inp_file);
+    generate(input, config)
+}
+
+/// Generate a Retina program without a specification file.
+/// This expects a #[filter("...")] macro followed by the expected callback.
+/// It must be used with #[retina_main(X)], where X = number of subscriptions.
+#[proc_macro_attribute]
+pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::ItemFn);
+    let filter_str = parse_macro_input!(args as syn::LitStr).value();
+    let (datatypes, callback) = parse_input(&input);
+    println!(
+        "Filter: {}, Datatypes: {:?}, Callback: {:?}",
+        filter_str, datatypes, callback
+    );
+
+    // If more subscriptions to parse, just output the callback
+    add_subscription(callback, datatypes, filter_str);
+    if !is_done() {
+        return quote! {
+            #input
+        }
+        .into();
+    }
+
+    // Otherwise, ready to assemble
+    let config = SubscriptionConfig::from_raw(&CACHED_SUBSCRIPTIONS.lock().unwrap());
+
+    generate(input, config)
+}
+
+// For generating a Retina program without a specification file
+// This expects to receive the number of subscriptions
+#[proc_macro_attribute]
+pub fn retina_main(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::ItemFn);
+    let count = usize::from_str(parse_macro_input!(args as syn::LitInt).base10_digits()).unwrap();
+    println!("Expecting {} subsctription(s)", count);
+    set_count(count);
+
+    // More subscriptions expected
+    if !is_done() {
+        return quote! {
+            #input
+        }
+        .into();
+    }
+
+    // Otherwise, ready to assemble
+    let config = SubscriptionConfig::from_raw(&CACHED_SUBSCRIPTIONS.lock().unwrap());
+
+    generate(input, config)
 }

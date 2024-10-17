@@ -1,5 +1,6 @@
-use crate::conntrack::conn::conn_info::{ConnInfo, ConnState};
+use crate::conntrack::conn::conn_info::ConnInfo;
 use crate::conntrack::pdu::L4Pdu;
+use crate::filter::Actions;
 use crate::protocols::packet::tcp::{ACK, FIN, RST, SYN};
 use crate::protocols::stream::ParserRegistry;
 use crate::subscription::{Subscription, Trackable};
@@ -106,7 +107,8 @@ impl TcpFlow {
     fn buffer_ooo_seg<T: Trackable>(&mut self, segment: L4Pdu, info: &mut ConnInfo<T>) {
         if self.ooo_buf.insert_back(segment).is_err() {
             log::warn!("Out-of-order buffer overflow");
-            info.state = ConnState::Remove;
+            // Drop the connection
+            info.actions = Actions::new();
         }
     }
 
@@ -121,7 +123,7 @@ impl TcpFlow {
         subscription: &Subscription<T::Subscribed>,
         registry: &ParserRegistry,
     ) {
-        if info.state == ConnState::Remove {
+        if info.actions.drop() {
             return;
         }
         let next_seq = self.ooo_buf.flush_ordered::<T>(
@@ -183,7 +185,7 @@ impl OutOfOrderBuffer {
         let mut next_seq = expected_seq;
         let mut index = 0;
         while index < self.len() {
-            if info.state == ConnState::Remove {
+            if info.actions.drop() {
                 return next_seq;
             }
 
@@ -224,7 +226,7 @@ impl OutOfOrderBuffer {
     }
 }
 
-pub(crate) fn wrapping_lt(lhs: u32, rhs: u32) -> bool {
+pub fn wrapping_lt(lhs: u32, rhs: u32) -> bool {
     // From RFC1323:
     //     TCP determines if a data segment is "old" or "new" by testing
     //     whether its sequence number is within 2**31 bytes of the left edge

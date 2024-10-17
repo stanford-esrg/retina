@@ -1,3 +1,6 @@
+pub mod actions;
+pub use actions::{ActionData, Actions};
+
 #[macro_use]
 pub mod macros;
 pub mod ast;
@@ -6,54 +9,74 @@ mod hardware;
 mod parser;
 mod pattern;
 pub mod ptree;
+pub mod ptree_flat;
+
+pub mod datatypes;
+pub use datatypes::{DataType, Level, SubscriptionSpec};
 
 use crate::filter::hardware::{flush_rules, HardwareFilter};
 use crate::filter::parser::FilterParser;
 use crate::filter::pattern::{FlatPattern, LayeredPattern};
-use crate::filter::ptree::PTree;
+use crate::filter::ptree_flat::FlatPTree;
+use crate::lcore::CoreId;
 use crate::memory::mbuf::Mbuf;
 use crate::port::Port;
 use crate::protocols::stream::{ConnData, Session};
+use crate::subscription::Trackable;
 
 use std::fmt;
 
 use anyhow::{bail, Result};
 use thiserror::Error;
 
-pub type PacketFilterFn = fn(&Mbuf) -> FilterResult;
-pub type ConnFilterFn = fn(&ConnData) -> FilterResult;
-pub type SessionFilterFn = fn(&Session, usize) -> bool;
+/// Filter types
+pub type PacketContFn = fn(&Mbuf, &CoreId) -> Actions;
+pub type PacketFilterFn<T> = fn(&Mbuf, &T) -> Actions;
+pub type ProtoFilterFn<T> = fn(&ConnData, &T) -> Actions;
 
-/// Represents the result of an intermediate filter.
-#[derive(Debug)]
-pub enum FilterResult {
-    /// Matches a terminal pattern in the filter.
-    MatchTerminal(usize),
-    /// Matches sub-filter, but non-terminal.
-    MatchNonTerminal(usize),
-    /// Matches none of the patterns in the filter.
-    NoMatch,
-}
+// Will apply session filter and potentially deliver or store session
+pub type SessionFilterFn<T> = fn(&Session, &ConnData, &T) -> Actions;
 
-pub struct FilterFactory {
+// Subscription deliver functions
+// \note Rust won't enforce trait bounds on type alias,
+//       but T should implement Tracked.
+pub type PacketDeliverFn<T> = fn(&Mbuf, &ConnData, &T);
+pub type ConnDeliverFn<T> = fn(&ConnData, &T);
+
+pub struct FilterFactory<T>
+where
+    T: Trackable,
+{
     pub filter_str: String,
-    pub packet_filter: PacketFilterFn,
-    pub conn_filter: ConnFilterFn,
-    pub session_filter: SessionFilterFn,
+    pub packet_continue: PacketContFn,
+    pub packet_filter: PacketFilterFn<T>,
+    pub proto_filter: ProtoFilterFn<T>,
+    pub session_filter: SessionFilterFn<T>,
+    pub packet_deliver: PacketDeliverFn<T>,
+    pub conn_deliver: ConnDeliverFn<T>,
 }
 
-impl FilterFactory {
+impl<T> FilterFactory<T>
+where
+    T: Trackable,
+{
     pub fn new(
         filter_str: &str,
-        packet_filter: PacketFilterFn,
-        conn_filter: ConnFilterFn,
-        session_filter: SessionFilterFn,
-    ) -> FilterFactory {
+        packet_continue: PacketContFn,
+        packet_filter: PacketFilterFn<T>,
+        proto_filter: ProtoFilterFn<T>,
+        session_filter: SessionFilterFn<T>,
+        packet_deliver: PacketDeliverFn<T>,
+        conn_deliver: ConnDeliverFn<T>,
+    ) -> Self {
         FilterFactory {
             filter_str: filter_str.to_string(),
+            packet_continue,
             packet_filter,
-            conn_filter,
+            proto_filter,
             session_filter,
+            packet_deliver,
+            conn_deliver,
         }
     }
 }
@@ -64,9 +87,8 @@ pub struct Filter {
 }
 
 impl Filter {
-    pub fn from_str(filter_raw: &str, split_combined: bool) -> Result<Filter> {
-        let parser = FilterParser { split_combined };
-        let raw_patterns = parser.parse_filter(filter_raw)?;
+    pub fn new(filter_raw: &str) -> Result<Filter> {
+        let raw_patterns = FilterParser::parse_filter(filter_raw)?;
 
         let flat_patterns = raw_patterns
             .into_iter()
@@ -84,7 +106,8 @@ impl Filter {
 
         // prune redundant branches
         let flat_patterns: Vec<_> = fq_patterns.iter().map(|p| p.to_flat_pattern()).collect();
-        let mut ptree = PTree::new(&flat_patterns);
+
+        let mut ptree = FlatPTree::new(&flat_patterns);
         ptree.prune_branches();
 
         Ok(Filter {
@@ -106,8 +129,8 @@ impl Filter {
     }
 
     /// Returns predicate tree
-    pub fn to_ptree(&self) -> PTree {
-        PTree::new(&self.get_patterns_flat())
+    pub fn to_ptree(&self) -> FlatPTree {
+        FlatPTree::new(&self.get_patterns_flat())
     }
 
     /// Returns `true` if filter can be completely realized in hardware
@@ -149,9 +172,6 @@ pub enum FilterError {
     #[error("Invalid pattern. Contains unsupported layer encapsulation: {0}")]
     InvalidPatternLayers(FlatPattern),
 
-    #[error("Invalid pattern. Contains duplicate fields: {0}")]
-    InvalidPatternDupFields(FlatPattern),
-
     #[error("Invalid predicate type: {0}")]
     InvalidPredType(String),
 
@@ -192,9 +212,4 @@ pub enum FilterError {
     },
 }
 
-#[cfg(test)]
-mod tests {
-    // use super::*;
-
-    // TODO: test filter string parsing
-}
+// Nice-to-have: tests for filter string parsing

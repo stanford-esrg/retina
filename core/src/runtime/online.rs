@@ -14,18 +14,18 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
-pub(crate) struct OnlineRuntime<'a, S>
+pub(crate) struct OnlineRuntime<S>
 where
     S: Subscribable,
 {
     ports: BTreeMap<PortId, Port>,
-    rx_cores: BTreeMap<CoreId, RxCore<'a, S>>,
+    rx_cores: BTreeMap<CoreId, RxCore<S>>,
     monitor: Monitor,
     filter: Filter,
     options: OnlineOptions,
 }
 
-impl<'a, S> OnlineRuntime<'a, S>
+impl<S> OnlineRuntime<S>
 where
     S: Subscribable,
 {
@@ -33,9 +33,10 @@ where
         config: &RuntimeConfig,
         options: OnlineOptions,
         mempools: &mut BTreeMap<SocketId, Mempool>,
-        filter: Filter,
-        subscription: Arc<Subscription<'a, S>>,
+        filter_str: String,
+        subscription: Arc<Subscription<S>>,
     ) -> Self {
+        let hw_filter = Filter::new(&filter_str).expect("Failed to parse collapsed filter");
         // Set up signal handler
         let is_running = Arc::new(AtomicBool::new(true));
         let r = Arc::clone(&is_running);
@@ -82,7 +83,6 @@ where
             let rx_core = RxCore::new(
                 core_id,
                 rxqueues,
-                filter.clone(),
                 options.conntrack.clone(),
                 Arc::clone(&subscription),
                 Arc::clone(&is_running),
@@ -96,7 +96,7 @@ where
             ports,
             rx_cores,
             monitor,
-            filter,
+            filter: hw_filter,
             options,
         }
     }

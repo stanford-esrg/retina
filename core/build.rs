@@ -83,7 +83,7 @@ fn main() {
     // Step 2: Generate bindings for the DPDK headers.
     let mut builder = Builder::default();
     for header_location in &header_locations {
-        builder = builder.clang_arg(&format!("-I{}", header_location));
+        builder = builder.clang_arg(format!("-I{}", header_location));
     }
 
     let headers_file = Path::new(&cargo_dir)
