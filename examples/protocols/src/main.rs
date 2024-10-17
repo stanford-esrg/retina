@@ -1,7 +1,7 @@
-use retina_filtergen::{filter, retina_main};
-use retina_core::{CoreId, Runtime, FiveTuple};
 use retina_core::config::load_config;
+use retina_core::{CoreId, FiveTuple, Runtime};
 use retina_datatypes::*;
+use retina_filtergen::{filter, retina_main};
 
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -162,7 +162,6 @@ fn combine_results(outfile: &PathBuf) {
     let results = serde_json::to_string(&results).unwrap();
     file.write_all(results.as_bytes()).unwrap();
 }
-
 
 #[retina_main(4)]
 fn main() {

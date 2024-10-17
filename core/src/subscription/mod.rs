@@ -5,6 +5,9 @@ use crate::lcore::CoreId;
 use crate::memory::mbuf::Mbuf;
 use crate::protocols::stream::{ConnData, ParserRegistry, Session};
 
+#[cfg(feature = "timing")]
+use crate::timing::timer::Timers;
+
 pub trait Subscribable {
     type Tracked: Trackable<Subscribed = Self>;
 }
