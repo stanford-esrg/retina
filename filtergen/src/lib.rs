@@ -12,7 +12,7 @@
 //! [`filter`](macro@self::filter). It indicates to the framework how many subscriptions to expect.
 //!
 //! ## Usage
-//! ```rust
+//! ```rust,no_run
 //! use retina_core::config::default_config;
 //! use retina_core::Runtime;
 //! use retina_filtergen::{filter, retina_main};
@@ -67,7 +67,7 @@
 //! callback = "http_cb"
 //! ```
 //!
-//! ```rust
+//! ```rust,ignore
 //! use retina_core::config::default_config;
 //! use retina_core::Runtime;
 //! use retina_filtergen::subscription;

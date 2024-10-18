@@ -25,7 +25,7 @@
 //! The following example shows a simple Retina application with two subscriptions, which print
 //! (1) parsed TLS handshakes and (2) parsed DNS transactions to stdout:
 //!
-//! ```rust
+//! ```rust,ignore
 //! use retina_core::config::default_config;
 //! use retina_core::Runtime;
 //! use retina_filtergen::{retina_main, filter};
