@@ -2,7 +2,7 @@ main_core = 0
 nb_memory_channels = 6
 
 [mempool]
-capacity = 8388608
+capacity = 8_388_608
 cache_size = 512
 
 [online]
