@@ -2,7 +2,7 @@ name: rustdoc
 
 on:
   push:
-    branches: [ main, v0.1.0 ]
+    branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -72,8 +72,7 @@ jobs:
 
     - name: Move Documentation
       run: |
-        mkdir -p docs/v1.0.0
-        cp -r target/doc/* docs/v1.0.0/
+        cp -r target/doc/* docs/
 
     - name: Deploy Documentation
       uses: peaceiris/actions-gh-pages@v3
