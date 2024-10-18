@@ -60,7 +60,7 @@ jobs:
       run: sudo apt remove --auto-remove clang-14 llvm-14 && sudo apt remove --auto-remove clang-13 llvm-13;
 
     - name: Build Documentation (v0.1.0)
-      run: git checkout v0.1.0 && cargo doc --lib --no-deps
+      run: git fetch --all --tags && git checkout v0.1.0 && cargo doc --lib --no-deps
 
     - name: Move Documentation (v0.1.0)
       run: |
