@@ -42,7 +42,7 @@ Fork or clone the main git repository:
 
 `git clone git@github.com:stanford-esrg/retina.git`
 
-Write your first Retina application (see [examples](https://github.com/stanford-esrg/retina/tree/main/examples) and [documentation](https://stanford-esrg.github.io/retina/retina_core/index.html)).
+Write your first Retina application (see [examples](https://github.com/stanford-esrg/retina/tree/main/examples); `basic` and `basic_file` are good starters).
 
 Writing a Retina application consists of defining one or more subscriptions. A subscription is defined by (1) [writing a filter](https://stanford-esrg.github.io/retina/retina_filtergen/index.html) to describe what subset of network traffic you're interested in, (2) choosing [data types to subscribe to](https://stanford-esrg.github.io/retina/retina_datatypes/index.html), and (3) defining a callback function that takes in a subscribable data type and performs operations on the filtered, delivered data.
 

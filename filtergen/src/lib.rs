@@ -294,7 +294,9 @@ fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
 
     quote! {
         use retina_core::filter::actions::*;
+        // Import potentially-needed traits
         use retina_core::subscription::{Trackable, Subscribable};
+        use retina_datatypes::{FromSession, Tracked, FromMbuf, StaticData};
 
         #subscribable
 

@@ -1,0 +1,23 @@
+[[subscriptions]]
+filter = "tls.sni ~ '^.*\\.com$'"
+datatypes = [
+    "TlsHandshake",
+    "FilterStr",
+]
+callback = "tls_cb"
+
+[[subscriptions]]
+filter = "tls.sni ~ '^.*\\.net$'"
+datatypes = [
+    "TlsHandshake",
+    "FilterStr",
+]
+callback = "tls_cb"
+
+[[subscriptions]]
+filter = "tls.sni ~ '^.*\\.edu$'"
+datatypes = [
+    "TlsHandshake",
+    "FilterStr",
+]
+callback = "tls_cb"
