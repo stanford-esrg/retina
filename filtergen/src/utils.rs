@@ -194,14 +194,6 @@ pub(crate) type BuildChildNodesFn = dyn Fn(
     FilterLayer,
 );
 
-pub(crate) type BuildChildNodesPktFn = dyn Fn(
-    &mut Vec<proc_macro2::TokenStream>,
-    &mut Vec<proc_macro2::TokenStream>,
-    &PNode,
-    &ProtocolName,
-    FilterLayer,
-);
-
 
 pub(crate) struct PacketDataFilter;
 
@@ -214,14 +206,14 @@ impl PacketDataFilter {
         protocol: &ProtocolName,
         first_unary: bool,
         filter_layer: FilterLayer,
-        build_child_nodes: &BuildChildNodesPktFn,
+        build_child_nodes: &BuildChildNodesFn,
     ) {
         let outer = Ident::new(outer_protocol.name(), Span::call_site());
         let ident = Ident::new(protocol.name(), Span::call_site());
         let ident_type = Ident::new(&ident.to_string().to_camel_case(), Span::call_site());
 
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
-        (build_child_nodes)(&mut body, statics, node, outer_protocol, filter_layer);
+        (build_child_nodes)(&mut body, statics, node, filter_layer);
         update_body(&mut body, node, filter_layer, false);
 
         if first_unary {
@@ -244,16 +236,15 @@ impl PacketDataFilter {
         code: &mut Vec<proc_macro2::TokenStream>,
         statics: &mut Vec<proc_macro2::TokenStream>,
         node: &PNode,
-        outer_protocol: &ProtocolName,
         protocol: &ProtocolName,
         field: &FieldName,
         op: &BinOp,
         value: &Value,
         filter_layer: FilterLayer,
-        build_child_nodes: &BuildChildNodesPktFn,
+        build_child_nodes: &BuildChildNodesFn,
     ) {
         let mut body: Vec<proc_macro2::TokenStream> = vec![];
-        (build_child_nodes)(&mut body, statics, node, outer_protocol, filter_layer);
+        (build_child_nodes)(&mut body, statics, node, filter_layer);
         update_body(&mut body, node, filter_layer, false);
 
         let pred_tokenstream = binary_to_tokens(protocol, field, op, value, statics);

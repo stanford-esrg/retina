@@ -5,7 +5,6 @@ use quote::quote;
 use crate::utils::*;
 use retina_core::filter::ast::*;
 use retina_core::filter::ptree::{FilterLayer, PNode, PTree};
-use retina_core::protocol;
 
 pub(crate) fn gen_packet_filter(
     ptree: &PTree,
@@ -26,7 +25,6 @@ pub(crate) fn gen_packet_filter(
         &mut body,
         statics,
         &ptree.root,
-        &protocol!("frame"),
         filter_layer,
     );
 
@@ -56,7 +54,6 @@ fn gen_packet_filter_util(
     code: &mut Vec<proc_macro2::TokenStream>,
     statics: &mut Vec<proc_macro2::TokenStream>,
     node: &PNode,
-    outer_protocol: &ProtocolName,
     filter_layer: FilterLayer,
 ) {
     let mut first_unary = true;
@@ -85,7 +82,6 @@ fn gen_packet_filter_util(
                     code,
                     statics,
                     child,
-                    outer_protocol,
                     protocol,
                     field,
                     op,
