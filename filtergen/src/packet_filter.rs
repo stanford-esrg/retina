@@ -1,5 +1,3 @@
-use heck::CamelCase;
-use proc_macro2::{Ident, Span};
 use quote::quote;
 
 use crate::utils::*;
@@ -11,12 +9,9 @@ pub(crate) fn gen_packet_filter(
     statics: &mut Vec<proc_macro2::TokenStream>,
     filter_layer: FilterLayer,
 ) -> proc_macro2::TokenStream {
-    let name = "ethernet";
-    let outer = Ident::new(name, Span::call_site());
-    let outer_type = Ident::new(&outer.to_string().to_camel_case(), Span::call_site());
-
     let mut body: Vec<proc_macro2::TokenStream> = vec![];
 
+    // Ensure root is covered
     if !ptree.root.actions.drop() || !ptree.root.deliver.is_empty() {
         update_body(&mut body, &ptree.root, filter_layer, false);
     }
@@ -28,24 +23,12 @@ pub(crate) fn gen_packet_filter(
         filter_layer,
     );
 
-    let mut branches = quote! {};
-    if !body.is_empty() {
-        branches = {
-            quote! {
-                if let Ok(#outer) = &retina_core::protocols::packet::Packet::parse_to::<retina_core::protocols::packet::#outer::#outer_type>(mbuf) {
-                    #( #body )*
-                }
-            }
-        };
-    }
-
-    let start = quote! { let mut result = retina_core::filter::Actions::new(); };
-    let ret = quote! { result };
+    let body = PacketDataFilter::add_root_pred(&ptree.root, &body);
 
     let packet_filter = quote! {
-        #start
-        #branches
-        #ret
+        let mut result = retina_core::filter::Actions::new();
+        #body
+        result
     };
     packet_filter
 }

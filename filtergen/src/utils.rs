@@ -262,6 +262,23 @@ impl PacketDataFilter {
             });
         }
     }
+
+    pub(crate) fn add_root_pred(root: &PNode, body: &Vec<proc_macro2::TokenStream>) -> proc_macro2::TokenStream {
+
+        let name = "ethernet";
+        let outer = Ident::new(name, Span::call_site());
+        let outer_type = Ident::new(&outer.to_string().to_camel_case(), Span::call_site());
+
+        if !body.is_empty() &&
+             root.children.iter().any(|n| n.pred.on_packet()) {
+            return quote! {
+                    if let Ok(#outer) = &retina_core::protocols::packet::Packet::parse_to::<retina_core::protocols::packet::#outer::#outer_type>(mbuf) {
+                        #( #body )*
+                    }
+                };
+        }
+        quote! { #( #body )* }
+    }
 }
 
 // \note Because each stage's filter may be different, we default to applying an

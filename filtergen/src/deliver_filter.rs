@@ -21,11 +21,12 @@ pub(crate) fn gen_deliver_filter(
     }
 
     gen_deliver_util(&mut body, statics, &ptree.root, filter_layer);
-
-    let connection_deliver = quote! {
-        #( #body )*
+    // Ensure root protocol is extracted
+    let body = match filter_layer {
+        FilterLayer::PacketDeliver => PacketDataFilter::add_root_pred(&ptree.root, &body),
+        _ => quote! { #( #body )* },
     };
-    connection_deliver
+    body
 }
 
 fn gen_deliver_util(
@@ -39,15 +40,28 @@ fn gen_deliver_util(
         match &child.pred {
             Predicate::Unary { protocol } => {
                 if child.pred.on_packet() {
-                    ConnDataFilter::add_unary_pred(
-                        code,
-                        statics,
-                        child,
-                        protocol,
-                        first_unary,
-                        filter_layer,
-                        &gen_deliver_util,
-                    );
+                    if matches!(filter_layer, FilterLayer::PacketDeliver) {
+                        PacketDataFilter::add_unary_pred(
+                            code,
+                            statics,
+                            child,
+                            node.pred.get_protocol(),
+                            protocol,
+                            first_unary,
+                            filter_layer,
+                            &gen_deliver_util,
+                        );
+                    } else {
+                        ConnDataFilter::add_unary_pred(
+                            code,
+                            statics,
+                            child,
+                            protocol,
+                            first_unary,
+                            filter_layer,
+                            &gen_deliver_util,
+                        );
+                    }
                     first_unary = false;
                 } else if child.pred.on_proto() {
                     ConnDataFilter::add_service_pred(
@@ -69,17 +83,31 @@ fn gen_deliver_util(
                 value,
             } => {
                 if child.pred.on_packet() {
-                    ConnDataFilter::add_binary_pred(
-                        code,
-                        statics,
-                        child,
-                        protocol,
-                        field,
-                        op,
-                        value,
-                        filter_layer,
-                        &gen_deliver_util,
-                    );
+                    if matches!(filter_layer, FilterLayer::PacketDeliver) {
+                        PacketDataFilter::add_binary_pred(
+                            code,
+                            statics,
+                            child,
+                            protocol,
+                            field,
+                            op,
+                            value,
+                            filter_layer,
+                            &gen_deliver_util
+                        );
+                    } else {
+                        ConnDataFilter::add_binary_pred(
+                            code,
+                            statics,
+                            child,
+                            protocol,
+                            field,
+                            op,
+                            value,
+                            filter_layer,
+                            &gen_deliver_util,
+                        );
+                    }
                 } else if child.pred.on_session() {
                     add_session_pred(
                         code,
