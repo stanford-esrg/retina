@@ -2,11 +2,10 @@
 //! A data type is considered "static" if it can be inferred at or before
 //! the first packet in a connection and it stays constant throughout a connection.
 
-use super::{FromSubscription, StaticData};
+use super::StaticData;
 use pnet::datalink::MacAddr;
 use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
-use retina_core::filter::SubscriptionSpec;
 
 /// Subscribable alias for [`retina_core::FiveTuple`]
 impl StaticData for FiveTuple {
@@ -29,19 +28,6 @@ impl StaticData for EtherTCI {
             }
         }
         EtherTCI(None)
-    }
-}
-
-use proc_macro2::Span;
-use quote::quote;
-
-/// The string literal representing a matched filter.
-pub type FilterStr<'a> = &'a str;
-
-impl<'a> FromSubscription for FilterStr<'a> {
-    fn from_subscription(spec: &SubscriptionSpec) -> proc_macro2::TokenStream {
-        let str = syn::LitStr::new(&spec.filter, Span::call_site());
-        quote! { &#str }
     }
 }
 

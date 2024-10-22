@@ -2,14 +2,16 @@
 //! Newly-defined datatypes must be added to the DATATYPES map in this module.
 
 use lazy_static::lazy_static;
-use retina_core::filter::{DataType, Level};
+use proc_macro2::Span;
+use quote::quote;
+use retina_core::filter::{DataType, Level, SubscriptionSpec};
 use std::collections::HashMap;
 
 use crate::*;
 
-// To add a datatype, add it to the following map
-// This is read by the filtergen crate.
 lazy_static! {
+    /// To add a datatype, add it to the following map
+    /// This is read by the filtergen crate.
     pub static ref DATATYPES: HashMap<&'static str, DataType> = {
         HashMap::from([
             ("ConnRecord", DataType::new_default_connection("ConnRecord")),
@@ -84,27 +86,41 @@ lazy_static! {
 // Special cases: have specific conditions in generated code
 // \Note ideally these would be implemented more cleanly
 lazy_static! {
-    // To avoid copying, the `Tracked` structure in the framework --
-    // built at compile time -- will track certain generic, raw datatypes
-    // if a subset of subscriptions require them.
-    //
-    // For example: buffering packets may be required as a pre-match action for a
-    // packet-level datatype; it may also be required if one or more subscriptions request
-    // a connection-level `PacketList`. Rather than maintaining these lists separately --
-    // one for filtering and one for delivery -- the tracked packets are stored once.
-    //
-    // Core ID is a special case, as it cannot be derived from connection,
-    // session, or packet data. It is simpler to define it as a directly tracked datatype.
+    /// To avoid copying, the `Tracked` structure in the framework --
+    /// built at compile time -- will track certain generic, raw datatypes
+    /// if a subset of subscriptions require them.
+    ///
+    /// For example: buffering packets may be required as a pre-match action for a
+    /// packet-level datatype; it may also be required if one or more subscriptions request
+    /// a connection-level `PacketList`. Rather than maintaining these lists separately --
+    /// one for filtering and one for delivery -- the tracked packets are stored once.
+    ///
+    /// Core ID is a special case, as it cannot be derived from connection,
+    /// session, or packet data. It is simpler to define it as a directly tracked datatype.
+    ///
+    /// The directly tracked datatypes are: PacketList, SessionList, and CoreId
     pub static ref DIRECTLY_TRACKED: HashMap<&'static str, &'static str> = HashMap::from([
         ("PacketList", "packets"),
         ("SessionList", "sessions"),
         ("CoreId", "core_id")
     ]);
 
-    // Another special case -- datatype is the matched filter as a string literal.
-    // \TODO ideally this would be a map to from_subscription function pointers
+    // See `FilterStr`
     pub static ref FILTER_STR: &'static str = "FilterStr";
 }
 
+/// A list of all packets (zero-copy) seen in the connection.
+/// For TCP connections, these packets will be in post-reassembly order.
 pub type PacketList = Vec<Mbuf>;
+/// A list of all sessions (zero-copy) parsed in the connection.
 pub type SessionList = Vec<Session>;
+
+/// The string literal representing a matched filter.
+pub type FilterStr<'a> = &'a str;
+
+impl<'a> FromSubscription for FilterStr<'a> {
+    fn from_subscription(spec: &SubscriptionSpec) -> proc_macro2::TokenStream {
+        let str = syn::LitStr::new(&spec.filter, Span::call_site());
+        quote! { &#str }
+    }
+}
