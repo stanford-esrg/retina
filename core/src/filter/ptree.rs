@@ -390,6 +390,17 @@ impl PTree {
                 return;
             }
 
+            if !matches!(self.filter_layer, FilterLayer::PacketContinue) &&
+                predicate.req_packet() {
+                // To get similar behavior, users should subscribe to individual mbufs or
+                // the mbuf list, then filter within the callback.
+                // Because (for now) all packets would need to be tracked anyway, doing this
+                // is equivalent performance-wise to implementing similar functionality in the
+                // framework.
+                panic!("Cannot access per-packet fields (e.g., TCP flags, length) after packet filter.\n\
+                       Subscribe to `ZcFrame` or PacketList instead.");
+            }
+
             // Predicate is already present
 
             if node.has_descendant(predicate) {
