@@ -390,8 +390,7 @@ impl PTree {
                 return;
             }
 
-            if !matches!(self.filter_layer, FilterLayer::PacketContinue) &&
-                predicate.req_packet() {
+            if !matches!(self.filter_layer, FilterLayer::PacketContinue) && predicate.req_packet() {
                 // To get similar behavior, users should subscribe to individual mbufs or
                 // the mbuf list, then filter within the callback.
                 // Because (for now) all packets would need to be tracked anyway, doing this
