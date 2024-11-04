@@ -9,6 +9,7 @@ members = [
     "examples/protocols",
     "examples/basic",
     "examples/basic_file",
+    "ssh_standalone",
 ]
 resolver = "2"
 

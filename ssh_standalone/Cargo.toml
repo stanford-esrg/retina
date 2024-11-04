@@ -1,0 +1,9 @@
+[package]
+name = "ssh_standalone"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pcap = "0.8.1"
+regex = "1.7.3"
+ssh-parser = "0.5.0"
