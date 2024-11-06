@@ -29,6 +29,10 @@ uint16_t rte_mbuf_refcnt_update_(struct rte_mbuf* m, int16_t value) {
     return rte_mbuf_refcnt_update(m, value);
 }
 
+void rte_mbuf_refcnt_set_(struct rte_mbuf* m, int16_t value) {
+    return rte_mbuf_refcnt_set(m, value);
+}
+
 char* rte_pktmbuf_adj_(struct rte_mbuf* m, uint16_t len) {
     return rte_pktmbuf_adj(m, len);
 }

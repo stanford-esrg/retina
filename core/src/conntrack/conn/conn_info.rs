@@ -52,7 +52,7 @@ where
 
     pub(crate) fn consume_pdu(
         &mut self,
-        pdu: L4Pdu,
+        mut pdu: L4Pdu,
         subscription: &Subscription<T::Subscribed>,
         registry: &ParserRegistry,
     ) {
@@ -77,7 +77,7 @@ where
         }
         if self.actions.buffer_frame() {
             // Track frame for (potential) future delivery
-            self.sdata.track_packet(pdu.mbuf_own());
+            self.sdata.track_packet(crate::Mbuf::new_ref(&mut pdu.mbuf));
         }
     }
 
