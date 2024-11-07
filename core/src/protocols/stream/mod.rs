@@ -9,6 +9,7 @@ pub mod conn;
 pub mod dns;
 pub mod http;
 pub mod quic;
+pub mod ssh;
 pub mod tls;
 
 use self::conn::ConnField;
@@ -16,6 +17,7 @@ use self::conn::{Ipv4CData, Ipv6CData, TcpCData, UdpCData};
 use self::dns::{parser::DnsParser, Dns};
 use self::http::{parser::HttpParser, Http};
 use self::quic::parser::QuicParser;
+use self::ssh::{parser::SshParser, Ssh};
 use self::tls::{parser::TlsParser, Tls};
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
@@ -27,7 +29,7 @@ use anyhow::Result;
 use quic::QuicConn;
 use strum_macros::EnumString;
 
-pub(crate) const IMPLEMENTED_PROTOCOLS: [&str; 4] = ["tls", "dns", "http", "quic"];
+pub(crate) const IMPLEMENTED_PROTOCOLS: [&str; 4] = ["tls", "dns", "http", "quic", "ssh"];
 
 /// Represents the result of parsing one packet as a protocol message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -206,6 +208,7 @@ pub enum SessionData {
     Dns(Box<Dns>),
     Http(Box<Http>),
     Quic(Box<QuicConn>),
+    Ssh(Box<Ssh>),
     Null,
 }
 
@@ -250,6 +253,7 @@ pub enum ConnParser {
     Dns(DnsParser),
     Http(HttpParser),
     Quic(QuicParser),
+    Ssh(SshParser),
     Unknown,
 }
 
@@ -261,6 +265,7 @@ impl ConnParser {
             ConnParser::Dns(_) => ConnParser::Dns(DnsParser::default()),
             ConnParser::Http(_) => ConnParser::Http(HttpParser::default()),
             ConnParser::Quic(_) => ConnParser::Quic(QuicParser::default()),
+            ConnParser::Ssh(_) => ConnParser::Ssh(SshParser::default()),
             ConnParser::Unknown => ConnParser::Unknown,
         }
     }
@@ -272,6 +277,7 @@ impl ConnParser {
             ConnParser::Dns(parser) => parser.parse(pdu),
             ConnParser::Http(parser) => parser.parse(pdu),
             ConnParser::Quic(parser) => parser.parse(pdu),
+            ConnParser::Ssh(parser) => parser.parse(pdu),
             ConnParser::Unknown => ParseResult::None,
         }
     }
@@ -283,6 +289,7 @@ impl ConnParser {
             ConnParser::Dns(parser) => parser.probe(pdu),
             ConnParser::Http(parser) => parser.probe(pdu),
             ConnParser::Quic(parser) => parser.probe(pdu),
+            ConnParser::Ssh(parser) => parser.probe(pdu),
             ConnParser::Unknown => ProbeResult::Error,
         }
     }
@@ -295,6 +302,7 @@ impl ConnParser {
             ConnParser::Dns(parser) => parser.remove_session(session_id),
             ConnParser::Http(parser) => parser.remove_session(session_id),
             ConnParser::Quic(parser) => parser.remove_session(session_id),
+            ConnParser::Ssh(parser) => parser.remove_session(session_id),
             ConnParser::Unknown => None,
         }
     }
@@ -306,6 +314,7 @@ impl ConnParser {
             ConnParser::Dns(parser) => parser.drain_sessions(),
             ConnParser::Http(parser) => parser.drain_sessions(),
             ConnParser::Quic(parser) => parser.drain_sessions(),
+            ConnParser::Ssh(parser) => parser.drain_sessions(),
             ConnParser::Unknown => vec![],
         }
     }
@@ -316,6 +325,7 @@ impl ConnParser {
             ConnParser::Dns(parser) => parser.session_parsed_state(),
             ConnParser::Http(parser) => parser.session_parsed_state(),
             ConnParser::Quic(parser) => parser.session_parsed_state(),
+            ConnParser::Ssh(parser) => parser.session_parsed_state(),
             ConnParser::Unknown => SessionState::Remove,
         }
     }
@@ -328,6 +338,7 @@ impl ConnParser {
             ConnParser::Dns(_parser) => Some("dns".into()),
             ConnParser::Http(_parser) => Some("http".into()),
             ConnParser::Quic(_parser) => Some("quic".into()),
+            ConnParser::Ssh(_parser) => Some("ssh".into()),
             ConnParser::Unknown => None,
         }
     }
