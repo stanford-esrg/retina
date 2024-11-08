@@ -103,10 +103,15 @@ where
                 if conn.info.actions.update_pdu() {
                     conn.info.sdata.update(&pdu, false);
                 }
-                if conn.info.actions.update_conn() {
+                // Consume PDU for reassembly or parsing
+                if conn.info.actions.parse_any() ||
+                   conn.info.actions.update_pdu_reassembled() {
                     conn.update(pdu, subscription, &self.registry);
                 } else {
+                    // Ensure FIN is handled, if appl.
                     conn.update_tcp_flags(pdu.flags(), pdu.dir);
+                    // Handle packet delivery to subscription, if appl.
+                    conn.info.release_mbuf(pdu.mbuf_own(), subscription);
                 }
 
                 // Delete stale data for connections no longer matching
@@ -141,7 +146,13 @@ where
                         if conn.info.actions.update_pdu() {
                             conn.info.sdata.update(&pdu, false);
                         }
-                        conn.info.consume_pdu(pdu, subscription, &self.registry);
+                        if conn.info.actions.parse_any() ||
+                           conn.info.actions.update_pdu_reassembled() {
+                            conn.info.consume_pdu(pdu, subscription, &self.registry);
+                        } else {
+                            // Handle packet delivery, if applicable
+                            conn.info.release_mbuf(pdu.mbuf_own(), subscription);
+                        }
                         if !conn.remove_from_table() {
                             self.timerwheel.insert(
                                 &conn_id,

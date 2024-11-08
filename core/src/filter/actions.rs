@@ -143,16 +143,6 @@ impl Actions {
         )
     }
 
-    /// True if the framework should consume PDUs for reassembly (TCP),
-    /// parsing, or operations that require ownership of packets.
-    #[inline]
-    pub(crate) fn update_conn(&self) -> bool {
-        self.parse_any()
-            || self.update_pdu_reassembled()
-            || self.buffer_frame()
-            || self.packet_deliver()
-    }
-
     /// True if nothing except delivery is required
     /// Allows delivering and dropping the connection to happen early
     #[inline]

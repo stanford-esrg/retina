@@ -50,6 +50,21 @@ where
         self.actions = pkt_actions;
     }
 
+    #[inline]
+    pub(crate) fn release_mbuf(&mut self, mbuf: Mbuf,
+                               subscription: &Subscription<T::Subscribed>) {
+        if self.actions.packet_deliver() {
+            // Delivering all remaining packets in connection
+            subscription.deliver_packet(&mbuf, &self.cdata, &self.sdata);
+        }
+        if self.actions.buffer_frame() {
+            // Track frame for (potential) future delivery
+            // Used when a filter has partially matched for a
+            // subscription that requests packets
+            self.sdata.track_packet(mbuf);
+        }
+    }
+
     pub(crate) fn consume_pdu(
         &mut self,
         pdu: L4Pdu,
@@ -71,16 +86,8 @@ where
             // tracking ongoing connection data post-reassembly
             self.sdata.update(&pdu, true);
         }
-        if self.actions.packet_deliver() {
-            // Delivering all remaining packets in connection
-            subscription.deliver_packet(pdu.mbuf_ref(), &self.cdata, &self.sdata);
-        }
-        if self.actions.buffer_frame() {
-            // Track frame for (potential) future delivery
-            // Used when a filter has partially matched for a
-            // subscription that requests packets
-            self.sdata.track_packet(Mbuf::new_ref(pdu.mbuf_ref()));
-        }
+
+        self.release_mbuf(pdu.mbuf_own(), subscription);
     }
 
     fn handle_parse(
