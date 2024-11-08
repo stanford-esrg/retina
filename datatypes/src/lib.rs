@@ -30,6 +30,8 @@ pub mod packet;
 pub use packet::{Payload, ZcFrame};
 pub mod static_type;
 pub use static_type::*;
+pub mod packet_list;
+pub use packet_list::*;
 pub use typedefs::*;
 
 use retina_core::conntrack::pdu::L4Pdu;
@@ -91,4 +93,18 @@ pub trait FromSubscription {
     /// Output the literal tokenstream (e.g., string literal) representing
     /// the constant value (e.g., matched filter string).
     fn from_subscription(spec: &SubscriptionSpec) -> proc_macro2::TokenStream;
+}
+
+/// Trait for a datatype that is built from a list of raw packets.
+pub trait PacketList {
+    /// Initialize internal data; called once per connection.
+    /// Note `first_pkt` will also be delivered to `update`.
+    fn new(first_pkt: &L4Pdu) -> Self;
+    /// New packet in connection received (or reassembled, if reassembled=true)
+    /// Note this may be invoked both pre- and post-reassembly; types
+    /// should check `reassembled` to avoid double-counting.
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool);
+    /// Clear internal data; called if connection no longer matches filter
+    /// that requires the Tracked type.
+    fn clear(&mut self);
 }

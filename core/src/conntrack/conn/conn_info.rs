@@ -12,7 +12,7 @@ use crate::protocols::stream::{
     ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, SessionState,
 };
 use crate::subscription::{Subscription, Trackable};
-use crate::FiveTuple;
+use crate::{Mbuf, FiveTuple};
 
 #[derive(Debug)]
 pub(crate) struct ConnInfo<T>
@@ -52,7 +52,7 @@ where
 
     pub(crate) fn consume_pdu(
         &mut self,
-        mut pdu: L4Pdu,
+        pdu: L4Pdu,
         subscription: &Subscription<T::Subscribed>,
         registry: &ParserRegistry,
     ) {
@@ -77,7 +77,9 @@ where
         }
         if self.actions.buffer_frame() {
             // Track frame for (potential) future delivery
-            self.sdata.track_packet(crate::Mbuf::new_ref(&mut pdu.mbuf));
+            // Used when a filter has partially matched for a
+            // subscription that requests packets
+            self.sdata.track_packet(Mbuf::new_ref(pdu.mbuf_ref()));
         }
     }
 

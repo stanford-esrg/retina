@@ -127,6 +127,19 @@ impl DataType {
         }
     }
 
+    pub fn new_default_pktlist(as_str: &'static str, reassembly: bool) -> Self {
+        DataType {
+            level: Level::Connection,
+            needs_parse: false,
+            track_sessions: false,
+            needs_update: !reassembly,
+            needs_update_reassembled: reassembly,
+            track_packets: false,
+            stream_protos: vec![],
+            as_str,
+        }
+    }
+
     // Returns whether the current filter layer is the earliest where this datatype,
     // with this filter, can be delivered.
     pub(crate) fn should_deliver(
