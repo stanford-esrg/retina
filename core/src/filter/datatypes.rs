@@ -57,8 +57,6 @@ pub struct DataType {
     pub needs_update: bool,
     /// True if the datatype requires invoking `update` method after reassembly
     pub needs_update_reassembled: bool,
-    /// True if the datatype requires the framework to buffer matched packets
-    pub track_packets: bool,
     /// A vector of the application-layer parsers required by this datatype
     /// Retina loads the union of parsers required by all datatypes and filters
     pub stream_protos: Vec<&'static str>,
@@ -76,7 +74,6 @@ impl DataType {
             track_sessions: false,
             needs_update: true,
             needs_update_reassembled: false,
-            track_packets: false,
             stream_protos: vec![],
             as_str,
         }
@@ -91,7 +88,6 @@ impl DataType {
             track_sessions: false,
             needs_update: false,
             needs_update_reassembled: false,
-            track_packets: false,
             stream_protos,
             as_str,
         }
@@ -106,7 +102,6 @@ impl DataType {
             track_sessions: false,
             needs_update: false,
             needs_update_reassembled: false,
-            track_packets: false,
             stream_protos: vec![],
             as_str,
         }
@@ -121,7 +116,6 @@ impl DataType {
             track_sessions: false,
             needs_update: false,
             needs_update_reassembled: false,
-            track_packets: false,
             stream_protos: vec![],
             as_str,
         }
@@ -134,7 +128,6 @@ impl DataType {
             track_sessions: false,
             needs_update: !reassembly,
             needs_update_reassembled: reassembly,
-            track_packets: false,
             stream_protos: vec![],
             as_str,
         }
@@ -221,15 +214,6 @@ impl DataType {
         }
     }
 
-    // Helper
-    fn track_packets(&self, actions: &mut MatchingActions) {
-        if self.track_packets {
-            actions.if_matched.data |= ActionData::PacketTrack;
-            actions.if_matched.terminal_actions |= ActionData::PacketTrack;
-            actions.if_matching.data |= ActionData::PacketTrack;
-        }
-    }
-
     // Helper for proto_filter and session_filter
     fn track_sessions(&self, actions: &mut MatchingActions, sub_level: &Level) {
         // SessionTrack should only be terminal if matched at packet layer
@@ -264,7 +248,6 @@ impl DataType {
 
         // Connection- and session-level subscriptions depend on the actions required
         self.needs_update(&mut actions);
-        self.track_packets(&mut actions);
         self.conn_deliver(sub_level, &mut actions);
 
         if self.needs_parse {
@@ -305,7 +288,6 @@ impl DataType {
 
         // Connection- and session-level subscriptions depend on the actions required
         self.needs_update(&mut actions);
-        self.track_packets(&mut actions);
         self.track_sessions(&mut actions, sub_level);
         self.conn_deliver(sub_level, &mut actions);
 
@@ -329,7 +311,6 @@ impl DataType {
         }
 
         self.needs_update(&mut actions);
-        self.track_packets(&mut actions);
         self.track_sessions(&mut actions, sub_level);
         self.conn_deliver(sub_level, &mut actions);
 
