@@ -22,11 +22,10 @@ pub(crate) fn gen_deliver_filter(
 
     gen_deliver_util(&mut body, statics, &ptree.root, filter_layer);
     // Ensure root protocol is extracted
-    let body = match filter_layer {
+    match filter_layer {
         FilterLayer::PacketDeliver => PacketDataFilter::add_root_pred(&ptree.root, &body),
         _ => quote! { #( #body )* },
-    };
-    body
+    }
 }
 
 fn gen_deliver_util(
@@ -93,7 +92,7 @@ fn gen_deliver_util(
                             op,
                             value,
                             filter_layer,
-                            &gen_deliver_util
+                            &gen_deliver_util,
                         );
                     } else {
                         ConnDataFilter::add_binary_pred(

@@ -194,10 +194,10 @@ pub(crate) type BuildChildNodesFn = dyn Fn(
     FilterLayer,
 );
 
-
 pub(crate) struct PacketDataFilter;
 
 impl PacketDataFilter {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn add_unary_pred(
         code: &mut Vec<proc_macro2::TokenStream>,
         statics: &mut Vec<proc_macro2::TokenStream>,
@@ -263,19 +263,20 @@ impl PacketDataFilter {
         }
     }
 
-    pub(crate) fn add_root_pred(root: &PNode, body: &Vec<proc_macro2::TokenStream>) -> proc_macro2::TokenStream {
-
+    pub(crate) fn add_root_pred(
+        root: &PNode,
+        body: &Vec<proc_macro2::TokenStream>,
+    ) -> proc_macro2::TokenStream {
         let name = "ethernet";
         let outer = Ident::new(name, Span::call_site());
         let outer_type = Ident::new(&outer.to_string().to_camel_case(), Span::call_site());
 
-        if !body.is_empty() &&
-             root.children.iter().any(|n| n.pred.on_packet()) {
+        if !body.is_empty() && root.children.iter().any(|n| n.pred.on_packet()) {
             return quote! {
-                    if let Ok(#outer) = &retina_core::protocols::packet::Packet::parse_to::<retina_core::protocols::packet::#outer::#outer_type>(mbuf) {
-                        #( #body )*
-                    }
-                };
+                if let Ok(#outer) = &retina_core::protocols::packet::Packet::parse_to::<retina_core::protocols::packet::#outer::#outer_type>(mbuf) {
+                    #( #body )*
+                }
+            };
         }
         quote! { #( #body )* }
     }

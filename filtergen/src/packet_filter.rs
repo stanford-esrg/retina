@@ -16,12 +16,7 @@ pub(crate) fn gen_packet_filter(
         update_body(&mut body, &ptree.root, filter_layer, false);
     }
 
-    gen_packet_filter_util(
-        &mut body,
-        statics,
-        &ptree.root,
-        filter_layer,
-    );
+    gen_packet_filter_util(&mut body, statics, &ptree.root, filter_layer);
 
     let body = PacketDataFilter::add_root_pred(&ptree.root, &body);
 
@@ -51,7 +46,7 @@ fn gen_packet_filter_util(
                     protocol,
                     first_unary,
                     filter_layer,
-                    &gen_packet_filter_util
+                    &gen_packet_filter_util,
                 );
                 first_unary = false;
             }
@@ -70,7 +65,7 @@ fn gen_packet_filter_util(
                     op,
                     value,
                     filter_layer,
-                    &gen_packet_filter_util
+                    &gen_packet_filter_util,
                 );
             }
         }
