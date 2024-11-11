@@ -12,7 +12,7 @@ use super::transaction::{DnsQuery, DnsResponse};
 use super::Dns;
 use crate::conntrack::pdu::L4Pdu;
 use crate::protocols::stream::{
-    ConnParsable, ParseResult, ProbeResult, Session, SessionData, ParsingState,
+    ConnParsable, ParseResult, ParsingState, ProbeResult, Session, SessionData,
 };
 
 use std::collections::HashMap;

@@ -8,7 +8,7 @@ use super::transaction::{HttpRequest, HttpResponse};
 use super::Http;
 use crate::conntrack::pdu::L4Pdu;
 use crate::protocols::stream::{
-    ConnParsable, ParseResult, ProbeResult, Session, SessionData, ParsingState,
+    ConnParsable, ParseResult, ParsingState, ProbeResult, Session, SessionData,
 };
 
 use httparse::{Request, EMPTY_HEADER};

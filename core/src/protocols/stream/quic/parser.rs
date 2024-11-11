@@ -10,7 +10,7 @@ use crate::protocols::stream::quic::header::{
 use crate::protocols::stream::quic::{QuicError, QuicPacket};
 use crate::protocols::stream::tls::Tls;
 use crate::protocols::stream::{
-    ConnParsable, L4Pdu, ParseResult, ProbeResult, Session, SessionData, ParsingState,
+    ConnParsable, L4Pdu, ParseResult, ParsingState, ProbeResult, Session, SessionData,
 };
 use byteorder::{BigEndian, ByteOrder};
 use std::collections::HashSet;

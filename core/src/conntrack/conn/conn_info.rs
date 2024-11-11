@@ -9,7 +9,7 @@ use crate::filter::Actions;
 use crate::lcore::CoreId;
 use crate::protocols::packet::tcp::TCP_PROTOCOL;
 use crate::protocols::stream::{
-    ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, ParsingState,
+    ConnData, ParseResult, ParserRegistry, ParsingState, ProbeRegistryResult,
 };
 use crate::subscription::{Subscription, Trackable};
 use crate::FiveTuple;
