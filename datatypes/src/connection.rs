@@ -5,7 +5,6 @@ use retina_core::conntrack::conn::tcp_conn::reassembly::wrapping_lt;
 use retina_core::conntrack::conn_id::FiveTuple;
 use retina_core::conntrack::pdu::L4Pdu;
 use retina_core::protocols::packet::tcp::{ACK, FIN, RST, SYN};
-use retina_core::protocols::stream::Session;
 
 use super::Tracked;
 
@@ -234,8 +233,6 @@ impl Tracked for ConnRecord {
             self.update_data(pdu);
         }
     }
-
-    fn session_matched(&mut self, _session: &Session) {}
 
     fn stream_protocols() -> Vec<&'static str> {
         vec![]

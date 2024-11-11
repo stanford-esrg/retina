@@ -2,7 +2,6 @@
 //! connection information, statistics, and state history.
 
 use crate::Tracked;
-use retina_core::protocols::Session;
 use retina_core::L4Pdu;
 use serde::ser::{Serialize, SerializeSeq, SerializeStruct, Serializer};
 use std::time::{Duration, Instant};
@@ -59,9 +58,6 @@ impl Tracked for ConnDuration {
         }
     }
 
-    #[inline]
-    fn session_matched(&mut self, _session: &Session) {}
-
     fn stream_protocols() -> Vec<&'static str> {
         vec![]
     }
@@ -94,9 +90,6 @@ impl Tracked for PktCount {
         }
     }
 
-    #[inline]
-    fn session_matched(&mut self, _session: &Session) {}
-
     fn stream_protocols() -> Vec<&'static str> {
         vec![]
     }
@@ -128,9 +121,6 @@ impl Tracked for ByteCount {
             self.byte_count += pdu.mbuf_ref().data_len();
         }
     }
-
-    #[inline]
-    fn session_matched(&mut self, _session: &Session) {}
 
     fn stream_protocols() -> Vec<&'static str> {
         vec![]
@@ -190,9 +180,6 @@ impl Tracked for InterArrivals {
             }
         }
     }
-
-    #[inline]
-    fn session_matched(&mut self, _session: &Session) {}
 
     fn stream_protocols() -> Vec<&'static str> {
         vec![]
@@ -267,9 +254,6 @@ impl Tracked for ConnHistory {
             }
         }
     }
-
-    #[inline]
-    fn session_matched(&mut self, _session: &Session) {}
 
     fn stream_protocols() -> Vec<&'static str> {
         vec![]

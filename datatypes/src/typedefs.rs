@@ -10,8 +10,8 @@ use std::collections::HashMap;
 use crate::*;
 
 lazy_static! {
-    /// To add a datatype, add it to the following map
-    /// This is read by the filtergen crate.
+    /// To add a datatype, add it to the DATATYPES map
+    /// This is read by the filtergen crate to generate code
     pub static ref DATATYPES: HashMap<&'static str, DataType> = {
         HashMap::from([
             ("ConnRecord", DataType::new_default_connection("ConnRecord")),
@@ -99,13 +99,15 @@ lazy_static! {
     /// session, or packet data. It is simpler to define it as a directly tracked datatype.
     ///
     /// The directly tracked datatypes are: PacketList, SessionList, and CoreId
+    #[doc(hidden)]
     pub static ref DIRECTLY_TRACKED: HashMap<&'static str, &'static str> = HashMap::from([
         ("PacketList", "packets"),
         ("SessionList", "sessions"),
         ("CoreId", "core_id")
     ]);
 
-    // See `FilterStr`
+    /// See `FilterStr`
+    #[doc(hidden)]
     pub static ref FILTER_STR: &'static str = "FilterStr";
 }
 
