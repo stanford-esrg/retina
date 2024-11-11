@@ -41,20 +41,34 @@ use retina_core::Mbuf;
 /// This is typically required for subscribable types that require
 /// calculating metrics throughout a connection, e.g. QoS metrics.
 pub trait Tracked {
-    // Note `first_pkt` will also be delivered to `update`
+    /// Initialize internal data; called once per connection.
+    /// Note `first_pkt` will also be delivered to `update`.
     fn new(first_pkt: &L4Pdu) -> Self;
-    // *this may be invoked 2x per packet* - 1x reassembled, 1x not
+    /// New packet in connection received (or reassembled, if reassembled=true)
+    /// Note this may be invoked both pre- and post-reassembly; types
+    /// should check `reassembled` to avoid double-counting.
     fn update(&mut self, pdu: &L4Pdu, reassembled: bool);
+    /// The stream protocols (lower-case) required for this datatype.
+    /// See `IMPLEMENTED_PROTOCOLS` in retina_core for list of supported protocols.
     fn stream_protocols() -> Vec<&'static str>;
-    fn session_matched(&mut self, session: &Session);
+    /// Clear internal data; called if connection no longer matches filter
+    /// that requires the Tracked type.
     fn clear(&mut self);
 }
 
 /// Trait implemented by datatypes that are built from session data.
 /// This is used when subscribing to specific parsed application-layer data.
 pub trait FromSession {
+    /// The stream protocols (lower-case) required for this datatype.
+    /// See `IMPLEMENTED_PROTOCOLS` in retina_core for list of supported protocols.
     fn stream_protocols() -> Vec<&'static str>;
+    /// Build Self from a parsed session, or return None if impossible.
+    /// Invoked when the session is fully matched, parsed, and ready to
+    /// be delivered to a callback.
     fn from_session(session: &Session) -> Option<&Self>;
+    /// Build Self from a *list* of sessions, or return None if impossible.
+    /// Invoked when the connection has terminated and a FromSession datatype
+    /// must be delivered to a callback.
     fn from_sessionlist(sessionlist: &SessionList) -> Option<&Self>;
 }
 
@@ -64,15 +78,17 @@ pub trait FromMbuf {
     fn from_mbuf(mbuf: &Mbuf) -> Option<&Self>;
 }
 
-/// Trait implemented by datatypes that are "Static", i.e.,
-/// constant throughout a connection (or for all connections, e.g., CoreId)
-/// and inferrable at first packet
+/// Trait implemented by datatypes that are constant throughout
+/// a connection and inferrable at first packet.
 pub trait StaticData {
     fn new(first_pkt: &L4Pdu) -> Self;
 }
 
 /// Trait for a datatype that is built from a subscription specification.
 /// [retina-filtergen](../filtergen) assumes that FilterStr is the only use-case for this.
+#[doc(hidden)]
 pub trait FromSubscription {
+    /// Output the literal tokenstream (e.g., string literal) representing
+    /// the constant value (e.g., matched filter string).
     fn from_subscription(spec: &SubscriptionSpec) -> proc_macro2::TokenStream;
 }
