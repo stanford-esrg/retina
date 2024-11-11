@@ -12,7 +12,7 @@ use super::transaction::{DnsQuery, DnsResponse};
 use super::Dns;
 use crate::conntrack::pdu::L4Pdu;
 use crate::protocols::stream::{
-    ConnParsable, ParseResult, ProbeResult, Session, SessionData, SessionState,
+    ConnParsable, ParseResult, ProbeResult, Session, SessionData, ParsingState,
 };
 
 use std::collections::HashMap;
@@ -91,8 +91,8 @@ impl ConnParsable for DnsParser {
             .collect()
     }
 
-    fn session_parsed_state(&self) -> SessionState {
-        SessionState::Parsing
+    fn session_parsed_state(&self) -> ParsingState {
+        ParsingState::Parsing
     }
 }
 

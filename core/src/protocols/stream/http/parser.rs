@@ -8,7 +8,7 @@ use super::transaction::{HttpRequest, HttpResponse};
 use super::Http;
 use crate::conntrack::pdu::L4Pdu;
 use crate::protocols::stream::{
-    ConnParsable, ParseResult, ProbeResult, Session, SessionData, SessionState,
+    ConnParsable, ParseResult, ProbeResult, Session, SessionData, ParsingState,
 };
 
 use httparse::{Request, EMPTY_HEADER};
@@ -141,7 +141,7 @@ impl ConnParsable for HttpParser {
             .collect()
     }
 
-    fn session_parsed_state(&self) -> SessionState {
-        SessionState::Parsing
+    fn session_parsed_state(&self) -> ParsingState {
+        ParsingState::Parsing
     }
 }

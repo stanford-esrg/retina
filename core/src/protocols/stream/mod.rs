@@ -129,7 +129,7 @@ pub(crate) trait ConnParsable {
     fn drain_sessions(&mut self) -> Vec<Session>;
 
     /// Indicates whether we expect to see >1 sessions per connection
-    fn session_parsed_state(&self) -> SessionState;
+    fn session_parsed_state(&self) -> ParsingState;
 }
 
 /// Data required to filter on connections.
@@ -310,13 +310,13 @@ impl ConnParser {
         }
     }
 
-    pub(crate) fn session_parsed_state(&self) -> SessionState {
+    pub(crate) fn session_parsed_state(&self) -> ParsingState {
         match self {
             ConnParser::Tls(parser) => parser.session_parsed_state(),
             ConnParser::Dns(parser) => parser.session_parsed_state(),
             ConnParser::Http(parser) => parser.session_parsed_state(),
             ConnParser::Quic(parser) => parser.session_parsed_state(),
-            ConnParser::Unknown => SessionState::Remove,
+            ConnParser::Unknown => ParsingState::Stop,
         }
     }
 
@@ -345,11 +345,11 @@ impl ConnParser {
 }
 
 #[derive(Debug)]
-pub enum SessionState {
+pub enum ParsingState {
     /// Unknown application-layer protocol, needs probing.
     Probing,
     /// Known application-layer protocol, needs parsing.
     Parsing,
     /// No more sessions expected in connection.
-    Remove,
+    Stop,
 }

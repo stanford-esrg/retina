@@ -9,7 +9,7 @@ use crate::filter::Actions;
 use crate::lcore::CoreId;
 use crate::protocols::packet::tcp::TCP_PROTOCOL;
 use crate::protocols::stream::{
-    ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, SessionState,
+    ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, ParsingState,
 };
 use crate::subscription::{Subscription, Trackable};
 use crate::FiveTuple;
@@ -163,11 +163,11 @@ where
 
     fn session_done_parse(&mut self, subscription: &Subscription<T::Subscribed>) {
         match self.cdata.conn_parser.session_parsed_state() {
-            SessionState::Probing => {
+            ParsingState::Probing => {
                 // Re-apply the protocol filter to update actions
                 self.actions.session_set_probe();
             }
-            SessionState::Remove => {
+            ParsingState::Stop => {
                 // Done parsing: we expect no more sessions for this connection.
                 self.actions.session_clear_parse();
                 // If the only remaining thing to do is deliver the connection --
@@ -178,7 +178,7 @@ where
                     self.actions.clear();
                 }
             }
-            SessionState::Parsing => {
+            ParsingState::Parsing => {
                 // SessionFilter, Track, and Delivery will be terminal actions if needed.
             }
         }

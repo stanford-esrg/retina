@@ -16,7 +16,7 @@ use super::handshake::{
 use super::Tls;
 use crate::conntrack::pdu::L4Pdu;
 use crate::protocols::stream::{
-    ConnParsable, ParseResult, ProbeResult, Session, SessionData, SessionState,
+    ConnParsable, ParseResult, ProbeResult, Session, SessionData, ParsingState,
 };
 
 use tls_parser::*;
@@ -92,8 +92,8 @@ impl ConnParsable for TlsParser {
             .collect()
     }
 
-    fn session_parsed_state(&self) -> SessionState {
-        SessionState::Remove
+    fn session_parsed_state(&self) -> ParsingState {
+        ParsingState::Stop
     }
 }
 
