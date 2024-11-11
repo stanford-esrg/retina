@@ -325,9 +325,8 @@ impl ConnParser {
             ConnParser::Dns(parser) => parser.session_parsed_state(),
             ConnParser::Http(parser) => parser.session_parsed_state(),
             ConnParser::Quic(parser) => parser.session_parsed_state(),
-            ConnParser::Unknown => ParsingState::Stop,
             ConnParser::Ssh(parser) => parser.session_parsed_state(),
-            ConnParser::Unknown => SessionState::Remove,
+            ConnParser::Unknown => ParsingState::Stop,
         }
     }
 
