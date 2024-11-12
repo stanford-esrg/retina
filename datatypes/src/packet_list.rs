@@ -8,16 +8,21 @@
 //! For the former: Mbufs are shared across these lists via DPDK reference counting,
 //! so requesting lists of packets does not require copying. However, it may
 //! introduce additional mempool requirements, as Mbufs must be kept in memory
-//! for the duration of the connection. In these cases, users may wish to use
-//! the non-`Zc` variants.
+//! for the duration of the connection. This is often particularly infeasible for
+//! UDP connections, which must stay in memory until a timeout is reached.
+//! In such cases, users may wish to use the non-`Zc` variants.
 //!
-//! The non-`Zc` variants wait to clone data until the first few packets have
-//! passed or until the packet data is requested.
+//! For TCP connections, the non-`Zc` variants wait to clone data until the
+//! first few packets have passed or until the packet data is requested.
 //! After the first `PKTS_START_CLONE` packets, it is likely that some traffic has
 //! been filtered out by the framework (e.g., TLS handshake has been parsed).
 //! This is a middle ground between memory usage and compute performance.
+//!
+//! For UDP connections, this is not feasible without unacceptable mempool utilization;
+//! many UDP connections are short-lived, and UDP connections are not "closed" until
+//! a timeout period has passed.
 
-use retina_core::{L4Pdu, Mbuf};
+use retina_core::{protocols::packet::tcp::TCP_PROTOCOL, L4Pdu, Mbuf};
 use crate::PacketList;
 
 /// Pasic raw packet bytes.
@@ -34,9 +39,9 @@ impl PktData {
     }
 }
 
-/// Number of Mbufs to cache before starting to clone data.
-/// If < PKTS_START_CLONE packets in the connection, data is
-/// converted to Vec<u8> on first access.
+/// Number of Mbufs to cache before starting to clone data for
+/// TCP connections only. If PKTS_START_CLONE is not reached, the
+/// data is converted to Vec<u8> on first access.
 const PKTS_START_CLONE: usize = 5;
 
 pub trait PktStream {
@@ -60,7 +65,8 @@ pub trait PktStream {
     }
 
     fn push(&mut self, pdu: &L4Pdu) {
-        if self.in_mbufs_ref().len() < PKTS_START_CLONE {
+        if pdu.ctxt.proto == TCP_PROTOCOL &&
+           self.in_mbufs_ref().len() < PKTS_START_CLONE {
             self.in_mbufs_ref().push(Mbuf::new_ref(&pdu.mbuf));
             return;
         } else if !self.in_mbufs_ref().is_empty() {
