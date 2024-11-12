@@ -61,7 +61,12 @@ lazy_static! {
                     as_str: "SessionList",
                 }
             }),
-            ("PktStream", { DataType::new_default_pktlist("PktStream", false) }),
+            ("BidirZcPktStream", { DataType::new_default_pktlist("BidirZcPktStream", false) }),
+            ("OrigZcPktStream", { DataType::new_default_pktlist("OrigZcPktStream", false) }),
+            ("RespZcPktStream", { DataType::new_default_pktlist("RespZcPktStream", false) }),
+            ("OrigZcPktsReassembled", { DataType::new_default_pktlist("OrigZcPktsReassembled", true) }),
+            ("RespZcPktsReassembled", { DataType::new_default_pktlist("RespZcPktsReassembled", true) }),
+            ("BidirPktStream", { DataType::new_default_pktlist("BidirPktStream", false) }),
             ("OrigPktStream", { DataType::new_default_pktlist("OrigPktStream", false) }),
             ("RespPktStream", { DataType::new_default_pktlist("RespPktStream", false) }),
             ("OrigPktsReassembled", { DataType::new_default_pktlist("OrigPktsReassembled", true) }),
