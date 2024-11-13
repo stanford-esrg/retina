@@ -98,8 +98,7 @@ where
                 tcp_conn.reassemble(pdu, &mut self.info, subscription, registry);
                 // Check if, after actions update, the framework/subscriptions no longer require
                 // receiving reassembled traffic
-                if !self.info.actions.parse_any() &&
-                   !self.info.actions.update_pdu_reassembled() {
+                if !self.info.actions.reassemble() {
                     // Safe to discard out-of-order buffers
                     if tcp_conn.ctos.ooo_buf.len() != 0 {
                         tcp_conn.ctos.ooo_buf.buf.clear();

@@ -10,9 +10,11 @@ use crate::SubscriptionConfig;
 
 pub(crate) struct TrackedDataBuilder {
     update: Vec<proc_macro2::TokenStream>,
+    track_packet: Vec<proc_macro2::TokenStream>,
     struct_def: Vec<proc_macro2::TokenStream>,
     new: Vec<proc_macro2::TokenStream>,
     clear: Vec<proc_macro2::TokenStream>,
+    pkts_clear: Vec<proc_macro2::TokenStream>,
     stream_protocols: HashSet<&'static str>,
     datatypes: HashSet<&'static str>,
 }
@@ -21,9 +23,11 @@ impl TrackedDataBuilder {
     pub(crate) fn new(subscribed_data: &SubscriptionConfig) -> Self {
         let mut ret = Self {
             update: vec![],
+            track_packet: vec![],
             struct_def: vec![],
             new: vec![],
             clear: vec![],
+            pkts_clear: vec![],
             stream_protocols: HashSet::new(),
             datatypes: HashSet::new(),
         };
@@ -62,6 +66,12 @@ impl TrackedDataBuilder {
                     self.update
                         .push(quote! { self.#field_name.update(pdu, reassembled); });
                 }
+
+                if datatype.needs_packet_track {
+                    self.track_packet
+                        .push(quote! { self.#field_name.track_packet(pdu, reassembled); });
+                    self.pkts_clear.push(quote! { self.#field_name.clear(); });
+                }
             }
         }
         self.print();
@@ -92,8 +102,10 @@ impl TrackedDataBuilder {
     pub(crate) fn tracked(&mut self) -> proc_macro2::TokenStream {
         let def = std::mem::take(&mut self.struct_def);
         let update = std::mem::take(&mut self.update);
+        let track_packet = std::mem::take(&mut self.track_packet);
         let new = std::mem::take(&mut self.new);
         let clear = std::mem::take(&mut self.clear);
+        let pkts_clear = std::mem::take(&mut self.pkts_clear);
 
         let mut conn_parsers: Vec<proc_macro2::TokenStream> = vec![];
         for datatype in &self.stream_protocols {
@@ -132,20 +144,32 @@ impl TrackedDataBuilder {
                     &self.core_id
                 }
 
-                fn track_packet(&mut self, mbuf: retina_core::Mbuf) {
-                    self.mbufs.push(mbuf);
+                fn buffer_packet(&mut self, pdu: &retina_core::L4Pdu, actions: &Actions,
+                                reassembled: bool) {
+                    if !reassembled &&
+                        actions.data.intersects(ActionData::PacketCache) {
+                        self.mbufs.push(retina_core::Mbuf::new_ref(&pdu.mbuf));
+                    }
+                    if actions.data.intersects(ActionData::PacketTrack) {
+                        #( #track_packet )*
+                    }
                 }
 
                 fn packets(&self) -> &Vec<retina_core::Mbuf> {
                     &self.mbufs
                 }
 
-                fn drain_packets(&mut self) {
+                fn drain_cached_packets(&mut self) {
                     self.mbufs = vec![];
                 }
 
+                fn drain_tracked_packets(&mut self) {
+                    #( #pkts_clear )*
+                }
+
                 fn clear(&mut self) {
-                    self.drain_packets();
+                    self.drain_tracked_packets();
+                    self.drain_cached_packets();
                     self.sessions = vec![];
                     #( #clear )*
                 }

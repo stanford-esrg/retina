@@ -56,7 +56,8 @@ lazy_static! {
                     needs_parse: true,
                     track_sessions: true,
                     needs_update: false,
-                    needs_update_reassembled: false,
+                    needs_reassembly: false,
+                    needs_packet_track: false,
                     stream_protos: vec!["tls", "dns", "http", "quic"],
                     as_str: "SessionList",
                 }
