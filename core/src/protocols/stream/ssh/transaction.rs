@@ -1,7 +1,7 @@
 //! SSH transaction components.
 //! 
 
-use ssh_parser::{SshDisconnectReason};
+use ssh_parser::*;
 
 /// A parsed SSH Protocol Version Exchange message.
 #[derive(Clone, Debug, Serialize)]
@@ -14,7 +14,9 @@ pub struct SshVersionExchange {
 /// A parsed SSH Key Exchange message.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SshKeyExchange {
+    #[serde(with = "base64")]
     pub ssh_msg_kexinit: Vec<u8>,
+    #[serde(with = "base64")]
     pub cookie: Vec<u8>,
     pub kex_algs: Vec<String>,
     pub server_host_key_algs: Vec<String>,
@@ -56,4 +58,16 @@ pub struct SshServiceRequest {
 pub struct SshServiceAccept {
     pub ssh_msg_service_accept: Vec<u8>,
     pub service_name: String,
+}
+
+/// Different types of SSH packets.
+#[derive(Debug, Eq, PartialEq)]
+pub enum SshPacket {
+    VersionExchange(SshVersionExchange),
+    ServiceRequest(SshServiceRequest),
+    ServiceAccept(SshServiceAccept),
+    KeyExchange(SshKeyExchange),
+    NewKeys(SshNewKeys),
+    DiffieHellmanInit(SshDHClient),
+    DiffieHellmanReply(SshDHServerResponse),
 }

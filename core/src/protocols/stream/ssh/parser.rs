@@ -35,7 +35,7 @@ impl ConnParsable for SshParser {
 
         if let Ok(data) = (pdu.mbuf_ref()).get_data_slice(offset, length) {
             if !self.sessions.is_empty() {
-                return self.sessions[0].parse_packet(data, pdu.dir); // TODO
+                return self.sessions[0].process(data); // TODO
             }
             ParseResult::Skipped
         } else {
@@ -87,8 +87,107 @@ impl ConnParsable for SshParser {
     }
 }
 
-impl SshParser {
-    fn parse_packet(&mut self, data: &[u8], direction: bool) -> ParseResult {
-
+impl Ssh {
+    /// Allocate a new SSH transaction instance.
+    pub(crate) fn new() -> Ssh {
+        Ssh {
+            client_version_exchange: None,
+            server_version_exchange: None,
+            client_key_exchange: None,
+            server_key_exchange: None,
+            client_dh_key_exchange: None,
+            server_dh_key_exchange: None,
+            client_new_keys: None,
+            server_new_keys: None,
+            client_service_request: None,
+            server_service_accept: None,
+        }
     }
- }
+
+    pub(crate) fn parse_version_exchange(&mut self, data: &[u8]) {
+        match ssh_parser::parse_ssh_identification(data) {
+            Ok(pkt) => {
+                let mut version_exchange = SshVersionExchange {
+                    protoversion: pkt.proto,
+                    softwareversion: pkt.software,
+                    comments: pkt.comments,
+                };
+            }
+            e => log::debug!("Could not parse SSH version exchange: {:?}", e),
+        }
+    }
+
+    // pub(crate) fn parse_key_exchange(&mut self, content: &SshPacket) {
+    //     match p {
+    //         SshPacket::KeyExchange(pkt) => { 
+    //             SshKeyExchange {
+    //                 cookie: pkt.cookie.to_vec(),
+    //                 kex_algs: pkt.kex_algs.to_vec(),
+    //                 server_host_key_algs: pkt.server_host_key_algs.to_vec(),
+    //                 encryption_algs_client_to_server: pkt.encr_algs_client_to_server.to_vec(),
+    //                 encryption_algs_server_to_client: pkt.encr_algs_server_to_client.to_vec(),
+    //                 mac_algs_client_to_server: pkt.mac_algs_client_to_server.to_vec(),
+    //                 mac_algs_server_to_client: pkt.mac_algs_server_to_client.to_vec(),
+    //                 compression_algs_client_to_server: pkt.comp_algs_client_to_server.to_vec(),
+    //                 compression_algs_server_to_client: pkt.comp_algs_server_to_client.to_vec(),
+    //                 languages_client_to_server: pkt.langs_client_to_server.to_vec(),
+    //                 languages_server_to_client: pkt.langs_server_to_client.to_vec(),
+    //                 first_kex_packet_follows: pkt.first_kex_packet_follows,
+    //             }
+    //         },
+    //         _ => {
+    //             panic!("Input must be a SSH Key Exchange packet.");
+    //         }
+    //     }
+    // }
+
+    // pub fn parse_dh_client_msg(p: SshPacket) {
+    //     match p {
+    //         SshPacket::DiffieHellmanInit(pkt) => { 
+    //             SshDHClient {
+    //                 e: pkt.e.to_vec(),
+    //             }
+    //         },
+    //         _ => {
+    //             panic!("Input must be a SSH Diffie-Hellman Client Message.");
+    //         }
+    //     }
+    // }
+    
+    // pub fn parse_dh_server_response(p: SshPacket) {
+    //     match p {
+    //         SshPacket::DiffieHellmanReply(pkt) => { 
+    //             SshDHServerResponse {
+    //                 pubkey_and_certs: pkt.pubkey_and_cert.to_vec(),
+    //                 f: pkt.f.to_vec(),
+    //                 signature: pkt.signature.to_vec(),
+    //             }
+    //         },
+    //         _ => {
+    //             panic!("Input must be a SSH Diffie-Hellman Server Response.");
+    //         }
+    //     }
+    // }
+
+    // pub fn parse_service_req_or_response(p: SshPacket) {
+    //     match p {
+    //         SshPacket::ServiceRequest(pkt) => { 
+    //             ServiceRequestAndResponse {
+    //                 service_name: std::str::from_utf8(&pkt).expect("Invalid message.").to_string(),
+    //             }
+    //         },
+    //         _ => {
+    //             panic!("Input must be a Service Request or Service Response.");
+    //         }
+    //     }
+    // }
+
+    pub(crate) fn process(&mut self, data: &[u8]) -> ParseResult {
+        let mut status = ParseResult::Continue(0);
+        log::trace!("process ({} bytes)", data.len());
+    }
+}
+
+
+impl SshParser {
+}

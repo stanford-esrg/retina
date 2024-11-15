@@ -111,14 +111,14 @@ impl Ssh {
     }
 
     pub fn languages_ctos(&self) -> Option<Vec<String>> {
-        match &self.client_key_exchange {
+        match &self.client_key_exchange.languages_client_to_server {
             Some(client_key_exchange) => client_key_exchange.languages_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => None,
         }
     }
 
     pub fn languages_stoc(&self) -> Option<Vec<String>> {
-        match &self.client_key_exchange {
+        match &self.client_key_exchange.languages_server_to_client {
             Some(client_key_exchange) => client_key_exchange.languages_server_to_client.iter().map(|c| format!("{}", c)).collect(),
             None => None,
         }
