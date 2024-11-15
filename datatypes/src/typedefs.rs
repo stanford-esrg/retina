@@ -4,7 +4,7 @@
 use lazy_static::lazy_static;
 use proc_macro2::Span;
 use quote::quote;
-use retina_core::filter::{DataType, Level, SubscriptionSpec};
+use retina_core::{filter::{DataType, Level, SubscriptionSpec}, protocols::stream::dns::Data};
 use std::collections::HashMap;
 
 use crate::*;
@@ -47,6 +47,10 @@ lazy_static! {
             (
                 "QuicStream",
                 DataType::new_default_session("QuicStream", QuicStream::stream_protocols()),
+            ),
+            (
+                "SshTransaction",
+                DataType::new_default_session("SshTransaction", SshTransaction::stream_protocols()),
             ),
             ("ZcFrame", DataType::new_default_packet("ZcFrame")),
             ("Payload", DataType::new_default_packet("Payload")),

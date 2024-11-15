@@ -57,11 +57,3 @@ pub struct SshServiceAccept {
     pub ssh_msg_service_accept: Vec<u8>,
     pub service_name: String,
 }
-
-/// A parsed SSH Disconnection message.
-pub struct SshDisconnect {
-    pub ssh_msg_disconnect: Vec<u8>,
-    pub reason_code: u32,
-    pub description: String,
-    pub language_tag: String,
-}

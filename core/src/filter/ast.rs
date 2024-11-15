@@ -27,7 +27,7 @@ lazy_static! {
         let http     = g.add_node(protocol!("http"));
         let dns      = g.add_node(protocol!("dns"));
         let quic     = g.add_node(protocol!("quic"));
-        let ssh     = g.add_node(protocol!("ssh"));
+        let ssh      = g.add_node(protocol!("ssh"));
         // define valid outer layers for each protocol header
         g.extend_with_edges([
             (ipv4, ethernet),

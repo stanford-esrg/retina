@@ -6,7 +6,7 @@
 use super::Ssh;
 use crate::conntrack::pdu::L4Pdu;
 use crate::protocols::stream::{
-    ConnParsable, ParseResult, ProbeResult, Session, SessionData, SessionState,
+    ConnParsable, ParseResult, ParsingState, ProbeResult, Session, SessionData,
 };
 
 use ssh_parser::*;
@@ -82,8 +82,8 @@ impl ConnParsable for SshParser {
             .collect()
     }
 
-    fn session_parsed_state(&self) -> SessionState {
-        SessionState::Parsing // TODO: Parsing or Remove?
+    fn session_parsed_state(&self) -> ParsingState {
+        ParsingState::Stop
     }
 }
 
