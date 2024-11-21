@@ -233,8 +233,6 @@ impl Ssh {
 
                             self.client_service_request = service_response;
                         }
-
-                    
                 e => println!("Could not parse service request 2: {:?}", e),
                 }
             }
@@ -253,8 +251,6 @@ impl Ssh {
 
                             self.server_service_accept = service_accept;
                         }
-
-                    
                 e => println!("Could not parse service accept 2: {:?}", e),
                 }
             }
