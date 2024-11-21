@@ -392,23 +392,44 @@ impl AggRxStats {
     /// Display live bits per second and packets per second between `curr_rx` and `prev_rx`
     fn display_rates(curr_rx: AggRxStats, prev_rx: AggRxStats, nms: f64) {
         println!(
-            "Ingress: {:.0} bps / {:.0} pps",
-            (curr_rx.ingress_bits - prev_rx.ingress_bits) as f64 / nms * 1000.0,
-            (curr_rx.ingress_pkts - prev_rx.ingress_pkts) as f64 / nms * 1000.0
+            "Ingress: {} / {}",
+            pretty_print_unit(
+                (curr_rx.ingress_bits - prev_rx.ingress_bits) as f64 / nms * 1000.0,
+                "bps",
+            ),
+            pretty_print_unit(
+                (curr_rx.ingress_pkts - prev_rx.ingress_pkts) as f64 / nms * 1000.0,
+                "pps",
+            ),
         );
         println!(
-            "Good:    {:.0} bps / {:.0} pps",
-            (curr_rx.good_bits - prev_rx.good_bits) as f64 / nms * 1000.0,
-            (curr_rx.good_pkts - prev_rx.good_pkts) as f64 / nms * 1000.0
+            "Good:    {} / {}",
+            pretty_print_unit(
+                (curr_rx.good_bits - prev_rx.good_bits) as f64 / nms * 1000.0,
+                "bps",
+            ),
+            pretty_print_unit(
+                (curr_rx.good_pkts - prev_rx.good_pkts) as f64 / nms * 1000.0,
+                "pps",
+            ),
         );
         println!(
-            "Process: {:.0} bps / {:.0} pps",
-            (curr_rx.process_bits - prev_rx.process_bits) as f64 / nms * 1000.0,
-            (curr_rx.process_pkts - prev_rx.process_pkts) as f64 / nms * 1000.0
+            "Process: {} / {}",
+            pretty_print_unit(
+                (curr_rx.process_bits - prev_rx.process_bits) as f64 / nms * 1000.0,
+                "bps",
+            ),
+            pretty_print_unit(
+                (curr_rx.process_pkts - prev_rx.process_pkts) as f64 / nms * 1000.0,
+                "pps",
+            ),
         );
         println!(
-            "Drop: {} pps ({}%)",
-            (curr_rx.dropped_pkts() - prev_rx.dropped_pkts()) as f64 / nms * 1000.0,
+            "Drop: {} ({}%)",
+            pretty_print_unit(
+                (curr_rx.dropped_pkts() - prev_rx.dropped_pkts()) as f64 / nms * 1000.0,
+                "pps",
+            ),
             100.0
                 * ((curr_rx.dropped_pkts() - prev_rx.dropped_pkts()) as f64
                     / (curr_rx.ingress_pkts - prev_rx.ingress_pkts) as f64)
@@ -417,25 +438,38 @@ impl AggRxStats {
 
     fn display_dropped(curr_rx: AggRxStats, init_rx: AggRxStats) {
         println!(
-            "HW Dropped: {} pkts ({}%)",
-            curr_rx.hw_dropped_pkts - init_rx.hw_dropped_pkts,
+            "HW Dropped: {} ({}%)",
+            pretty_print_unit(
+                (curr_rx.hw_dropped_pkts - init_rx.hw_dropped_pkts) as f64,
+                "pkt",
+            ),
             100.0
                 * ((curr_rx.hw_dropped_pkts - init_rx.hw_dropped_pkts) as f64
                     / (curr_rx.ingress_pkts - init_rx.ingress_pkts) as f64)
         );
         println!(
-            "SW Dropped: {} pkts ({}%)",
-            curr_rx.sw_dropped_pkts - init_rx.sw_dropped_pkts,
+            "SW Dropped: {} ({}%)",
+            pretty_print_unit(
+                (curr_rx.sw_dropped_pkts - init_rx.sw_dropped_pkts) as f64,
+                "pkt",
+            ),
             100.0
                 * ((curr_rx.sw_dropped_pkts - init_rx.sw_dropped_pkts) as f64
                     / (curr_rx.ingress_pkts - init_rx.ingress_pkts) as f64)
         );
         println!(
-            "Total Dropped: {} pkts ({}%)",
-            curr_rx.dropped_pkts() - init_rx.dropped_pkts(),
+            "Total Dropped: {} ({}%)",
+            pretty_print_unit(
+                (curr_rx.dropped_pkts() - init_rx.dropped_pkts()) as f64,
+                "pkt",
+            ),
             100.0
                 * ((curr_rx.dropped_pkts() - init_rx.dropped_pkts()) as f64
                     / (curr_rx.ingress_pkts - init_rx.ingress_pkts) as f64)
+        );
+        println!(
+            "Total Packets: {}",
+            pretty_print_unit((curr_rx.ingress_pkts - init_rx.ingress_pkts) as f64, "pkt",),
         );
     }
 
@@ -488,24 +522,46 @@ impl fmt::Display for Throughputs {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(
             f,
-            "AVERAGE Ingress: {:.3} bps / {:.3} pps",
-            self.avg_ingress_bps, self.avg_ingress_pps,
+            "AVERAGE Ingress: {} / {}",
+            pretty_print_unit(self.avg_ingress_bps, "bps"),
+            pretty_print_unit(self.avg_ingress_pps, "pps"),
         )?;
         writeln!(
             f,
-            "AVERAGE Good:    {:.3} bps / {:.3} pps",
-            self.avg_good_bps, self.avg_good_pps,
+            "AVERAGE Good:    {} / {}",
+            pretty_print_unit(self.avg_good_bps, "bps"),
+            pretty_print_unit(self.avg_good_pps, "pps"),
         )?;
         writeln!(
             f,
-            "AVERAGE Process: {:.3} bps / {:.3} pps",
-            self.avg_process_bps, self.avg_process_pps,
+            "AVERAGE Process: {} / {}",
+            pretty_print_unit(self.avg_process_bps, "bps"),
+            pretty_print_unit(self.avg_process_pps, "pps"),
         )?;
         writeln!(
             f,
-            "DROPPED: {} pkts ({}%)",
-            self.tot_dropped_pkts, self.percent_dropped,
+            "DROPPED: {} ({}%)",
+            pretty_print_unit(self.tot_dropped_pkts as f64, "pkt"),
+            self.percent_dropped,
         )?;
         Ok(())
     }
+}
+
+fn pretty_print_unit(mut value: f64, unit: &str) -> String {
+    let kilo_coef = 1000.;
+    let mut unit_prefix = "";
+    if value > kilo_coef {
+        value /= kilo_coef;
+        unit_prefix = "k";
+        if value > kilo_coef {
+            value /= kilo_coef;
+            unit_prefix = "M";
+            if value > kilo_coef {
+                value /= kilo_coef;
+                unit_prefix = "G";
+            }
+        }
+    }
+    format!("{value:.4} {unit_prefix}{unit}")
 }
