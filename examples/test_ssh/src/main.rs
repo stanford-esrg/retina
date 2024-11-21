@@ -1,4 +1,4 @@
-use retina_core::{config::default_config, Runtime};
+use retina_core::{config::load_config, Runtime};
 // use retina_core::subscription::Connection;
 use retina_datatypes::{ConnRecord, SshTransaction};
 use retina_filtergen::{filter, retina_main};
