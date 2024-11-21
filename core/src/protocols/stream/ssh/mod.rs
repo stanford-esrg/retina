@@ -19,14 +19,14 @@ pub struct Ssh {
     pub server_key_exchange: SshKeyExchange,
 
     /// Client Diffie-Hellman Key Exchange message.
-    pub client_dh_key_exchange: SshDHClient,
+    pub client_dh_key_exchange: SshDhInit,
     /// Server Diffie-Hellman Key Exchange message.
-    pub server_dh_key_exchange: SshDHServerResponse,
+    pub server_dh_key_exchange: SshDhResponse,
 
     /// Client New Keys message.
-    pub client_new_keys: SshNewKeys,
+    pub client_new_keys: SshPacket::NewKeys,
     /// Server New Keys message.
-    pub server_new_keys: SshNewKeys,
+    pub server_new_keys: SshPacket::NewKeys,
 
     /// Client Service Request message.
     pub client_service_request: SshServiceRequest,
