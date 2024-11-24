@@ -9,10 +9,10 @@ use crate::filter::Actions;
 use crate::lcore::CoreId;
 use crate::protocols::packet::tcp::TCP_PROTOCOL;
 use crate::protocols::stream::{
-    ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, SessionState,
+    ConnData, ParseResult, ParserRegistry, ParsingState, ProbeRegistryResult,
 };
 use crate::subscription::{Subscription, Trackable};
-use crate::FiveTuple;
+use crate::{FiveTuple, Mbuf};
 
 #[derive(Debug)]
 pub(crate) struct ConnInfo<T>
@@ -77,7 +77,9 @@ where
         }
         if self.actions.buffer_frame() {
             // Track frame for (potential) future delivery
-            self.sdata.track_packet(pdu.mbuf_own());
+            // Used when a filter has partially matched for a
+            // subscription that requests packets
+            self.sdata.track_packet(Mbuf::new_ref(pdu.mbuf_ref()));
         }
     }
 
@@ -163,11 +165,11 @@ where
 
     fn session_done_parse(&mut self, subscription: &Subscription<T::Subscribed>) {
         match self.cdata.conn_parser.session_parsed_state() {
-            SessionState::Probing => {
+            ParsingState::Probing => {
                 // Re-apply the protocol filter to update actions
                 self.actions.session_set_probe();
             }
-            SessionState::Remove => {
+            ParsingState::Stop => {
                 // Done parsing: we expect no more sessions for this connection.
                 self.actions.session_clear_parse();
                 // If the only remaining thing to do is deliver the connection --
@@ -178,7 +180,7 @@ where
                     self.actions.clear();
                 }
             }
-            SessionState::Parsing => {
+            ParsingState::Parsing => {
                 // SessionFilter, Track, and Delivery will be terminal actions if needed.
             }
         }

@@ -10,7 +10,7 @@ use crate::protocols::stream::quic::header::{
 use crate::protocols::stream::quic::{QuicError, QuicPacket};
 use crate::protocols::stream::tls::Tls;
 use crate::protocols::stream::{
-    ConnParsable, L4Pdu, ParseResult, ProbeResult, Session, SessionData, SessionState,
+    ConnParsable, L4Pdu, ParseResult, ParsingState, ProbeResult, Session, SessionData,
 };
 use byteorder::{BigEndian, ByteOrder};
 use std::collections::HashSet;
@@ -109,8 +109,8 @@ impl ConnParsable for QuicParser {
             .collect()
     }
 
-    fn session_parsed_state(&self) -> SessionState {
-        SessionState::Parsing
+    fn session_parsed_state(&self) -> ParsingState {
+        ParsingState::Parsing
     }
 }
 
