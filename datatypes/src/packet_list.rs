@@ -22,8 +22,8 @@
 //! many UDP connections are short-lived, and UDP connections are not "closed" until
 //! a timeout period has passed.
 
-use retina_core::{protocols::packet::tcp::TCP_PROTOCOL, L4Pdu, Mbuf};
 use crate::PacketList;
+use retina_core::{protocols::packet::tcp::TCP_PROTOCOL, L4Pdu, Mbuf};
 
 /// Pasic raw packet bytes.
 #[derive(Debug)]
@@ -65,8 +65,7 @@ pub trait PktStream {
     }
 
     fn push(&mut self, pdu: &L4Pdu) {
-        if pdu.ctxt.proto == TCP_PROTOCOL &&
-           self.in_mbufs_ref().len() < PKTS_START_CLONE {
+        if pdu.ctxt.proto == TCP_PROTOCOL && self.in_mbufs_ref().len() < PKTS_START_CLONE {
             self.in_mbufs_ref().push(Mbuf::new_ref(&pdu.mbuf));
             return;
         } else if !self.in_mbufs_ref().is_empty() {
@@ -89,7 +88,7 @@ pub struct BidirPktStream {
 
 impl PktStream for BidirPktStream {
     fn in_mbufs_own(&mut self) -> Vec<Mbuf> {
-       std::mem::take(&mut self.mbufs)
+        std::mem::take(&mut self.mbufs)
     }
 
     fn in_mbufs_ref(&mut self) -> &mut Vec<Mbuf> {
@@ -119,7 +118,6 @@ impl PacketList for BidirPktStream {
         self.packets.clear();
         self.mbufs.clear();
     }
-
 }
 
 /// For a connection, an originator's (unidirectional) stream of packets
@@ -166,7 +164,6 @@ impl PacketList for OrigPktStream {
         self.packets.clear();
         self.mbufs.clear();
     }
-
 }
 
 /// For a connection, a responder's (unidirectional) stream of packets
@@ -214,9 +211,7 @@ impl PacketList for RespPktStream {
         self.packets.clear();
         self.mbufs.clear();
     }
-
 }
-
 
 /// For a connection, an originator's (unidirectional) stream of packets
 /// in reassembled order. This should be used for TCP only.
@@ -260,9 +255,7 @@ impl PacketList for OrigPktsReassembled {
         self.packets.clear();
         self.mbufs.clear();
     }
-
 }
-
 
 /// For a connection, a responder's (unidirectional) stream of packets
 /// in reassembled order. This should be used for TCP only.
@@ -306,7 +299,6 @@ impl PacketList for RespPktsReassembled {
         self.packets.clear();
         self.mbufs.clear();
     }
-
 }
 
 /// For a connection, the bidirectional stream of packets
@@ -331,7 +323,6 @@ impl PacketList for BidirZcPktStream {
     fn clear(&mut self) {
         self.packets.clear();
     }
-
 }
 
 /// For a connection, an originator's (unidirectional) stream of packets
@@ -358,7 +349,6 @@ impl PacketList for OrigZcPktStream {
     fn clear(&mut self) {
         self.packets.clear();
     }
-
 }
 
 /// For a connection, a responder's (unidirectional) stream of packets
@@ -387,7 +377,6 @@ impl PacketList for RespZcPktStream {
     fn clear(&mut self) {
         self.packets.clear();
     }
-
 }
 
 /// For a connection, an originator's (unidirectional) stream of packets
@@ -412,7 +401,6 @@ impl PacketList for OrigZcPktsReassembled {
     fn clear(&mut self) {
         self.packets.clear();
     }
-
 }
 
 /// For a connection, a responder's (unidirectional) stream of packets
@@ -437,5 +425,4 @@ impl PacketList for RespZcPktsReassembled {
     fn clear(&mut self) {
         self.packets.clear();
     }
-
 }

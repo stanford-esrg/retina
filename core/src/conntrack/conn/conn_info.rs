@@ -12,7 +12,7 @@ use crate::protocols::stream::{
     ConnData, ParseResult, ParserRegistry, ProbeRegistryResult, SessionState,
 };
 use crate::subscription::{Subscription, Trackable};
-use crate::{Mbuf, FiveTuple};
+use crate::{FiveTuple, Mbuf};
 
 #[derive(Debug)]
 pub(crate) struct ConnInfo<T>
