@@ -8,10 +8,33 @@ fn main() {
     // modified from https://github.com/deeptir18/cornflakes/blob/master/cornflakes-libos/build.rs
 
     println!("cargo:rerun-if-env-changed=DPDK_PATH");
+    println!("cargo:rerun-if-env-changed=DPDK_VERSION");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/dpdk/inline.c");
     let cargo_manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let cargo_dir = Path::new(&cargo_manifest_dir);
+
+    println!("cargo:rustc-check-cfg=cfg(dpdk_ge_2011)");
+    println!("cargo:rustc-check-cfg=cfg(dpdk_ge_2108)");
+    println!("cargo:rustc-check-cfg=cfg(dpdk_ge_2111)");
+    println!("cargo:rustc-check-cfg=cfg(dpdk_ge_2311)");
+    let dpdk_version = env::var("DPDK_VERSION").expect("Set DPDK_VERSION env variable");
+
+    if !["20.11", "21.08", "23.11"].contains(&dpdk_version.as_str()) {
+        println!("Unsupported dpdk version");
+        exit(1);
+    }
+
+    println!("cargo:rustc-cfg=dpdk_ge_2011");
+    if dpdk_version != "20.11" {
+        println!("cargo:rustc-cfg=dpdk_ge_2108");
+        if dpdk_version != "21.08" {
+            println!("cargo:rustc-cfg=dpdk_ge_2111");
+            if dpdk_version != "21.11" {
+                println!("cargo:rustc-cfg=dpdk_ge_2311");
+            }
+        }
+    }
 
     let out_dir_s = env::var("OUT_DIR").unwrap();
     let out_dir = Path::new(&out_dir_s);
@@ -113,6 +136,7 @@ fn main() {
     let mut builder = cc::Build::new();
     builder.opt_level(3);
     builder.pic(true);
+    builder.flag("-mssse3");
     builder.flag("-march=native");
 
     let inlined_file = Path::new(&cargo_dir)

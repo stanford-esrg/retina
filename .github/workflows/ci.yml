@@ -11,6 +11,14 @@ env:
 
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        dpdk_version:
+          - "20.11"
+          - "23.11"
+    env:
+      DPDK_VERSION: ${{ matrix.dpdk_version }}
     runs-on: ubuntu-latest
     steps:
     - name: Check out repo
@@ -31,15 +39,15 @@ jobs:
     - name: Install pyelftools
       run: |
           pip3 install pyelftools
-    - name: Install libpcap (Linux)
+    - name: Install apt dependencies (Linux)
       run: |
           sudo apt-get update
-          sudo apt-get install libpcap-dev
+          sudo apt-get install libpcap-dev libnuma-dev
     - name: DPDK
       run: |
             echo "Compiling DPDK..." ;
             export STABLE=
-            export VERSION=20.11
+            export VERSION=${{ matrix.dpdk_version }}
             export PKG_CONFIG_PATH=$(pwd)/dpdk-$STABLE$VERSION/install/lib/x86_64-linux-gnu/pkgconfig/ ;
             export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(pwd)/dpdk-$STABLE$VERSION/install/lib/x86_64-linux-gnu/ ;
             export DPDK_PATH=$(pwd)/dpdk-$STABLE$VERSION/install/

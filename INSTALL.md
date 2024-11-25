@@ -24,7 +24,7 @@ sudo apt install build-essential meson pkg-config libnuma-dev python3-pyelftools
 ```
 
 ## Building and Installing DPDK
-Retina currently requires [**DPDK 21.08**](https://core.dpdk.org/download/). The latest LTS release (21.11) contains breaking API changes while 20.11 LTS has a bug that causes inaccurate packet drop metrics on some NICs.
+Retina currently requires [**DPDK 20.11 or 21.08 or 23.11**](https://core.dpdk.org/download/). Note that 20.11 LTS has a bug that causes inaccurate packet drop metrics on some NICs.
 
 ### System Configuration
 To get high performance from DPDK applications, we recommend the following system configuration steps. More details from the DPDK docs can be found [here](https://doc.dpdk.org/guides/linux_gsg/nic_perf_intel_platform.html).
@@ -63,15 +63,16 @@ sudo /etc/init.d/openibd restart
 This may update the firmware on your NIC, a reboot should complete the update if necessary.
 
 ### Install DPDK from source
-We recommend a local DPDK install from source. Download version 21.08 from the [DPDK downloads page](http://core.dpdk.org/download/):
+We recommend a local DPDK install from source. Download version 23.11 from the [DPDK downloads page](http://core.dpdk.org/download/):
 ```sh
-wget http://fast.dpdk.org/rel/dpdk-21.08.tar.xz
-tar xJf dpdk-21.08.tar.xz
+wget http://fast.dpdk.org/rel/dpdk-23.11.tar.xz
+tar xJf dpdk-23.11.tar.xz
 ```
 
 Set environment variables:
 ```sh
-export DPDK_PATH=/path/to/dpdk/dpdk-21.08
+export DPDK_PATH=/path/to/dpdk/dpdk-23.11
+export DPDK_VERSION=23.11
 export LD_LIBRARY_PATH=$DPDK_PATH/lib/x86_64-linux-gnu
 export PKG_CONFIG_PATH=$LD_LIBRARY_PATH/pkgconfig
 ```
