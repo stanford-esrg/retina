@@ -25,7 +25,6 @@ pub enum Level {
     Static,
 }
 
-#[doc(hidden)]
 /// Specification for one complete subscription
 /// A subscription is defined as a filter, callback, and one or more datatypes
 /// This is public to be accessible by the filtergen crate.
@@ -121,6 +120,8 @@ impl DataType {
         }
     }
 
+    /// Creates a typical datatype for a packet list
+    /// (Connection-level, requires updates in order to track packets)
     pub fn new_default_pktlist(as_str: &'static str, reassembly: bool) -> Self {
         DataType {
             level: Level::Connection,
@@ -418,7 +419,7 @@ impl SubscriptionSpec {
         );
     }
 
-    /// Add a new datatype to the subscription
+    // Add a new datatype to the subscription
     pub fn add_datatype(&mut self, datatype: DataType) {
         self.update_level(&datatype.level);
         self.datatypes.push(datatype);
@@ -453,7 +454,7 @@ impl SubscriptionSpec {
         spec
     }
 
-    /// Format subscription as "callback(datatypes)"
+    // Format subscription as "callback(datatypes)"
     pub fn as_str(&self) -> String {
         let datatype_str: Vec<&'static str> = self.datatypes.iter().map(|d| d.as_str).collect();
         format!("{}({})", self.callback, datatype_str.join(", ")).to_string()

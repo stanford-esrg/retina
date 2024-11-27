@@ -65,8 +65,8 @@
 //! ```
 //!
 //! For programs that require many filters (e.g., searching for 100s of attack signatures), using
-//! the [subscription](retina_filtergen::subscription) macro to specify an input TOML file may
-//! be preferable to specifying each subscription individually as above.
+//! the [subscription](../retina_filtergen/attr.subscription.html) macro to specify an input TOML
+//! file may be preferable to specifying each subscription individually as above.
 //!
 
 #[macro_use]
@@ -76,9 +76,6 @@ pub mod conntrack;
 #[doc(hidden)]
 #[allow(clippy::all)]
 mod dpdk;
-// The filter module must be public to be accessible by the filter_gen procedural macro crate.
-// However, module functions should be opaque to users, so documentation is hidden by default.
-#[doc(hidden)]
 pub mod filter;
 pub mod lcore;
 pub mod memory;
