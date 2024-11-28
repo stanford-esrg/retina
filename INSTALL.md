@@ -63,13 +63,13 @@ sudo /etc/init.d/openibd restart
 This may update the firmware on your NIC, a reboot should complete the update if necessary.
 
 ### Install DPDK from source
-We recommend a local DPDK install from source. Download version 23.11 from the [DPDK downloads page](http://core.dpdk.org/download/):
+We recommend a local DPDK install from source. Download version 23.11 (or desired version) from the [DPDK downloads page](http://core.dpdk.org/download/):
 ```sh
 wget http://fast.dpdk.org/rel/dpdk-23.11.tar.xz
 tar xJf dpdk-23.11.tar.xz
 ```
 
-Set environment variables:
+Set environment variables (For changing the version, set `DPDK_VERSION` properly):
 ```sh
 export DPDK_PATH=/path/to/dpdk/dpdk-23.11
 export DPDK_VERSION=23.11
