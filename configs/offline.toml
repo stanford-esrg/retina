@@ -12,7 +12,7 @@ nb_memory_channels = 6
     cache_size = 512
 
 [offline]
-    pcap = "./traces/small_flows.pcap"
+    pcap = "./traces/ssh_version_exchange.pcap"
     mtu = 9702
 
 [conntrack]

@@ -1,4 +1,4 @@
-//! A SSH transaction.
+//! A SSH handshake.
 //! Subscribable alias for [`retina_core::protocols::stream::ssh::Ssh`]
 
 use retina_core::protocols::stream::ssh::Ssh;
@@ -6,9 +6,9 @@ use retina_core::protocols::stream::{Session, SessionData};
 
 use super::{FromSession, SessionList};
 
-pub type SshTransaction = Box<Ssh>;
+pub type SshHandshake = Box<Ssh>;
 
-impl FromSession for SshTransaction {
+impl FromSession for SshHandshake {
     fn stream_protocols() -> Vec<&'static str> {
         vec!["ssh"]
     }

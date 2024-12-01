@@ -3,7 +3,7 @@
 //! Adapted from [the Rusticata SSH 
 //! parser] (https://github.com/rusticata/ssh-parser/blob/master/src/ssh.rs)
 
-use super::transaction::SshServiceRequest;
+use super::handshake::SshServiceRequest;
 use super::Ssh;
 use crate::conntrack::pdu::L4Pdu;
 use crate::protocols::stream::{
@@ -36,7 +36,7 @@ impl ConnParsable for SshParser {
 
         if let Ok(data) = (pdu.mbuf_ref()).get_data_slice(offset, length) {
             if !self.sessions.is_empty() {
-                return self.sessions[0].process(data); // TODO
+                return self.sessions[0].process(data, pdu.dir);
             }
             ParseResult::Skipped
         } else {
@@ -49,15 +49,14 @@ impl ConnParsable for SshParser {
         let offset = pdu.offset();
         let length = pdu.length();
 
-        // if payload is empty, unsure if SSH so keep sending packets
-        if length == 0 {
+        if length < 4 {
             return ProbeResult::Unsure;
         }
 
         if let Ok(data) = (pdu.mbuf).get_data_slice(offset, length) {
-            match (data[0], data[1], data[2], data[3]) {
-                // bytes for the beginning of a SSH identification string: "SSH-"
-                (0x53, 0x53, 0x48, 0x2d) => ProbeResult::Certain,
+            // check if first 4 bytes match the beginning of a SSH identification string ("SSH-")
+            match &data[..4] {
+                b"SSH-" => ProbeResult::Certain,
                 _ => ProbeResult::NotForUs,
             }
         } else {
@@ -88,8 +87,12 @@ impl ConnParsable for SshParser {
     }
 }
 
+impl SshParser {
+}
+
+
 impl Ssh {
-    /// Allocate a new SSH transaction instance.
+    /// Allocate a new SSH handshake instance.
     pub(crate) fn new() -> Ssh {
         Ssh {
             client_version_exchange: None,
@@ -258,12 +261,32 @@ impl Ssh {
         }
     }
 
-    pub(crate) fn process(&mut self, data: &[u8]) -> ParseResult {
-        let mut status = ParseResult::Continue(0);
+    pub(crate) fn process(&mut self, data: &[u8], direction: bool) -> ParseResult {
+        // let mut status = ParseResult::Continue(0);
         log::trace!("process ({} bytes)", data.len());
+
+        // let mut offset = 0;
+
+        self.parse_version_exchange(data, direction);
+        ParseResult::Done(0)
+        
+        // while data.len() > offset {
+        //     match ssh_parser::parse_ssh_packet(data) {
+        //         Ok((_, (pkt, _))) => {
+        //             match pkt {
+        //                 SshPacket::KeyExchange(pkt) => {
+        //                     self.parse_key_exchange(data, direction);
+        //                 }
+
+        //                 _ => (),
+        //             }
+        //         }
+        //         Err(_) => {
+        //             log::debug!("warn: Parsing raw record failed");
+        //             break;
+        //         }
+        //     }
+        // }
+        // status
     }
-}
-
-
-impl SshParser {
 }

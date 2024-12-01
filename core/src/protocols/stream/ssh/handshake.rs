@@ -1,4 +1,4 @@
-//! SSH transaction components.
+//! SSH handshake components.
 //! 
 
 use ssh_parser::*;

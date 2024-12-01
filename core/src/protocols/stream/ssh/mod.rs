@@ -1,11 +1,11 @@
-//! SSH transaction parsing.
+//! SSH handshake parsing.
 
 pub mod parser;
-mod transaction;
+mod handshake;
 
 use serde::Serialize;
 
-/// Parsed SSH transaction contents.
+/// Parsed SSH handshake contents.
 #[derive(Debug, Default, Serialize, Clone)]
 pub struct Ssh {
     /// Client protocol version exchange message.

@@ -1,6 +1,6 @@
 use retina_core::{config::load_config, Runtime};
 // use retina_core::subscription::Connection;
-use retina_datatypes::{ConnRecord, SshTransaction};
+use retina_datatypes::{ConnRecord, SshHandshake};
 use retina_filtergen::{filter, retina_main};
 
 // use std::path::PathBuf;
@@ -28,7 +28,7 @@ use retina_filtergen::{filter, retina_main};
 // }
 
 #[filter("ssh")]
-fn ssh_cb(ssh: &SshTransaction, conn_record: &ConnRecord) {
+fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
     println!(
         "SSH protocol version: {}, conn. metrics: {:?}",
         ssh.protocol_version(),
