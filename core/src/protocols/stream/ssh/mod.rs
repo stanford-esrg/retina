@@ -1,9 +1,12 @@
 //! SSH handshake parsing.
 
-pub mod parser;
 mod handshake;
+pub mod parser;
+
+pub use self::handshake::*;
 
 use serde::Serialize;
+use ssh_parser::*;
 
 /// Parsed SSH handshake contents.
 #[derive(Debug, Default, Serialize, Clone)]
