@@ -3,7 +3,7 @@
 //! Adapted from [the Rusticata SSH 
 //! parser] (https://github.com/rusticata/ssh-parser/blob/master/src/ssh.rs)
 
-use super::handshake::SshServiceRequest;
+use super::handshake::*;
 use super::Ssh;
 use crate::conntrack::pdu::L4Pdu;
 use crate::protocols::stream::{
@@ -40,7 +40,7 @@ impl ConnParsable for SshParser {
             }
             ParseResult::Skipped
         } else {
-            log::warn("Malformed packet on parse");
+            log::warn!("Malformed packet on parse");
             ParseResult::Skipped
         }
     }
