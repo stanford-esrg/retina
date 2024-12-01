@@ -49,6 +49,7 @@ x509-parser = "0.13.2"
 bitmask-enum = "2.2.4"
 quote = "1.0.26"
 proc-macro2 = "1.0.56"
+ssh-parser = "0.5.0"
 syn = { version = "2.0.15" }
 regex = "1.7.3"
 ring = "0.17.8"
