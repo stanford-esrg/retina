@@ -39,20 +39,23 @@ pub struct Ssh {
 
 impl Ssh {
     /// Returns the SSH protocol version (e.g. 2.0).
-    pub fn protocol_version(&self) -> &String {
+    pub fn protocol_version(&self) -> &str {
         match &self.client_version_exchange {
-            Some(client_version_exchange) => &format!("{}", client_version_exchange.protoversion),
-            None => &"".to_string(),
+            Some(client_version_exchange) => match &client_version_exchange.protoversion {
+                Some(protoversion) => protoversion.as_str(),
+                None => "",
+            }
+            None => "",
         }
     }
 
     /// Returns the SSH software version.
-    pub fn software_version(&self) -> &String {
-        match &self.client_version_exchange {
-            Some(client_version_exchange) => &format!("{}", client_version_exchange.softwareversion),
-            None => &"".to_string(),
-        }
-    }
+    // pub fn software_version(&self) -> &String {
+    //     match &self.client_version_exchange {
+    //         Some(client_version_exchange) => &format!("{}", client_version_exchange.softwareversion),
+    //         None => &"".to_string(),
+    //     }
+    // }
 
     // /// Returns comments, or `""` if there are no comments.
     // pub fn comments(&self) -> Option<String> {
