@@ -7,12 +7,11 @@
 use crate::conntrack::pdu::L4Pdu;
 use crate::filter::Actions;
 use crate::lcore::CoreId;
-use crate::protocols::packet::tcp::TCP_PROTOCOL;
 use crate::protocols::stream::{
     ConnData, ParseResult, ParserRegistry, ParsingState, ProbeRegistryResult,
 };
 use crate::subscription::{Subscription, Trackable};
-use crate::{FiveTuple, Mbuf};
+use crate::FiveTuple;
 
 #[derive(Debug)]
 pub(crate) struct ConnInfo<T>
@@ -50,6 +49,29 @@ where
         self.actions = pkt_actions;
     }
 
+    #[inline]
+    pub(crate) fn update_sdata(&mut self, pdu: &L4Pdu,
+                               subscription: &Subscription<T::Subscribed>,
+                               reassembled: bool) {
+        // Typically use for calculating connection metrics
+        if self.actions.update_pdu() {
+            self.sdata.update(&pdu, reassembled);
+        }
+        // Used for non-terminal matches on packet datatypes (`PacketCache` action,
+        // pre-reassembly only) and for datatypes that require tracking packets
+        // (`PacketTrack`, pre- and/or post-reassembly).
+        if self.actions.buffer_packet(reassembled) {
+            self.sdata.buffer_packet(pdu, &self.actions, reassembled);
+        }
+        // Packet-level subscriptions ready for delivery should be
+        // delivered 1x (before reassembly).
+        if !reassembled && self.actions.packet_deliver() {
+            // Delivering all remaining packets in connection
+            subscription.deliver_packet(pdu.mbuf_ref(),
+                                    &self.cdata, &self.sdata);
+        }
+    }
+
     pub(crate) fn consume_pdu(
         &mut self,
         pdu: L4Pdu,
@@ -65,22 +87,7 @@ where
             self.handle_parse(&pdu, subscription, registry);
         }
 
-        // Post-reassembly `update`
-        if self.actions.update_pdu_reassembled() && pdu.ctxt.proto == TCP_PROTOCOL {
-            // Forward PDU to any subscriptions that require
-            // tracking ongoing connection data post-reassembly
-            self.sdata.update(&pdu, true);
-        }
-        if self.actions.packet_deliver() {
-            // Delivering all remaining packets in connection
-            subscription.deliver_packet(pdu.mbuf_ref(), &self.cdata, &self.sdata);
-        }
-        if self.actions.buffer_frame() {
-            // Track frame for (potential) future delivery
-            // Used when a filter has partially matched for a
-            // subscription that requests packets
-            self.sdata.track_packet(Mbuf::new_ref(pdu.mbuf_ref()));
-        }
+        self.update_sdata(&pdu, subscription, true);
     }
 
     fn handle_parse(
@@ -208,18 +215,15 @@ where
         self.actions.clear();
     }
 
-    // Helper used after filter updates
-    pub(crate) fn clear_packets(&mut self) {
-        self.sdata.drain_packets();
-    }
-
     // Helper to be used after applying protocol or session filter
     pub(crate) fn clear_stale_data(&mut self, new_actions: &Actions) {
-        if self.actions.buffer_frame() && !new_actions.buffer_frame() && !self.actions.drop() {
-            // No longer need tracked packets; delete to save memory
-            // Don't clear if all connection data may be about to be dropped
-            self.clear_packets();
-            assert!(!new_actions.buffer_frame());
+        if !self.actions.drop() {
+            if self.actions.cache_packet() && !new_actions.cache_packet() {
+                self.sdata.drain_cached_packets();
+            }
+            if self.actions.buffer_packet(true) && !new_actions.buffer_packet(true) {
+                self.sdata.drain_tracked_packets();
+            }
         }
         // Don't clear sessions, as SessionTrack is never
         // a terminal action at the protocol stage

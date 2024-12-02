@@ -52,6 +52,11 @@ impl L4Pdu {
     }
 
     #[inline]
+    pub fn ack_no(&self) -> u32 {
+        self.ctxt.ack_no
+    }
+
+    #[inline]
     pub fn flags(&self) -> u8 {
         self.ctxt.flags
     }
@@ -72,6 +77,8 @@ pub struct L4Context {
     pub length: usize,
     /// Raw sequence number of segment.
     pub seq_no: u32,
+    /// Raw acknowledgment number of segment.
+    pub ack_no: u32,
     /// TCP flags.
     pub flags: u8,
 }
@@ -91,6 +98,7 @@ impl L4Context {
                             offset: tcp.next_header_offset(),
                             length: payload_size,
                             seq_no: tcp.seq_no(),
+                            ack_no: tcp.ack_no(),
                             flags: tcp.flags(),
                         })
                     } else {
@@ -107,6 +115,7 @@ impl L4Context {
                             offset: udp.next_header_offset(),
                             length: payload_size,
                             seq_no: 0,
+                            ack_no: 0,
                             flags: 0,
                         })
                     } else {
@@ -127,6 +136,7 @@ impl L4Context {
                             offset: tcp.next_header_offset(),
                             length: payload_size,
                             seq_no: tcp.seq_no(),
+                            ack_no: tcp.ack_no(),
                             flags: tcp.flags(),
                         })
                     } else {
@@ -143,6 +153,7 @@ impl L4Context {
                             offset: udp.next_header_offset(),
                             length: payload_size,
                             seq_no: 0,
+                            ack_no: 0,
                             flags: 0,
                         })
                     } else {
