@@ -224,23 +224,23 @@ impl Ssh {
         }
     }
 
-    pub fn languages_ctos_stoc(&self) -> Option<Vec<String>> {
+    pub fn languages_ctos_stoc(&self) -> Vec<String> {
         match &self.server_key_exchange {
             Some(server_key_exchange) => server_key_exchange.languages_client_to_server.iter().map(|c| format!("{}", c)).collect(),
-            None => None,
+            None => vec![],
         }
     }
 
-    pub fn languages_stoc(&self) -> Option<Vec<String>> {
+    pub fn languages_stoc(&self) -> Vec<String> {
         match &self.server_key_exchange {
             Some(server_key_exchange) => server_key_exchange.languages_server_to_client.iter().map(|c| format!("{}", c)).collect(),
-            None => None,
+            None => vec![],
         }
     }
 
     pub fn dh_init_e(&self) -> Vec<u8> {
         match &self.client_dh_key_exchange {
-            Some(client_dh_key_exchange) => client_dh_key_exchange.e.iter().map(|c| format!("{}", c)).collect(),
+            Some(client_dh_key_exchange) => client_dh_key_exchange.e.iter().map(|c| c.0).collect(),
             None => vec![],
         }
     }

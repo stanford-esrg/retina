@@ -28,8 +28,8 @@ pub struct SshKeyExchange {
     pub mac_algs_server_to_client: Vec<String>,
     pub compression_algs_client_to_server: Vec<String>,
     pub compression_algs_server_to_client: Vec<String>,
-    pub languages_client_to_server: Option<Vec<String>>,
-    pub languages_server_to_client: Option<Vec<String>>,
+    pub languages_client_to_server: Vec<String>,
+    pub languages_server_to_client: Vec<String>,
     pub first_kex_packet_follows: bool,
 }
 
