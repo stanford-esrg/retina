@@ -85,6 +85,7 @@ where
         let conn_id = ConnId::new(ctxt.src, ctxt.dst, ctxt.proto);
         match self.table.raw_entry_mut().from_key(&conn_id) {
             RawEntryMut::Occupied(mut occupied) => {
+                println!("occupied");
                 let conn = occupied.get_mut();
                 conn.last_seen_ts = Instant::now();
                 let dir = conn.packet_dir(&ctxt);
@@ -120,6 +121,7 @@ where
                 }
             }
             RawEntryMut::Vacant(_) => {
+                println!("vacant");
                 if self.size() < self.config.max_connections {
                     let pdu = L4Pdu::new(mbuf, ctxt, true);
                     let conn = match ctxt.proto {
