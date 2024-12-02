@@ -90,6 +90,7 @@ where
                 println!("testing x2");
                 println!("src address: {}", ctxt.src);
                 println!("dst address: {}", ctxt.dst);
+                println!("proto: {}", ctxt.proto);
                 println!("payload length: {} bytes", ctxt.length);
                 println!("seq_no: {}", ctxt.seq_no);
                 conn_tracker.process(mbuf, ctxt, self);
