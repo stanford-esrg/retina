@@ -277,16 +277,18 @@ impl Ssh {
                 Ok((_, (pkt, _))) => {
                     match pkt {
                         SshPacket::KeyExchange(_) => {
+                            println!("encountered SSH key exchange packet");
                             self.parse_key_exchange(data, direction);
-                            // return ParseResult::Done(0);
                         }
                         SshPacket::DiffieHellmanInit(_) => {
                             // self.parse_dh_client_init(data);
+                            println!("encountered SSH DH Init packet");
                             return ParseResult::Done(0);
                         }
 
                         _ => (),
                     }
+                    status = ParseResult::Continue(0);
                 }
                 e => {
                     log::debug!("parse error: {:?}", e);

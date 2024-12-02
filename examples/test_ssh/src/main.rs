@@ -39,7 +39,7 @@ fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
         ssh.protocol_version_stoc(),
         ssh.software_version_stoc(),
         ssh.comments_stoc(),
-        ssh.key_exchange_algs(),
+        ssh.key_exchange_algs().join(",");
         conn_record
     );
 }

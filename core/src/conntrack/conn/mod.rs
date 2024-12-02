@@ -57,7 +57,6 @@ where
         pdu: &L4Pdu,
         core_id: CoreId,
     ) -> Result<Self> {
-        println!("new tcp");
         println!("pdu.ctxt.flags: {}", pdu.ctxt.flags);
         let tcp_conn = if pdu.ctxt.flags & SYN != 0
             && pdu.ctxt.flags & ACK == 0
@@ -66,7 +65,6 @@ where
             println!("valid tcp");
             TcpConn::new_on_syn(pdu.ctxt, max_ooo)
         } else {
-            println!("invalid tcp");
             bail!("Not SYN")
         };
         Ok(Conn {

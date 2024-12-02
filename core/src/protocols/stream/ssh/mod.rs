@@ -108,7 +108,10 @@ impl Ssh {
     pub fn key_exchange_algs(&self) -> Vec<String> {
         match &self.client_key_exchange {
             Some(client_key_exchange) => client_key_exchange.kex_algs.iter().map(|c| format!("{}", c)).collect(),
-            None => vec![],
+            None => {
+                println!("no");
+                vec![]
+            }
         }
     }
 
