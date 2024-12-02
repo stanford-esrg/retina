@@ -39,7 +39,7 @@ pub struct Ssh {
 
 impl Ssh {
     /// Returns the SSH protocol version (e.g. 2.0).
-    pub fn protocol_version(&self) -> &str {
+    pub fn protocol_version_ctos(&self) -> &str {
         match &self.client_version_exchange {
             Some(client_version_exchange) => match &client_version_exchange.protoversion {
                 Some(protoversion) => protoversion.as_str(),
@@ -50,7 +50,7 @@ impl Ssh {
     }
 
     /// Returns the SSH software version.
-    pub fn software_version(&self) -> &str {
+    pub fn software_version_ctos(&self) -> &str {
         match &self.client_version_exchange {
             Some(client_version_exchange) => match &client_version_exchange.softwareversion {
                 Some(softwareversion) => softwareversion.as_str(),
@@ -61,12 +61,23 @@ impl Ssh {
     }
 
     /// Returns comments, or `""` if there are no comments.
-    pub fn comments(&self) -> &str {
+    pub fn comments_ctos(&self) -> &str {
         match &self.client_version_exchange {
             Some(client_version_exchange) => match &client_version_exchange.comments {
                 Some(comments) => comments.as_str(),
                 None => "",
             }
+            None => "",
+        }
+    }
+
+    /// Returns the SSH protocol version from server to client.
+    pub fn protocol_version_stoc(&self) -> &str {
+        match &self.server_version_exchange {
+            Some(server_version_exchange) => match &server_version_exchange.protoversion {
+                Some(protoversion) => protoversion.as_str(),
+                None => "",
+            },
             None => "",
         }
     }

@@ -29,10 +29,13 @@ struct Args {
 #[filter("ssh")]
 fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
     println!(
-        "SSH: protoversion: {}, softwareversion: {}, comments: {}, conn. metrics: {:?}",
-        ssh.protocol_version(),
-        ssh.software_version(),
-        ssh.comments(),
+        "SSH CTOS: protoversion: {}, softwareversion: {}, comments: {}, 
+        SSH STOC: protoversion: {},
+        conn. metrics: {:?}",
+        ssh.protocol_version_ctos(),
+        ssh.software_version_ctos(),
+        ssh.comments_ctos(),
+        ssh.protocol_version_stoc(),
         conn_record
     );
 }

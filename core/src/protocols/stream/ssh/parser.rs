@@ -261,31 +261,34 @@ impl Ssh {
     }
 
     pub(crate) fn process(&mut self, data: &[u8], direction: bool) -> ParseResult {
-        // let mut status = ParseResult::Continue(0);
+        let mut status = ParseResult::Continue(0);
         log::trace!("process ({} bytes)", data.len());
 
         // let mut offset = 0;
 
-        self.parse_version_exchange(data, direction);
-        ParseResult::Done(0)
-        
-        // while data.len() > offset {
-        //     match ssh_parser::parse_ssh_packet(data) {
-        //         Ok((_, (pkt, _))) => {
-        //             match pkt {
-        //                 SshPacket::KeyExchange(pkt) => {
-        //                     self.parse_key_exchange(data, direction);
-        //                 }
+        // self.parse_version_exchange(data, direction);
+        // ParseResult::Done(0)
+        let ssh_identifier = b"SSH-";
+        if let Some(_) = data.windows(ssh_identifier.len()).position(|window| window == ssh_identifier).map(|p| &data[p..]) {
+            self.parse_version_exchange(data, direction);
+        } else {
+            match ssh_parser::parse_ssh_packet(data) {
+                Ok((_, (pkt, _))) => {
+                    match pkt {
+                        SshPacket::KeyExchange(pkt) => {
+                            // self.parse_key_exchange(data, direction);
+                            return ParseResult::Done(0);
+                        }
 
-        //                 _ => (),
-        //             }
-        //         }
-        //         Err(_) => {
-        //             log::debug!("warn: Parsing raw record failed");
-        //             break;
-        //         }
-        //     }
-        // }
-        // status
+                        _ => (),
+                    }
+                }
+                e => {
+                    log::debug!("parse error: {:?}", e);
+                    ParseResult::Skipped
+                }
+            }
+        }
+        status
     }
 }
