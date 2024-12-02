@@ -30,12 +30,16 @@ struct Args {
 fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
     println!(
         "SSH CTOS: protoversion: {}, softwareversion: {}, comments: {}, 
-        SSH STOC: protoversion: {},
+        SSH STOC: protoversion: {}, softwareversion: {}, comments: {}, 
+        SSH Key Exchange: algs: {},
         conn. metrics: {:?}",
         ssh.protocol_version_ctos(),
         ssh.software_version_ctos(),
         ssh.comments_ctos(),
         ssh.protocol_version_stoc(),
+        ssh.software_version_stoc(),
+        ssh.comments_stoc(),
+        ssh.key_exchange_algs(),
         conn_record
     );
 }

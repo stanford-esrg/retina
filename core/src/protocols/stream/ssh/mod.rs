@@ -82,13 +82,35 @@ impl Ssh {
         }
     }
 
-    // /// Returns the key exchange algorithms used in SSH key exchange.
-    // pub fn key_exchange_algs(&self) -> Vec<String> {
-    //     match &self.client_key_exchange {
-    //         Some(client_key_exchange) => client_key_exchange.ex_algs.iter().map(|c| format!("{}", c)).collect(),
-    //         None => vec![],
-    //     }
-    // }
+    /// Returns the SSH software version from server to client.
+    pub fn software_version_stoc(&self) -> &str {
+        match &self.server_version_exchange {
+            Some(server_version_exchange) => match &server_version_exchange.softwareversion {
+                Some(softwareversion) => softwareversion.as_str(),
+                None => "",
+            }
+            None => "",
+        }
+    }
+
+    /// Returns comments from server to client, or `""` if there are no comments.
+    pub fn comments_stoc(&self) -> &str {
+        match &self.server_version_exchange {
+            Some(server_version_exchange) => match &server_version_exchange.comments {
+                Some(comments) => comments.as_str(),
+                None => "",
+            }
+            None => "",
+        }
+    }
+
+    /// Returns the key exchange algorithms used in SSH key exchange.
+    pub fn key_exchange_algs(&self) -> Vec<String> {
+        match &self.client_key_exchange {
+            Some(client_key_exchange) => client_key_exchange.ex_algs.iter().map(|c| format!("{}", c)).collect(),
+            None => vec![],
+        }
+    }
 
     // pub fn server_host_key_algs(&self) -> Vec<String> {
     //     match &self.client_key_exchange {
