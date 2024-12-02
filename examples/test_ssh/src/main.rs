@@ -28,6 +28,7 @@ struct Args {
 
 #[filter("ssh")]
 fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
+    println!("testing");
     println!(
         "SSH protocol version: {}, conn. metrics: {:?}",
         ssh.protocol_version(),
