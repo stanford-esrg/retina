@@ -6,7 +6,7 @@ pub mod parser;
 pub use self::handshake::*;
 
 // use serde::Serialize;
-// use ssh_parser::*;
+use ssh_parser::SshPacket;
 
 /// Parsed SSH handshake contents.
 #[derive(Debug, Default)]
@@ -27,9 +27,9 @@ pub struct Ssh {
     pub server_dh_key_exchange: Option<SshDhResponse>,
 
     /// Client New Keys message.
-    pub client_new_keys: Option<ssh_parser::SshPacket>,
+    pub client_new_keys: Option<SshPacket::NewKeys>,
     /// Server New Keys message.
-    pub server_new_keys: Option<ssh_parser::SshPacket>,
+    pub server_new_keys: Option<SshPacket::NewKeys>,
 
     /// Client Service Request message.
     pub client_service_request: Option<SshServiceRequest>,
@@ -40,18 +40,18 @@ pub struct Ssh {
 impl Ssh {
     /// Returns the SSH protocol version (e.g. 2.0).
     pub fn protocol_version(&self) -> String {
-        self.client_version_exchange.protoversion
+        self.client_version_exchange.unwrap().protoversion
     }
 
     /// Returns the SSH software version.
     pub fn software_version(&self) -> String {
-        self.client_version_exchange.softwareversion
+        self.client_version_exchange.unwrap().softwareversion
     }
 
     /// Returns comments, or `""` if there are no comments.
     pub fn comments(&self) -> Option<String> {
-        match &self.client_version_exchange.comments {
-            Some(client_version_exchange) => client_version_exchange.comments,
+        match &self.client_version_exchange.unwrap().comments {
+            Some(client_version_exchange) => client_version_exchange.unwrap().comments,
             None => None,
         }
     }
@@ -59,70 +59,70 @@ impl Ssh {
     /// Returns the key exchange algorithms used in SSH key exchange.
     pub fn key_exchange_algs(&self) -> Vec<String> {
         match &self.client_key_exchange {
-            Some(client_key_exchange) => client_key_exchange.kex_algs.iter().map(|c| format!("{}", c)).collect(),
+            Some(client_key_exchange) => client_key_exchange.unwrap().ex_algs.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn server_host_key_algs(&self) -> Vec<String> {
         match &self.client_key_exchange {
-            Some(client_key_exchange) => client_key_exchange.server_host_key_algs.iter().map(|c| format!("{}", c)).collect(),
+            Some(client_key_exchange) => client_key_exchange.unwrap().server_host_key_algs.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn encryption_algs_ctos(&self) -> Vec<String> {
         match &self.client_key_exchange {
-            Some(client_key_exchange) => client_key_exchange.encryption_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
+            Some(client_key_exchange) => client_key_exchange.unwrap().encryption_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn encryption_algs_stoc(&self) -> Vec<String> {
         match &self.client_key_exchange {
-            Some(client_key_exchange) => client_key_exchange.encryption_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
+            Some(client_key_exchange) => client_key_exchange.unwrap().encryption_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn mac_algs_ctos(&self) -> Vec<String> {
         match &self.client_key_exchange {
-            Some(client_key_exchange) => client_key_exchange.mac_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
+            Some(client_key_exchange) => client_key_exchange.unwrap().mac_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn mac_algs_stoc(&self) -> Vec<String> {
         match &self.client_key_exchange {
-            Some(client_key_exchange) => client_key_exchange.mac_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
+            Some(client_key_exchange) => client_key_exchange.unwrap().mac_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn compression_algs_ctos(&self) -> Vec<String> {
         match &self.client_key_exchange {
-            Some(client_key_exchange) => client_key_exchange.compression_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
+            Some(client_key_exchange) => client_key_exchange.unwrap().compression_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn compression_algs_stoc(&self) -> Vec<String> {
         match &self.client_key_exchange {
-            Some(client_key_exchange) => client_key_exchange.compression_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
+            Some(client_key_exchange) => client_key_exchange.unwrap().compression_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn languages_ctos(&self) -> Option<Vec<String>> {
-        match &self.client_key_exchange.languages_client_to_server {
-            Some(client_key_exchange) => client_key_exchange.languages_client_to_server.iter().map(|c| format!("{}", c)).collect(),
+        match &self.client_key_exchange.unwrap().languages_client_to_server {
+            Some(client_key_exchange) => client_key_exchange.unwrap().languages_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => None,
         }
     }
 
     pub fn languages_stoc(&self) -> Option<Vec<String>> {
-        match &self.client_key_exchange.languages_server_to_client {
-            Some(client_key_exchange) => client_key_exchange.languages_server_to_client.iter().map(|c| format!("{}", c)).collect(),
+        match &self.client_key_exchange.unwrap().languages_server_to_client {
+            Some(client_key_exchange) => client_key_exchange.unwrap().languages_server_to_client.iter().map(|c| format!("{}", c)).collect(),
             None => None,
         }
     }
