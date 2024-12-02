@@ -44,12 +44,12 @@ impl Ssh {
             Some(client_version_exchange) => match &client_version_exchange.protoversion {
                 Some(protoversion) => protoversion.as_str(),
                 None => "",
-            }
+            },
             None => "",
         }
     }
 
-    /// Returns the SSH software version.
+    // /// Returns the SSH software version.
     // pub fn software_version(&self) -> &String {
     //     match &self.client_version_exchange {
     //         Some(client_version_exchange) => &format!("{}", client_version_exchange.softwareversion),
