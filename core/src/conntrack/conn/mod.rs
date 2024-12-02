@@ -67,7 +67,7 @@ where
         } else {
             bail!("Not SYN")
         };
-        println!("tcp_conn: {:#?}", tcp_conn);
+        println!("tcp_conn: {}", tcp_conn);
         Ok(Conn {
             last_seen_ts: Instant::now(),
             inactivity_window: initial_timeout,
