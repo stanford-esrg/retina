@@ -6,7 +6,7 @@ use crate::utils::base64;
 use serde::Serialize;
 
 /// A parsed SSH Protocol Version Exchange message.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct SshVersionExchange {
     pub protoversion: String,
     pub softwareversion: String,

@@ -51,7 +51,7 @@ impl Ssh {
     /// Returns comments, or `""` if there are no comments.
     pub fn comments(&self) -> Option<String> {
         match &self.client_version_exchange.unwrap().comments {
-            Some(client_version_exchange) => client_version_exchange.unwrap().comments,
+            Some(client_version_exchange) => client_version_exchange.comments,
             None => None,
         }
     }
