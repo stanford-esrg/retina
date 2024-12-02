@@ -139,7 +139,6 @@ where
                         ),
                         _ => Err(anyhow!("Invalid L4 Protocol")),
                     };
-                    println!("conn: {}", conn);
                     if let Ok(mut conn) = conn {
                         println!("filter first packet");
                         conn.info.filter_first_packet(&pdu, subscription);
