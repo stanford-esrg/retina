@@ -264,10 +264,6 @@ impl Ssh {
         let mut status = ParseResult::Continue(0);
         log::trace!("process ({} bytes)", data.len());
 
-        // let mut offset = 0;
-
-        // self.parse_version_exchange(data, direction);
-        // ParseResult::Done(0)
         let ssh_identifier = b"SSH-";
         if let Some(_) = data.windows(ssh_identifier.len()).position(|window| window == ssh_identifier).map(|p| &data[p..]) {
             self.parse_version_exchange(data, direction);
@@ -281,8 +277,12 @@ impl Ssh {
                             self.parse_key_exchange(data, direction);
                         }
                         SshPacket::DiffieHellmanInit(_) => {
-                            // self.parse_dh_client_init(data);
                             println!("encountered SSH DH Init packet");
+                            self.parse_dh_client_init(data);
+                        }
+                        SshPacket::DiffieHellmanReply(_) => {
+                            println!("encountered SSH DH Reply packet");
+                            // self.parse_dh_server_response(data);
                             return ParseResult::Done(0);
                         }
 

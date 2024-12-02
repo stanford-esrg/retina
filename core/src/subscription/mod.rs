@@ -87,8 +87,6 @@ where
     ) {
         if actions.data.intersects(ActionData::PacketContinue) {
             if let Ok(ctxt) = L4Context::new(&mbuf) {
-                // println!("src address: {}", ctxt.src);
-                // println!("dst address: {}", ctxt.dst);
                 conn_tracker.process(mbuf, ctxt, self);
             }
         }

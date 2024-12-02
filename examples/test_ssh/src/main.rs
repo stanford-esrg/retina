@@ -28,22 +28,36 @@ struct Args {
 
 #[filter("ssh")]
 fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
-    println!(
-        "SSH CTOS: protoversion: {}, softwareversion: {}, comments: {}, 
-        SSH STOC: protoversion: {}, softwareversion: {}, comments: {}, 
-        SSH Key Exchange CTOS: kex_algs: {},
-        SSH Key Exchange STOC: kex_algs: {},
-        conn. metrics: {:?}",
+    println!("Version Exchange: Client to Server");
+    println!("protoversion: {}, softwareversion: {}, comments: {}", 
         ssh.protocol_version_ctos(),
         ssh.software_version_ctos(),
         ssh.comments_ctos(),
+    );
+
+    println!("Version Exchange: Server to Client");
+    println!("protoversion: {}, softwareversion: {}, comments: {}\n", 
         ssh.protocol_version_stoc(),
         ssh.software_version_stoc(),
         ssh.comments_stoc(),
-        ssh.key_exchange_algs_ctos().join(","),
-        ssh.key_exchange_algs_stoc().join(","),
-        conn_record
     );
+
+    println!("Key Exchange: Server to Client");
+    println!("kex_algs: {}", ssh.key_exchange_algs_stoc().join(","));
+    println!("server_host_key_algs: {}", ssh.server_host_key_algs_stoc().join(","));
+    println!("encryption_algs_ctos: {}", ssh.encryption_algs_ctos_stoc().join(","));
+    println!("encryption_algs_stoc: {}", ssh.encryption_algs_stoc().join(","));
+    println!("mac_algs_ctos: {}", ssh.mac_algs_ctos_stoc().join(","));
+    println!("mac_algs_stoc: {}", ssh.mac_algs_stoc().join(","));
+    println!("compression_algs_ctos: {}", ssh.compression_algs_ctos_stoc().join(","));
+    println!("compression_algs_stoc: {}", ssh.compression_algs_stoc().join(","));
+    println!("languages_ctos: {}", ssh.languages_ctos_stoc().join(","));
+    println!("languages_stoc: {}", ssh.languages_stoc().join(","));
+
+    println!("DH Init");
+    println!("e: {}", ssh.dh_init_e().join(","));
+
+    println!("conn. metrics: {:?}", conn_record);
 }
 
 #[retina_main(1)]
