@@ -45,12 +45,10 @@ impl TcpConn {
     #[inline]
     pub(crate) fn is_terminated(&self) -> bool {
         // Both sides have sent, reassembled, and acknowledged FIN, or RST has been sent
-        (self.ctos.consumed_flags & self.stoc.consumed_flags & FIN != 0 &&
-         self.ctos.last_ack == self.stoc.next_seq &&
-         self.stoc.last_ack == self.ctos.next_seq) ||
-        (self.ctos.consumed_flags & RST
-            | self.stoc.consumed_flags & RST)
-            != 0
+        (self.ctos.consumed_flags & self.stoc.consumed_flags & FIN != 0
+            && self.ctos.last_ack == self.stoc.next_seq
+            && self.stoc.last_ack == self.ctos.next_seq)
+            || (self.ctos.consumed_flags & RST | self.stoc.consumed_flags & RST) != 0
     }
 
     /// Updates connection termination flags

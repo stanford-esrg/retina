@@ -50,12 +50,15 @@ where
     }
 
     #[inline]
-    pub(crate) fn update_sdata(&mut self, pdu: &L4Pdu,
-                               subscription: &Subscription<T::Subscribed>,
-                               reassembled: bool) {
+    pub(crate) fn update_sdata(
+        &mut self,
+        pdu: &L4Pdu,
+        subscription: &Subscription<T::Subscribed>,
+        reassembled: bool,
+    ) {
         // Typically use for calculating connection metrics
         if self.actions.update_pdu() {
-            self.sdata.update(&pdu, reassembled);
+            self.sdata.update(pdu, reassembled);
         }
         // Used for non-terminal matches on packet datatypes (`PacketCache` action,
         // pre-reassembly only) and for datatypes that require tracking packets
@@ -67,8 +70,7 @@ where
         // delivered 1x (before reassembly).
         if !reassembled && self.actions.packet_deliver() {
             // Delivering all remaining packets in connection
-            subscription.deliver_packet(pdu.mbuf_ref(),
-                                    &self.cdata, &self.sdata);
+            subscription.deliver_packet(pdu.mbuf_ref(), &self.cdata, &self.sdata);
         }
     }
 

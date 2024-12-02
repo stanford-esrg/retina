@@ -137,9 +137,10 @@ impl Actions {
     pub(crate) fn buffer_packet(&self, reassembled: bool) -> bool {
         match reassembled {
             true => self.data.intersects(ActionData::PacketTrack),
-            false => self.data.intersects(ActionData::PacketTrack | ActionData::PacketCache)
+            false => self
+                .data
+                .intersects(ActionData::PacketTrack | ActionData::PacketCache),
         }
-
     }
 
     #[inline]
