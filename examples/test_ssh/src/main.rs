@@ -31,7 +31,8 @@ fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
     println!(
         "SSH CTOS: protoversion: {}, softwareversion: {}, comments: {}, 
         SSH STOC: protoversion: {}, softwareversion: {}, comments: {}, 
-        SSH Key Exchange: kex_algs: {},
+        SSH Key Exchange CTOS: kex_algs: {},
+        SSH Key Exchange STOC: kex_algs: {},
         conn. metrics: {:?}",
         ssh.protocol_version_ctos(),
         ssh.software_version_ctos(),
@@ -39,7 +40,8 @@ fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
         ssh.protocol_version_stoc(),
         ssh.software_version_stoc(),
         ssh.comments_stoc(),
-        ssh.key_exchange_algs().join(",");
+        ssh.key_exchange_algs_ctos().join(","),
+        ssh.key_exchange_algs_stoc().join(","),
         conn_record
     );
 }

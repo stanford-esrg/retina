@@ -105,9 +105,19 @@ impl Ssh {
     }
 
     /// Returns the key exchange algorithms used in SSH key exchange.
-    pub fn key_exchange_algs(&self) -> Vec<String> {
+    pub fn key_exchange_algs_ctos(&self) -> Vec<String> {
         match &self.client_key_exchange {
             Some(client_key_exchange) => client_key_exchange.kex_algs.iter().map(|c| format!("{}", c)).collect(),
+            None => {
+                println!("no");
+                vec![]
+            }
+        }
+    }
+
+    pub fn key_exchange_algs_stoc(&self) -> Vec<String> {
+        match &self.server_key_exchange {
+            Some(server_key_exchange) => server_key_exchange.kex_algs.iter().map(|c| format!("{}", c)).collect(),
             None => {
                 println!("no");
                 vec![]
