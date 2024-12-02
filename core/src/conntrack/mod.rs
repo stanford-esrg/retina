@@ -124,6 +124,7 @@ where
                 println!("vacant");
                 if self.size() < self.config.max_connections {
                     let pdu = L4Pdu::new(mbuf, ctxt, true);
+                    println!("pdu: {:#?}", pdu);
                     let conn = match ctxt.proto {
                         TCP_PROTOCOL => Conn::<T>::new_tcp(
                             self.config.tcp_establish_timeout,
@@ -139,7 +140,9 @@ where
                         _ => Err(anyhow!("Invalid L4 Protocol")),
                     };
                     if let Ok(mut conn) = conn {
+                        println!("filter first packet");
                         conn.info.filter_first_packet(&pdu, subscription);
+                        println!("successfully filtered first packet");
                         if !conn.info.actions.drop() {
                             println!("consume pdu");
                             conn.info.consume_pdu(pdu, subscription, &self.registry);
