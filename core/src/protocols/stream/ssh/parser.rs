@@ -271,6 +271,7 @@ impl Ssh {
         let ssh_identifier = b"SSH-";
         if let Some(_) = data.windows(ssh_identifier.len()).position(|window| window == ssh_identifier).map(|p| &data[p..]) {
             self.parse_version_exchange(data, direction);
+            status = ParseResult::Continue(0);
         } else {
             match ssh_parser::parse_ssh_packet(data) {
                 Ok((_, (pkt, _))) => {
@@ -285,7 +286,7 @@ impl Ssh {
                 }
                 e => {
                     log::debug!("parse error: {:?}", e);
-                    ParseResult::Skipped
+                    status = ParseResult::Skipped;
                 }
             }
         }
