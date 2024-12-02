@@ -114,8 +114,8 @@ impl Ssh {
             match ssh_parser::parse_ssh_identification(contains_ssh_identifier) {
                 Ok((_, (_, ssh_id_string))) => {
                     let version_exchange = SshVersionExchange {
-                        protoversion: String::from_utf8(ssh_id_string.proto.to_vec()).expect("Invalid message.").clone(),
-                        softwareversion: String::from_utf8(ssh_id_string.software.to_vec()).expect("Invalid message.").clone(),
+                        protoversion: Some(String::from_utf8(ssh_id_string.proto.to_vec()).expect("Invalid message.").clone()),
+                        softwareversion: Some(String::from_utf8(ssh_id_string.software.to_vec()).expect("Invalid message.").clone()),
                         comments: if ssh_id_string.comments.map(|b| !b.is_empty()).unwrap_or(false) {
                             let comments_vec = ssh_id_string.comments.map(|b| b.to_vec()).unwrap_or_else(|| Vec::new());
                             Some(String::from_utf8(comments_vec).expect("Invalid message.").clone())
