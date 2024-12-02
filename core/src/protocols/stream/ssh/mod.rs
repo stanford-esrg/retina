@@ -54,7 +54,7 @@ impl Ssh {
         }
     }
 
-    /// Returns comments, or `""` if there are no comments.
+    // /// Returns comments, or `""` if there are no comments.
     // pub fn comments(&self) -> Option<String> {
     //     match &self.client_version_exchange {
     //         Some(client_version_exchange) => format!("{}", client_version_exchange.comments),
