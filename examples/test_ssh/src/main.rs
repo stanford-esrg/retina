@@ -31,7 +31,7 @@ fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
     println!(
         "SSH CTOS: protoversion: {}, softwareversion: {}, comments: {}, 
         SSH STOC: protoversion: {}, softwareversion: {}, comments: {}, 
-        SSH Key Exchange: algs: {},
+        SSH Key Exchange: kex_algs: {},
         conn. metrics: {:?}",
         ssh.protocol_version_ctos(),
         ssh.software_version_ctos(),

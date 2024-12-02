@@ -276,11 +276,11 @@ impl Ssh {
             match ssh_parser::parse_ssh_packet(data) {
                 Ok((_, (pkt, _))) => {
                     match pkt {
-                        SshPacket::KeyExchange(pkt) => {
+                        SshPacket::KeyExchange(_) => {
                             self.parse_key_exchange(data, direction);
                             // return ParseResult::Done(0);
                         }
-                        SshPacket::DiffieHellmanInit(pkt) => {
+                        SshPacket::DiffieHellmanInit(_) => {
                             // self.parse_dh_client_init(data);
                             return ParseResult::Done(0);
                         }
