@@ -10,7 +10,7 @@ use serde::Serialize;
 pub struct SshVersionExchange {
     pub protoversion: Option<String>,
     pub softwareversion: Option<String>,
-    pub comments: Option<String>, // comments are optional
+    pub comments: Option<String>,
 }
 
 /// A parsed SSH Key Exchange message.

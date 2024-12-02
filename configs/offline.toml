@@ -12,7 +12,7 @@ nb_memory_channels = 6
     cache_size = 512
 
 [offline]
-    pcap = "./traces/ssh_version_exchange.pcapng"
+    pcap = "./traces/wireshark_ssh.pcapng"
     mtu = 9702
 
 [conntrack]

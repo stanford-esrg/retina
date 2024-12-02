@@ -49,21 +49,27 @@ impl Ssh {
         }
     }
 
-    // /// Returns the SSH software version.
-    // pub fn software_version(&self) -> &String {
-    //     match &self.client_version_exchange {
-    //         Some(client_version_exchange) => &format!("{}", client_version_exchange.softwareversion),
-    //         None => &"".to_string(),
-    //     }
-    // }
+    /// Returns the SSH software version.
+    pub fn software_version(&self) -> &str {
+        match &self.client_version_exchange {
+            Some(client_version_exchange) => match &client_version_exchange.softwareversion {
+                Some(softwareversion) => softwareversion.as_str(),
+                None => "",
+            }
+            None => "",
+        }
+    }
 
-    // /// Returns comments, or `""` if there are no comments.
-    // pub fn comments(&self) -> Option<String> {
-    //     match &self.client_version_exchange {
-    //         Some(client_version_exchange) => format!("{}", client_version_exchange.comments),
-    //         None => None,
-    //     }
-    // }
+    /// Returns comments, or `""` if there are no comments.
+    pub fn comments(&self) -> &str {
+        match &self.client_version_exchange {
+            Some(client_version_exchange) => match &client_version_exchange.comments {
+                Some(comments) => comments.as_str(),
+                None => "",
+            }
+            None => "",
+        }
+    }
 
     // /// Returns the key exchange algorithms used in SSH key exchange.
     // pub fn key_exchange_algs(&self) -> Vec<String> {

@@ -90,7 +90,6 @@ impl ConnParsable for SshParser {
 impl SshParser {
 }
 
-
 impl Ssh {
     /// Allocate a new SSH handshake instance.
     pub(crate) fn new() -> Ssh {
