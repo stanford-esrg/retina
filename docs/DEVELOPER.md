@@ -20,7 +20,7 @@ Available datatypes can be found in Retina's [datatypes crate](https://github.co
 
 In Retina v0.1.0, callbacks could be defined as closures. In Retina v1, they cannot; this means that any state must be defined statically (e.g., OnceCell, lazy_static) with appropriate synchronization. The CoreId (static) datatype can be used to create zero-lock data structures, as in many of the [examples](https://github.com/stanford-esrg/retina/tree/main/examples).
 
-In 2025, we intend to extend Retina's filter expressiveness significantly, add support for streaming datatypes and early-return callbacks, and introduce utilities that make writing callbacks easier (e.g., cross-core message passing).
+In 2025, we intend to extend Retina's filter expressiveness significantly, add support for streaming datatypes (e.g., "invoke callback every Nth packet"), support callback-like filters (e.g., to apply a custom heuristic), and introduce utilities that make writing callbacks easier (e.g., cross-core message passing).
 
 ### Performance Considerations
 
@@ -28,17 +28,17 @@ Some subscriptions are inherently more expensive than others. In general, we fin
 - **Callback complexity**: If the application spends too long (CPU cycles) in a callback, DPDK's [Rx queue](https://doc.dpdk.org/guides/prog_guide/ring_lib.html) may fill up and begin to drop packets.
 - **Filter breadth**: Retina's multi-stage filter pipeline eagerly discards out-of-scope traffic to reduce computational burden at subsequent processing steps. If a filter requires processing a large portion of traffic, Retina's filtering infrastructure does not provide performance benefit.
 - **Datatype complexity**: some datatypes are more expensive to process than others. For example, we have found that packet list datatypes, which cache raw packets, may exhaust DPDK's mempool resources. Similarly, datatypes that require parsing and reassembly (which can be computationally expensive) throughout connections may encounter CPU bottlenecks.
-- **Network conditions**: Very lossy networks will require expensive TCP reassembly (see "stream reassembly"), which can create both computate and mempool bottlenecks.
+- **Network conditions**: Very lossy networks will require expensive TCP reassembly (see "stream reassembly"), which can create both CPU and mempool bottlenecks.
 
 ### Datatypes
 
-Subscriptions cannot be delivered until (1) a filter has definitively matched, and (2) all datatypes are fully assembled. The latter is dictated by the datatype's level ([source](https://github.com/stanford-esrg/retina/blob/main/core/src/filter/datatypes.rs)).
+Subscriptions cannot be delivered until (1) a filter has definitively matched and (2) all datatypes are fully assembled. The latter is dictated by the datatype's `Level` ([source](https://github.com/stanford-esrg/retina/blob/main/core/src/filter/datatypes.rs)).
 
 * A *Connection-Level* datatype can only be fully assembled by the end of the connection. Examples include connection duration, a list of inter-packet arrival times, and TCP flag history. Any subscription that includes a connection-level datatype will be delivered when the connection terminates.
 * A *Session-Level* datatype is fully assembled -- and can be delivered -- when the L7 session (TLS handshake, HTTP transaction, etc.) is fully parsed. However, if a session-level datatype is requested alongside a connection-level datatype, the session will be cached until the connection terminates.
 * A *Packet-Level* datatype (e.g., raw frame, per-packet payload) can be delivered as soon as a corresponding filter matches. A raw packet cannot be requested in the same subscription as a higher-level datatype, however Retina does provide packet lists.
 * A *Static-Level* datatype is constant throughout a connection and inferrable at first packet (e.g., five-tuple, Core ID). It can be delivered when its filter matches and other datatypes in its subscription can be delivered.
-* We expect to support streaming data by early 2025.
+* We expect to support more flexible and streaming data delivery stages by early 2025. For example, we aim to support delivery at "the first N packets", "every Nth packet", "every 10 seconds", etc.
 
 All defined datatypes specify the operations they require (e.g., parsing, pre-reassembly update) via the Datatype struct ([source](https://github.com/stanford-esrg/retina/blob/main/core/src/filter/datatypes.rs)) and implement pre-defined methods that can be invoked by the framework ([source](https://github.com/stanford-esrg/retina/blob/main/datatypes/src/lib.rs)).
 
@@ -87,36 +87,36 @@ During compilation, Retina prints out the generated filters (including callback 
 Filters are represented as a trie. Not all filter layers will be applied for all applications; for example, an application that does not require L7 protocol parsing will not apply the "Session" filter.
 
 The following filter layers may be present:
-- Pkt (pass): applied to each packet, possibly in hardware, which will either drop packets, "pass" them to the connection handler, and/or deliver them.
+- *Pkt (pass)*: applied to each packet, possibly in hardware, which will either drop packets, "pass" them to the connection handler, and/or deliver them.
 	- If hardware support is true, a "drop/keep" version of this filter will also be installed on the NICs.
-- Pkt: applied to the first packet in each connection. This initializes Actions for each connection.
-- Proto: applied when the L7 protocol is identified. This will either drop the connection or pass it to a subsequent processing stage.
-- Session: applied when the L7 protocol session is parsed. This will either drop the session (and potentially the connection), deliver the session, and/or pass the connection to a subsequent processing stage.
-- Connection (Deliver): applied when the connection terminates. This will deliver any Connection-level subscriptions.
-- Pkt (Deliver): applied per-packet if (1) a connection requires all packets to be delivered and (2) they cannot be delivered in the Packet filter. This is relevant when a subscription requests a stateful/L7 filter (e.g., "tls") with a packet-level datatype.
-- We expect to support streaming filters by early 2025.
+- *Pkt*: applied to the first packet in each connection. This initializes Actions for each connection.
+- *Proto*: applied when the L7 protocol is identified. This will either drop the connection or pass it to a subsequent processing stage.
+- *Session*: applied when the L7 protocol session is parsed. This will either drop the session (and potentially the connection), deliver the session, and/or pass the connection to a subsequent processing stage.
+- *Connection (Deliver)*: applied when the connection terminates. This will deliver any Connection-level subscriptions.
+- *Pkt (Deliver)*: applied per-packet if (1) a connection requires all packets to be delivered and (2) they cannot be delivered in the Packet filter. This is relevant when a subscription requests a stateful/L7 filter (e.g., "tls") with a packet-level datatype.
+- We expect to support streaming filters (e.g., "apply every N packets") by early 2025.
 
 The filter trees will include callback invocations and/or actions.
 
 Each "action" indicates to the runtime *what operation(s) it should apply next* to a given packet, connection, or session. For example, a subscription for "dns" traffic and the "DnsTransaction" datatype will require -- if it has matched -- session parsing after the "protocol identified" filter. "Terminal actions" are retained for the duration of the connection. Actions are described in more detail below.
 
-Some optimizations are applied to the filters at compile-time. For example, the framework will attempt to avoid reapplying conditions that are guaranteed to be true based on the results of previous filters. An `x` in the filter output indicates mutual exclusion and corresponds to an `else if` condition in code. Filter optimizations are described in more detail below.
+Some optimizations are applied to the filters at compile-time. For example, the framework will attempt to avoid reapplying conditions that are guaranteed to be true based on the results of previous filters. An `x` in the filter output indicates mutual exclusion and corresponds to an `else if` condition in code.
 
 ## Sink Cores and Flow Sampling
 
 Users can configure flow sampling by configuring a [sink core](https://stanford-esrg.github.io/retina/retina_core/config/struct.SinkConfig.html). RSS directs a subset of flows to the sink core, which immediately drops them.
 
-One sink core is required per interface. Note that sink cores currently are not compatible with hardware filtering. `hardware_assist` should be disabled when configuring a sink core.
+One sink core is required per interface. Note that sink cores currently are not compatible with hardware filtering. `hardware_assist` should be disabled when configuring a sink core ([issue](https://github.com/stanford-esrg/retina/issues/80)).
 
 ## Retina Pipeline
 
-Retina compiles subscriptions into a work-conserving pipeline that (1) eagerly discards out-of-scope traffic, (2) lazily reconstructs relevant network data, and (3) shares processing work and data between subscriptions.
+Retina compiles subscriptions into a work-conserving pipeline that (1) eagerly discards out-of-scope traffic, (2) lazily reconstructs relevant network data, and (3) efficiently shares processing work and data between subscriptions.
 
-- We observe that most analysis questions require fully processing only a subset of Internet traffic. A multi-stage filtering infrastructure allows Retina to iteratively discard extraneous traffic as early and often as possible, dramatically reducing unnecessary computation.
-- Retina's runtime pipeline is designed to minimize wasted computation on traffic that will be discarded by later filters. The framework defers expensive operations until it is confident that the operation is needed to achieve the desired analysis result (lazy data reconstruction).
-- Multiple subscriptions are executed by a single runtime pipeline. While the number of subscriptions a user can request is unbounded, the set of possible operations required to *execute* these subscriptions is limited. At compile-time, the system leverages a global view of all subscriptions -- filters, datatypes, and callbacks -- to build an application-specific runtime that eliminates redundant and unnecessary operations.
+- Most analysis questions require fully processing only a subset of Internet traffic. A multi-stage filtering infrastructure allows Retina to iteratively discard extraneous traffic as early and often as possible, dramatically reducing unnecessary computation.
+- Retina's runtime pipeline is designed to minimize wasted computation on traffic that will be discarded by later filters. The framework defers expensive operations until it is confident that the operation is needed to achieve the desired analysis result. Multi-stage filtering also allow the framework to stop expensive operations early.
+- Multiple subscriptions are executed by a single runtime pipeline. At compile-time, the system leverages a global view of all subscriptions -- filters, datatypes, and callbacks -- to build and optimize a pipeline that eliminates redundant and unnecessary operations.
 
-<img src="./figures/architecture.png" alt="" width="400">
+The high-level architecture of Retina is similar to that described in our original paper. The core runtime components are the same. To support multiple subscriptions, the compile-time pipeline includes an analysis and optimization stage, which (1) combines and optimizes filters and (2) combines and outputs tracked data.
 
 ### Compile-Time Processing
 
@@ -138,7 +138,7 @@ The filtergen crate uses each PTree to generate filter code. Filters return Acti
 
 Finally, the filtergen crate combines the required datatypes into one [Trackable](https://github.com/stanford-esrg/retina/blob/main/core/src/subscription/mod.rs) type, which provides methods that can be invoked by the runtime.
 
-Use [`cargo expand`](https://crates.io/crates/cargo-expand) to view the generated code for your application.
+**Use [`cargo expand`](https://crates.io/crates/cargo-expand) to view the generated code for your application.**
 
 ### Runtime System
 
@@ -166,18 +166,19 @@ The per-connection logic is largely implemented in the [conntrack/conn](https://
 
 #### Multiple Subscriptions
 
-We consider the analysis pipeline for each subscription as a per-connection state machine, where each "state" corresponds to required operations (e.g., reassembly, parsing) and filter stages execute state transitions. At compile-time, the system leverages a global view of all subscriptions -- filters, datatypes, and callbacks -- to build each subscription-specific state machine and compose them into a single per-connection state machine. Processing work is shared between subscriptions, and per-subscription disambiguation is deferred until the delivery stage. In addition to discarding out-of-scope *traffic*, state transitions discard out-of-scope *operations* as the subscriptions requiring them fail to match.
+We can consider the runtime control flow for each subscription as (1) stateless packet-processing followed by (2) a per-connection state machine, where each "state" corresponds to required Actions (e.g., reassembly, parsing) and filter stages execute state transitions. The compile-time process is responsible for combining the subscriptions.
+
+At compile-time, the system leverages a global view of all subscriptions -- filters, datatypes, and callbacks -- to build each subscription-specific state machine and compose them into a single per-connection state machine. Processing work is shared between subscriptions, and per-subscription disambiguation is deferred until the delivery stage. In addition to discarding out-of-scope *traffic*, state transitions discard out-of-scope *actions* as the subscriptions requiring them fail to match.
 
 For example, consider a basic subscription that subscribes to TLS handshakes with different datatypes.
 
 <img src="./figures/tls_sub_ex_code.png" alt="" width="300">
 
-The figures below illustrate the processing pipeline, operations, and per-connection state machine for these subscriptions. The first figure represents each subscription as a separate processing pipeline. Clearly, this implementation would lead to redundant work: both subscriptions require TCP reassembly, L7 protocol probing, and TLS handshake parsing for datatype construction and/or filtering. The second figure demonstrates our combined processing pipeline. The packet-processing stage applies the union of the two packet-level filters when determining which packets to forward to connection tracking. Operations and state required by both subscriptions are shared. Disambiguation -- checking the TLS SNI and TCP port -- are deferred until the per-subscription state machines diverge.
+The figures below illustrate the control flow for these subscriptions. Both subscriptions require TCP reassembly, L7 protocol probing, and TLS handshake parsing, as well as infrastructure such as packet processing and connection tracking. By combining the processing pipeline (second figure below), the compile-time framework minimizes repeated work. Disambiguation -- checking the TLS SNI and TCP port -- are deferred until the per-subscription state machines diverge.
 
-<p float="left">
-	<img src="./figures/tls_single_flow_multi.png" alt="" width="400"/>
-	<img src="./figures/combined_states_example.png" alt="" width="200"/>
-</p>
+<img src="./figures/tls_single_flow_multi.png" alt="" width="400"/>
+
+<img src="./figures/combined_states_example.png" alt="" width="200"/>
 
 ### Stream Reassembly
 
