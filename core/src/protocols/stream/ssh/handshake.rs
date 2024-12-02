@@ -4,7 +4,6 @@
 use crate::utils::base64;
 
 use serde::Serialize;
-use ssh_parser::*;
 
 /// A parsed SSH Protocol Version Exchange message.
 #[derive(Clone, Debug, Default, PartialEq)]

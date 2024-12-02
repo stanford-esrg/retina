@@ -146,16 +146,16 @@ impl Ssh {
                     SshPacket::KeyExchange(pkt) => {
                         let key_exchange = SshKeyExchange {
                             cookie: pkt.cookie.to_vec(),
-                            kex_algs: bytes_to_string_vec(pkt.kex_algs),
-                            server_host_key_algs: bytes_to_string_vec(pkt.server_host_key_algs),
-                            encryption_algs_client_to_server: bytes_to_string_vec(pkt.encr_algs_client_to_server),
-                            encryption_algs_server_to_client: bytes_to_string_vec(pkt.encr_algs_server_to_client),
-                            mac_algs_client_to_server: bytes_to_string_vec(pkt.mac_algs_client_to_server),
-                            mac_algs_server_to_client: bytes_to_string_vec(pkt.mac_algs_server_to_client),
-                            compression_algs_client_to_server: bytes_to_string_vec(pkt.comp_algs_client_to_server),
-                            compression_algs_server_to_client: bytes_to_string_vec(pkt.comp_algs_server_to_client),
-                            languages_client_to_server: if !pkt.langs_client_to_server.is_empty() { Some(bytes_to_string_vec(pkt.langs_client_to_server)) } else { None },
-                            languages_server_to_client: if !pkt.langs_server_to_client.is_empty() { Some(bytes_to_string_vec(pkt.langs_server_to_client)) } else { None },
+                            kex_algs: self.bytes_to_string_vec(pkt.kex_algs),
+                            server_host_key_algs: self.bytes_to_string_vec(pkt.server_host_key_algs),
+                            encryption_algs_client_to_server: self.bytes_to_string_vec(pkt.encr_algs_client_to_server),
+                            encryption_algs_server_to_client: self.bytes_to_string_vec(pkt.encr_algs_server_to_client),
+                            mac_algs_client_to_server: self.bytes_to_string_vec(pkt.mac_algs_client_to_server),
+                            mac_algs_server_to_client: self.bytes_to_string_vec(pkt.mac_algs_server_to_client),
+                            compression_algs_client_to_server: self.bytes_to_string_vec(pkt.comp_algs_client_to_server),
+                            compression_algs_server_to_client: self.bytes_to_string_vec(pkt.comp_algs_server_to_client),
+                            languages_client_to_server: if !pkt.langs_client_to_server.is_empty() { Some(self.bytes_to_string_vec(pkt.langs_client_to_server)) } else { None },
+                            languages_server_to_client: if !pkt.langs_server_to_client.is_empty() { Some(self.bytes_to_string_vec(pkt.langs_server_to_client)) } else { None },
                             first_kex_packet_follows: pkt.first_kex_packet_follows,
                         };
 
@@ -216,7 +216,7 @@ impl Ssh {
             Ok((_, (pkt, _))) => {
                 match pkt {
                     SshPacket::NewKeys => {
-                        self.server_dh_key_exchange = SshPacket::NewKeys;
+                        self.client_new_keys = SshPacket::NewKeys;
                     }
                 e => println!("Could not parse new keys 2: {:?}", e),
                 }

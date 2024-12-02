@@ -29,7 +29,7 @@ use anyhow::Result;
 use quic::QuicConn;
 use strum_macros::EnumString;
 
-pub(crate) const IMPLEMENTED_PROTOCOLS: [&str; 4] = ["tls", "dns", "http", "quic", "ssh"];
+pub(crate) const IMPLEMENTED_PROTOCOLS: [&str; 5] = ["tls", "dns", "http", "quic", "ssh"];
 
 /// Represents the result of parsing one packet as a protocol message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

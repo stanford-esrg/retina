@@ -12,29 +12,29 @@ use ssh_parser::*;
 #[derive(Debug, Default, Serialize, Clone)]
 pub struct Ssh {
     /// Client protocol version exchange message.
-    pub client_version_exchange: SshVersionExchange,
+    pub client_version_exchange: Option<SshVersionExchange>,
     /// Server protocol version exchange message.
-    pub server_version_exchange: SshVersionExchange,
+    pub server_version_exchange: Option<SshVersionExchange>,
 
     /// Client Key Exchange message.
-    pub client_key_exchange: SshKeyExchange,
+    pub client_key_exchange: Option<SshKeyExchange>,
     /// Server Key Exchange message.
-    pub server_key_exchange: SshKeyExchange,
+    pub server_key_exchange: Option<SshKeyExchange>,
 
     /// Client Diffie-Hellman Key Exchange message.
-    pub client_dh_key_exchange: SshDhInit,
+    pub client_dh_key_exchange: Option<SshDhInit>,
     /// Server Diffie-Hellman Key Exchange message.
-    pub server_dh_key_exchange: SshDhResponse,
+    pub server_dh_key_exchange: Option<SshDhResponse>,
 
     /// Client New Keys message.
-    pub client_new_keys: SshPacket::NewKeys,
+    pub client_new_keys: Option<ssh_parser::SshPacket::NewKeys>,
     /// Server New Keys message.
-    pub server_new_keys: SshPacket::NewKeys,
+    pub server_new_keys: Option<ssh_parser::SshPacket::NewKeys>,
 
     /// Client Service Request message.
-    pub client_service_request: SshServiceRequest,
+    pub client_service_request: Option<SshServiceRequest>,
     /// Server Service Accept message.
-    pub server_service_accept: SshServiceAccept,
+    pub server_service_accept: Option<SshServiceAccept>,
 }
 
 impl Ssh {
