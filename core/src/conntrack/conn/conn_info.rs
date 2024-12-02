@@ -89,11 +89,13 @@ where
     ) {
         // In probing stage: application-layer protocol unknown
         if self.actions.session_probe() {
+            println!("on probe");
             self.on_probe(pdu, subscription, registry);
         }
 
         // Parsing ongoing: application-layer protocol known
         if self.actions.session_parse() {
+            println!("on parse");
             self.on_parse(pdu, subscription);
         }
     }
