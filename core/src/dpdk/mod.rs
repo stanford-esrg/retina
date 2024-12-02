@@ -27,6 +27,7 @@ extern "C" {
     ) -> u16;
     fn rte_mbuf_refcnt_read_(m: *const rte_mbuf) -> u16;
     fn rte_mbuf_refcnt_update_(m: *mut rte_mbuf, value: i16) -> u16;
+    fn rte_mbuf_refcnt_set_(m: *mut rte_mbuf, value: i16);
     fn rte_pktmbuf_adj_(packet: *mut rte_mbuf, len: u16) -> *mut c_char;
     fn rte_pktmbuf_trim_(packet: *mut rte_mbuf, len: u16) -> c_int;
     fn rte_lcore_id_() -> u16;
@@ -103,6 +104,11 @@ pub unsafe fn rte_mbuf_refcnt_read(m: *const rte_mbuf) -> u16 {
 #[inline]
 pub unsafe fn rte_mbuf_refcnt_update(m: *mut rte_mbuf, value: i16) -> u16 {
     rte_mbuf_refcnt_update_(m, value)
+}
+
+#[inline]
+pub unsafe fn rte_mbuf_refcnt_set(m: *mut rte_mbuf, value: i16) {
+    rte_mbuf_refcnt_set_(m, value)
 }
 
 #[inline]

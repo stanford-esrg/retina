@@ -397,7 +397,7 @@ impl PTree {
                 // is equivalent performance-wise to implementing similar functionality in the
                 // framework.
                 panic!("Cannot access per-packet fields (e.g., TCP flags, length) after packet filter.\n\
-                       Subscribe to `ZcFrame` or PacketList instead.");
+                       Subscribe to `ZcFrame` or list of mbufs instead.");
             }
 
             // Predicate is already present
