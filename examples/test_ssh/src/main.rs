@@ -3,15 +3,14 @@ use retina_core::{config::load_config, Runtime};
 use retina_datatypes::{ConnRecord, SshHandshake};
 use retina_filtergen::{filter, retina_main};
 
-// use std::path::PathBuf;
+use clap::Parser;
+use std::path::PathBuf;
 
-// use clap::Parser;
-
-// #[derive(Parser, Debug)]
-// struct Args {
-//     #[clap(short, long, parse(from_os_str), value_name = "FILE")]
-//     config: PathBuf,
-// }
+#[derive(Parser, Debug)]
+struct Args {
+    #[clap(short, long, parse(from_os_str), value_name = "FILE")]
+    config: PathBuf,
+}
 
 // #[filter("ssh")]
 // fn frame_cb(mbuf: &ZcFrame) {
