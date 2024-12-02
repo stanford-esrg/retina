@@ -6,7 +6,7 @@ pub mod parser;
 pub use self::handshake::*;
 
 // use serde::Serialize;
-use ssh_parser::SshPacket;
+// use ssh_parser::SshPacket;
 
 /// Parsed SSH handshake contents.
 #[derive(Debug, Default)]
@@ -40,23 +40,23 @@ pub struct Ssh {
 impl Ssh {
     /// Returns the SSH protocol version (e.g. 2.0).
     pub fn protocol_version(&self) -> String {
-        self.client_version_exchange.protoversion
+        self.client_version_exchange.unwrap().protoversion
     }
 
     /// Returns the SSH software version.
     pub fn software_version(&self) -> String {
-        self.client_version_exchange.softwareversion
+        self.client_version_exchange.unwrap().softwareversion
     }
 
     /// Returns comments, or `""` if there are no comments.
     pub fn comments(&self) -> Option<String> {
-        match &self.client_version_exchange.comments {
-            Some(client_version_exchange) => client_version_exchange.comments,
+        match &self.client_version_exchange.unwrap().comments {
+            Some(client_version_exchange) => client_version_exchange.unwrap().comments,
             None => None,
         }
     }
 
-    /// Returns the key exchange algorithms used in SSH key exchange.
+    // /// Returns the key exchange algorithms used in SSH key exchange.
     // pub fn key_exchange_algs(&self) -> Vec<String> {
     //     match &self.client_key_exchange {
     //         Some(client_key_exchange) => client_key_exchange.ex_algs.iter().map(|c| format!("{}", c)).collect(),

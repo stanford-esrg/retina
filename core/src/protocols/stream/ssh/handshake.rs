@@ -52,11 +52,13 @@ pub struct SshDhResponse {
 //     // pub ssh_msg_newkeys: Vec<u8>,
 // }
 
+#[derive(Debug)]
 pub struct SshServiceRequest {
     // pub ssh_msg_service_request: Vec<u8>,
     pub service_name: String,
 }
 
+#[derive(Debug)]
 pub struct SshServiceAccept {
     // pub ssh_msg_service_accept: Vec<u8>,
     pub service_name: String,

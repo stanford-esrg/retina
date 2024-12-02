@@ -101,8 +101,8 @@ impl Ssh {
             server_key_exchange: None,
             client_dh_key_exchange: None,
             server_dh_key_exchange: None,
-            client_new_keys: None,
-            server_new_keys: None,
+            // client_new_keys: None,
+            // server_new_keys: None,
             client_service_request: None,
             server_service_accept: None,
         }
