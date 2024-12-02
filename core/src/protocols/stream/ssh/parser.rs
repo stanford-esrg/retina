@@ -125,9 +125,9 @@ impl Ssh {
                     };
 
                     if dir {
-                        self.client_version_exchange = version_exchange;
+                        self.client_version_exchange = Some(version_exchange);
                     } else {
-                        self.server_version_exchange = version_exchange;
+                        self.server_version_exchange = Some(version_exchange);
                     }
                 }
                 e => println!("Could not parse SSH version exchange: {:?}", e),
@@ -160,9 +160,9 @@ impl Ssh {
                         };
 
                         if dir {
-                            self.client_key_exchange = key_exchange;
+                            self.client_key_exchange = Some(key_exchange);
                         } else {
-                            self.server_key_exchange = key_exchange;
+                            self.server_key_exchange = Some(key_exchange);
                         }
                     }
                 e => println!("Could not parse SSH key exchange 2: {:?}", e),
@@ -181,7 +181,7 @@ impl Ssh {
                             e: pkt.e.to_vec(),
                         };
 
-                        self.client_dh_key_exchange = dh_init;
+                        self.client_dh_key_exchange = Some(dh_init);
                         
                     }
                 e => println!("Could not parse DH init 2: {:?}", e),
@@ -202,7 +202,7 @@ impl Ssh {
                             signature: pkt.signature.to_vec(),
                         };
 
-                        self.server_dh_key_exchange = dh_response;
+                        self.server_dh_key_exchange = Some(dh_response);
                     }
                 e => println!("Could not parse DH server response 2: {:?}", e),
                 }
@@ -216,7 +216,7 @@ impl Ssh {
             Ok((_, (pkt, _))) => {
                 match pkt {
                     SshPacket::NewKeys => {
-                        self.client_new_keys = SshPacket::NewKeys;
+                        self.client_new_keys = Some(SshPacket::NewKeys);
                     }
                 e => println!("Could not parse new keys 2: {:?}", e),
                 }
@@ -234,7 +234,7 @@ impl Ssh {
                                 service_name: String::from_utf8(pkt.to_vec()).expect("Invalid message.").clone(),
                             };
 
-                            self.client_service_request = service_response;
+                            self.client_service_request = Some(service_response);
                         }
                 e => println!("Could not parse service request 2: {:?}", e),
                 }
@@ -252,7 +252,7 @@ impl Ssh {
                                 service_name: String::from_utf8(pkt.to_vec()).expect("Invalid message.").clone(),
                             };
 
-                            self.server_service_accept = service_accept;
+                            self.server_service_accept = Some(service_accept);
                         }
                 e => println!("Could not parse service accept 2: {:?}", e),
                 }

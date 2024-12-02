@@ -9,7 +9,7 @@ use serde::Serialize;
 use ssh_parser::*;
 
 /// Parsed SSH handshake contents.
-#[derive(Debug, Default, Serialize, Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct Ssh {
     /// Client protocol version exchange message.
     pub client_version_exchange: Option<SshVersionExchange>,
