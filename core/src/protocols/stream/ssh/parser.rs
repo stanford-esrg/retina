@@ -211,19 +211,19 @@ impl Ssh {
         }
     }
 
-    pub(crate) fn parse_new_keys(&mut self, data: &[u8]) {
-        match ssh_parser::parse_ssh_packet(data) {
-            Ok((_, (pkt, _))) => {
-                match pkt {
-                    SshPacket::NewKeys => {
-                        self.client_new_keys = Some(SshPacket::NewKeys);
-                    }
-                e => println!("Could not parse new keys 2: {:?}", e),
-                }
-            }
-            e => println!("Could not parse new keys 1: {:?}", e),
-        }
-    }
+    // pub(crate) fn parse_new_keys(&mut self, data: &[u8]) {
+    //     match ssh_parser::parse_ssh_packet(data) {
+    //         Ok((_, (pkt, _))) => {
+    //             match pkt {
+    //                 SshPacket::NewKeys => {
+    //                     self.client_new_keys = Some(SshPacket::NewKeys);
+    //                 }
+    //             e => println!("Could not parse new keys 2: {:?}", e),
+    //             }
+    //         }
+    //         e => println!("Could not parse new keys 1: {:?}", e),
+    //     }
+    // }
 
     pub(crate) fn parse_service_request(&mut self, data: &[u8]) {
         match ssh_parser::parse_ssh_packet(data) {
