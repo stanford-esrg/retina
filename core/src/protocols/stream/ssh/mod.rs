@@ -5,11 +5,11 @@ pub mod parser;
 
 pub use self::handshake::*;
 
-use serde::Serialize;
-use ssh_parser::*;
+// use serde::Serialize;
+// use ssh_parser::*;
 
 /// Parsed SSH handshake contents.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct Ssh {
     /// Client protocol version exchange message.
     pub client_version_exchange: Option<SshVersionExchange>,
@@ -27,9 +27,9 @@ pub struct Ssh {
     pub server_dh_key_exchange: Option<SshDhResponse>,
 
     /// Client New Keys message.
-    pub client_new_keys: Option<ssh_parser::SshPacket::NewKeys>,
+    pub client_new_keys: Option<ssh_parser::SshPacket>,
     /// Server New Keys message.
-    pub server_new_keys: Option<ssh_parser::SshPacket::NewKeys>,
+    pub server_new_keys: Option<ssh_parser::SshPacket>,
 
     /// Client Service Request message.
     pub client_service_request: Option<SshServiceRequest>,
