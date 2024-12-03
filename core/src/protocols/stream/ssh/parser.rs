@@ -97,7 +97,7 @@ impl Ssh {
             server_key_exchange: None,
             client_dh_key_exchange: None,
             server_dh_key_exchange: None,
-            // client_new_keys: None,
+            client_new_keys: None,
             // server_new_keys: None,
             // client_service_request: None,
             // server_service_accept: None,
@@ -114,8 +114,6 @@ impl Ssh {
             match ssh_parser::parse_ssh_identification(contains_ssh_identifier) {
                 Ok((_, (_, ssh_id_string))) => {
                     let version_exchange = SshVersionExchange {
-                        // protoversion: Some(String::from_utf8(ssh_id_string.proto.to_vec()).expect("Invalid message.").clone()),
-                        // softwareversion: Some(String::from_utf8(ssh_id_string.software.to_vec()).expect("Invalid message.").clone()),
                         protoversion: Some(self.byte_to_string(ssh_id_string.proto)),
                         softwareversion: Some(self.byte_to_string(ssh_id_string.software)),
                         comments: if ssh_id_string.comments.map(|b| !b.is_empty()).unwrap_or(false) {
@@ -215,25 +213,25 @@ impl Ssh {
         }
     }
 
-    // pub(crate) fn parse_new_keys(&mut self, data: &[u8], dir: bool) {
-    //     match ssh_parser::parse_ssh_packet(data) {
-    //         Ok((_, (pkt, _))) => {
-    //             match pkt {
-    //                 SshPacket::NewKeys => {
-    //                     let new_keys = pkt;
-
-    //                     if dir {
-    //                          self.client_new_keys = Some(new_keys);
-    //                     } else {
-    //                         self.server_new_keys = Some(new_keys);
-    //                     }
-    //                 }
-    //             e => println!("Could not parse new keys 2: {:?}", e),
-    //             }
-    //         }
-    //         e => println!("Could not parse new keys 1: {:?}", e),
-    //     }
-    // }
+    pub(crate) fn parse_new_keys(&mut self, data: &[u8], dir: bool) {
+        match ssh_parser::parse_ssh_packet(data) {
+            Ok((_, (pkt, _))) => {
+                match pkt {
+                    SshPacket::NewKeys => {
+                        let new_keys = pkt;
+                        self.client_new_keys = Some(new_keys);
+                        // if dir {
+                        //     self.client_new_keys = Some(new_keys);
+                        // } else {
+                        //     self.server_new_keys = Some(new_keys);
+                        // }
+                    }
+                e => println!("Could not parse new keys 2: {:?}", e),
+                }
+            }
+            e => println!("Could not parse new keys 1: {:?}", e),
+        }
+    }
 
     // pub(crate) fn parse_service_request(&mut self, data: &[u8]) {
     //     match ssh_parser::parse_ssh_packet(data) {
@@ -300,14 +298,14 @@ impl Ssh {
                         }
                         SshPacket::NewKeys => {
                             println!("encountered SSH New Keys packet");
-                            // self.parse_new_keys(data, dir);
-                            if dir {
-                                status = ParseResult::Continue(0);
-                            } else {
-                                // finish parsing when server sends a NewKeys packet to client
-                                return ParseResult::Done(0);
-                            }
-                            // return ParseResult::Done(0);
+                            self.parse_new_keys(data, dir);
+                            // if dir {
+                            //     status = ParseResult::Continue(0);
+                            // } else {
+                            //     // finish parsing when server sends a NewKeys packet to client
+                            //     return ParseResult::Done(0);
+                            // }
+                            return ParseResult::Done(0);
                         }
                         _ => (),
                     }
