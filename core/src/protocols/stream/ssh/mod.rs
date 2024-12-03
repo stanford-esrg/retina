@@ -200,6 +200,4 @@ impl Ssh {
             None => vec![],
         }
     }
-
-    // TODO: more methods...
 }
