@@ -116,7 +116,7 @@ impl Ssh {
                     let version_exchange = SshVersionExchange {
                         protoversion: Some(self.byte_to_string(ssh_id_string.proto)),
                         softwareversion: Some(self.byte_to_string(ssh_id_string.software)),
-                        comments: Some(self.byte_to_string(ssh_id_string.comments)),
+                        comments: Some(self.byte_to_string(ssh_id_string.comments.expect("Invalid message."))),
                         // protoversion: Some(String::from_utf8(ssh_id_string.proto.to_vec()).expect("Invalid message.").clone()),
                         // softwareversion: Some(String::from_utf8(ssh_id_string.software.to_vec()).expect("Invalid message.").clone()),
                         // comments: if ssh_id_string.comments.map(|b| !b.is_empty()).unwrap_or(false) {
@@ -278,7 +278,7 @@ impl Ssh {
 
         let ssh_identifier = b"SSH-";
         if let Some(_) = data.windows(ssh_identifier.len()).position(|window| window == ssh_identifier).map(|p| &data[p..]) {
-            self.parse_version_exchange(data, direction);
+            self.parse_version_exchange(data, dir);
             status = ParseResult::Continue(0);
         } else {
             match ssh_parser::parse_ssh_packet(data) {
