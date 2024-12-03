@@ -98,14 +98,11 @@ impl ParserRegistry {
 
         let mut num_notmatched = 0;
         for parser in self.0.iter() {
-            println!("parser: {:#?}", parser);
             match parser.probe(pdu) {
                 ProbeResult::Certain => {
-                    println!("ProbeResult: Certain");
                     return ProbeRegistryResult::Some(parser.reset_new());
                 }
                 ProbeResult::NotForUs => {
-                    println!("ProbeResult: NotForUs");
                     num_notmatched += 1;
                 }
                 _ => (), // Unsure, Error, Reverse

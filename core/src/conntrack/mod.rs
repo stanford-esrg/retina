@@ -139,13 +139,10 @@ where
                     };
                     if let Ok(mut conn) = conn {
                         conn.info.filter_first_packet(&pdu, subscription);
-                        println!("successfully filtered first packet");
                         if !conn.info.actions.drop() {
-                            println!("consume pdu");
                             conn.info.consume_pdu(pdu, subscription, &self.registry);
                         }
                         if !conn.remove_from_table() {
-                            // println!("remove from table");
                             self.timerwheel.insert(
                                 &conn_id,
                                 conn.last_seen_ts,

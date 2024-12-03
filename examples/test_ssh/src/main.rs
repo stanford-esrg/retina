@@ -46,22 +46,22 @@ fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
     println!("cookie: {:?}", ssh.key_exchange_cookie_stoc());
     println!("kex_algs: {}", ssh.kex_algs_stoc().join(","));
     println!("server_host_key_algs: {}", ssh.server_host_key_algs_stoc().join(","));
-    println!("encryption_algs_ctos: {}", ssh.encryption_algs_ctos_stoc().join(","));
+    println!("encryption_algs_ctos: {}", ssh.encryption_algs_ctos().join(","));
     println!("encryption_algs_stoc: {}", ssh.encryption_algs_stoc().join(","));
-    println!("mac_algs_ctos: {}", ssh.mac_algs_ctos_stoc().join(","));
+    println!("mac_algs_ctos: {}", ssh.mac_algs_ctos().join(","));
     println!("mac_algs_stoc: {}", ssh.mac_algs_stoc().join(","));
-    println!("compression_algs_ctos: {}", ssh.compression_algs_ctos_stoc().join(","));
+    println!("compression_algs_ctos: {}", ssh.compression_algs_ctos().join(","));
     println!("compression_algs_stoc: {}", ssh.compression_algs_stoc().join(","));
-    println!("languages_ctos: {}", ssh.languages_ctos_stoc().join(","));
+    println!("languages_ctos: {}", ssh.languages_ctos().join(","));
     println!("languages_stoc: {}", ssh.languages_stoc().join(","));
 
-    println!("\nDH Init");
-    println!("e: {:?}", ssh.dh_init_e());
+    // println!("\nDH Init");
+    // println!("e: {:?}", ssh.dh_init_e());
     
-    println!("\nDH Reply");
-    println!("pubkey_and_certs: {:?}", ssh.dh_response_pubkey_and_certs());
-    println!("f: {:?}", ssh.dh_response_f());
-    println!("signature: {:?}", ssh.dh_response_signature());
+    // println!("\nDH Reply");
+    // println!("pubkey_and_certs: {:?}", ssh.dh_response_pubkey_and_certs());
+    // println!("f: {:?}", ssh.dh_response_f());
+    // println!("signature: {:?}", ssh.dh_response_signature());
 
     println!("\nconn. metrics: {:?}", conn_record);
 }

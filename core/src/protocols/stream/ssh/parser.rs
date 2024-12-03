@@ -111,15 +111,9 @@ impl Ssh {
             match ssh_parser::parse_ssh_identification(contains_ssh_identifier) {
                 Ok((_, (_, ssh_id_string))) => {
                     let version_exchange = SshVersionExchange {
-                        protoversion: Some(self.byte_to_string(ssh_id_string.proto)),
-                        softwareversion: Some(self.byte_to_string(ssh_id_string.software)),
+                        protoversion: self.byte_to_string(ssh_id_string.proto),
+                        softwareversion: self.byte_to_string(ssh_id_string.software),
                         comments: if ssh_id_string.comments.is_some() { Some(self.byte_to_string(ssh_id_string.comments.unwrap())) } else { None },
-                        // if ssh_id_string.comments.map(|b| !b.is_empty()).unwrap_or(false) {
-                        //     let comments_vec = ssh_id_string.comments.map(|b| b.to_vec()).unwrap_or_else(|| Vec::new());
-                        //     Some(String::from_utf8(comments_vec).expect("Invalid message."))
-                        // } else {
-                        //     None
-                        // }
                     };
 
                     if dir {
@@ -128,7 +122,7 @@ impl Ssh {
                         self.server_version_exchange = Some(version_exchange);
                     }
                 }
-                e => println!("Could not parse SSH version exchange: {:?}", e),
+                e => log::debug!("Not a valid SSH version exchange message: {:?}", e),
             }
         }
     }
@@ -161,10 +155,10 @@ impl Ssh {
 
                         self.key_exchange = Some(key_exchange);
                     }
-                e => println!("Could not parse SSH key exchange 2: {:?}", e),
+                    e => log::debug!("Not a SSH KeyExchange packet: {:?}", e),
                 }
             }
-            e => println!("Could not parse SSH key exchange 1: {:?}", e),
+            e => log::debug!("Could not parse SSH key exchange: {:?}", e),
         }
     }
     
@@ -180,10 +174,10 @@ impl Ssh {
                         self.client_dh_key_exchange = Some(dh_init);
                         
                     }
-                e => println!("Could not parse DH init 2: {:?}", e),
+                    e => log::debug!("Not a SSH DiffieHellmanInit packet: {:?}", e),
                 }
             }
-            e => println!("Could not parse DH init 1: {:?}", e),
+            e => log::debug!("Could not parse DH init: {:?}", e),
         }
     }
 
@@ -200,10 +194,10 @@ impl Ssh {
 
                         self.server_dh_key_exchange = Some(dh_response);
                     }
-                e => println!("Could not parse DH server response 2: {:?}", e),
+                e => log::debug!("Not a SSH DiffieHellmanReply packet: {:?}", e),
                 }
             }
-            e => println!("Could not parse DH server response 1: {:?}", e),
+            e => log::debug!("Could not parse DH server response: {:?}", e),
         }
     }
 
@@ -219,10 +213,10 @@ impl Ssh {
                             self.server_new_keys = Some(new_keys);
                         }
                     }
-                e => println!("Could not parse new keys 2: {:?}", e),
+                e => log::debug!("Not a SSH NewKeys packet: {:?}", e),
                 }
             }
-            e => println!("Could not parse new keys 1: {:?}", e),
+            e => log::debug!("Could not parse new keys: {:?}", e),
         }
     }
 
@@ -239,22 +233,18 @@ impl Ssh {
                 Ok((_, (pkt, _))) => {
                     match pkt {
                         SshPacket::KeyExchange(_) => {
-                            println!("encountered SSH key exchange packet");
                             self.parse_key_exchange(data);
                             status = ParseResult::Continue(0);
                         }
                         SshPacket::DiffieHellmanInit(_) => {
-                            println!("encountered SSH DH Init packet");
                             self.parse_dh_client_init(data);
                             status = ParseResult::Continue(0);
                         }
                         SshPacket::DiffieHellmanReply(_) => {
-                            println!("encountered SSH DH Reply packet");
                             self.parse_dh_server_response(data);
                             status = ParseResult::Continue(0);
                         }
                         SshPacket::NewKeys => {
-                            println!("encountered SSH New Keys packet");
                             self.parse_new_keys(data, dir);
 
                             // finish parsing when client and server have both sent a NewKeys packet

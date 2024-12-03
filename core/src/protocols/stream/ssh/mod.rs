@@ -117,7 +117,7 @@ impl Ssh {
         }
     }
     
-    pub fn encryption_algs_ctos_stoc(&self) -> Vec<String> {
+    pub fn encryption_algs_ctos(&self) -> Vec<String> {
         match &self.key_exchange {
             Some(key_exchange) => key_exchange.encryption_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
@@ -131,7 +131,7 @@ impl Ssh {
         }
     }
 
-    pub fn mac_algs_ctos_stoc(&self) -> Vec<String> {
+    pub fn mac_algs_ctos(&self) -> Vec<String> {
         match &self.key_exchange {
             Some(key_exchange) => key_exchange.mac_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
@@ -145,7 +145,7 @@ impl Ssh {
         }
     }
 
-    pub fn compression_algs_ctos_stoc(&self) -> Vec<String> {
+    pub fn compression_algs_ctos(&self) -> Vec<String> {
         match &self.key_exchange {
             Some(key_exchange) => key_exchange.compression_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
@@ -159,7 +159,7 @@ impl Ssh {
         }
     }
 
-    pub fn languages_ctos_stoc(&self) -> Vec<String> {
+    pub fn languages_ctos(&self) -> Vec<String> {
         match &self.key_exchange {
             Some(key_exchange) => key_exchange.languages_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],

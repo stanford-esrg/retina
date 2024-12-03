@@ -8,8 +8,8 @@ use serde::Serialize;
 /// A parsed SSH Protocol Version Exchange message.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SshVersionExchange {
-    pub protoversion: Option<String>,
-    pub softwareversion: Option<String>,
+    pub protoversion: String,
+    pub softwareversion: String,
     pub comments: Option<String>,
 }
 
