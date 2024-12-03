@@ -12,11 +12,11 @@ struct Args {
     config: PathBuf,
 }
 
-// #[filter("ssh")]
-// fn frame_cb(mbuf: &ZcFrame) {
-//     let contents = mbuf.data();
-//     println!("mbuf data: {:x?}", contents);
-// }
+#[filter("ssh")]
+fn frame_cb(mbuf: &ZcFrame) {
+    let contents = mbuf.data();
+    println!("mbuf data: {:x?}", contents);
+}
 
 // #[filter("ssh")]
 // fn five_tuple_cb(five_tuple: &FiveTuple, pkts: &PktCount) {
@@ -66,7 +66,7 @@ fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
     println!("\nconn. metrics: {:?}", conn_record);
 }
 
-#[retina_main(1)]
+#[retina_main(2)]
 fn main() {
     let args = Args::parse();
     let config = load_config(&args.config);
