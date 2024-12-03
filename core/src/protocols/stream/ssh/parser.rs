@@ -111,8 +111,8 @@ impl Ssh {
             match ssh_parser::parse_ssh_identification(contains_ssh_identifier) {
                 Ok((_, (_, ssh_id_string))) => {
                     let version_exchange = SshVersionExchange {
-                        protoversion: self.byte_to_string(ssh_id_string.proto),
-                        softwareversion: self.byte_to_string(ssh_id_string.software),
+                        protoversion: Some(self.byte_to_string(ssh_id_string.proto)),
+                        softwareversion: Some(self.byte_to_string(ssh_id_string.software)),
                         comments: if ssh_id_string.comments.is_some() { Some(self.byte_to_string(ssh_id_string.comments.unwrap())) } else { None },
                     };
 
