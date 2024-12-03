@@ -153,8 +153,10 @@ impl Ssh {
                             mac_algs_server_to_client: self.bytes_to_string_vec(pkt.mac_algs_server_to_client),
                             compression_algs_client_to_server: self.bytes_to_string_vec(pkt.comp_algs_client_to_server),
                             compression_algs_server_to_client: self.bytes_to_string_vec(pkt.comp_algs_server_to_client),
-                            languages_client_to_server: if !pkt.langs_client_to_server.is_empty() { Some(self.bytes_to_string_vec(pkt.langs_client_to_server)) } else { None },
-                            languages_server_to_client: if !pkt.langs_server_to_client.is_empty() { Some(self.bytes_to_string_vec(pkt.langs_server_to_client)) } else { None },
+                            languages_client_to_server: self.bytes_to_string_vec(pkt.langs_client_to_server),
+                            languages_server_to_client: self.bytes_to_string_vec(pkt.langs_server_to_client),
+                            // languages_client_to_server: if !pkt.langs_client_to_server.is_empty() { Some(self.bytes_to_string_vec(pkt.langs_client_to_server)) } else { None },
+                            // languages_server_to_client: if !pkt.langs_server_to_client.is_empty() { Some(self.bytes_to_string_vec(pkt.langs_server_to_client)) } else { None },
                             first_kex_packet_follows: pkt.first_kex_packet_follows,
                         };
 

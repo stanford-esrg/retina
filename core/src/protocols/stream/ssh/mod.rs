@@ -240,7 +240,7 @@ impl Ssh {
 
     pub fn dh_init_e(&self) -> Vec<u8> {
         match &self.client_dh_key_exchange {
-            Some(client_dh_key_exchange) => client_dh_key_exchange.e.iter().map(|c| c.0).collect(),
+            Some(client_dh_key_exchange) => client_dh_key_exchange.e.iter().collect(),
             None => vec![],
         }
     }
