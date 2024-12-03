@@ -146,19 +146,19 @@ impl Ssh {
                             mac_algs_server_to_client: self.bytes_to_string_vec(pkt.mac_algs_server_to_client),
                             compression_algs_client_to_server: self.bytes_to_string_vec(pkt.comp_algs_client_to_server),
                             compression_algs_server_to_client: self.bytes_to_string_vec(pkt.comp_algs_server_to_client),
-                            languages_client_to_server: self.bytes_to_string_vec(pkt.langs_client_to_server),
-                            languages_server_to_client: self.bytes_to_string_vec(pkt.langs_server_to_client),
-                            // languages_client_to_server: if !pkt.langs_client_to_server.is_empty() { Some(self.bytes_to_string_vec(pkt.langs_client_to_server)) } else { None },
-                            // languages_server_to_client: if !pkt.langs_server_to_client.is_empty() { Some(self.bytes_to_string_vec(pkt.langs_server_to_client)) } else { None },
+                            // languages_client_to_server: self.bytes_to_string_vec(pkt.langs_client_to_server),
+                            // languages_server_to_client: self.bytes_to_string_vec(pkt.langs_server_to_client),
+                            languages_client_to_server: if pkt.langs_client_to_server.is_some() { Some(self.bytes_to_string_vec(pkt.langs_client_to_server)) } else { None },
+                            languages_server_to_client: if pkt.langs_server_to_client.is_some() { Some(self.bytes_to_string_vec(pkt.langs_server_to_client)) } else { None },
                             first_kex_packet_follows: pkt.first_kex_packet_follows,
                         };
 
                         self.key_exchange = Some(key_exchange);
                     }
-                    e => log::debug!("Not a SSH KeyExchange packet: {:?}", e),
+                    e => log::debug!("Could not parse data as a SSH KeyExchange packet: {:?}", e),
                 }
             }
-            e => log::debug!("Could not parse SSH key exchange: {:?}", e),
+            e => log::debug!("Could not parse data as a SSH packet: {:?}", e),
         }
     }
     
@@ -174,10 +174,10 @@ impl Ssh {
                         self.client_dh_key_exchange = Some(dh_init);
                         
                     }
-                    e => log::debug!("Not a SSH DiffieHellmanInit packet: {:?}", e),
+                    e => log::debug!("Could not parse data as a SSH DiffieHellmanInit packet: {:?}", e),
                 }
             }
-            e => log::debug!("Could not parse DH init: {:?}", e),
+            e => log::debug!("Could not parse data as a SSH packet: {:?}", e),
         }
     }
 
@@ -194,10 +194,10 @@ impl Ssh {
 
                         self.server_dh_key_exchange = Some(dh_response);
                     }
-                e => log::debug!("Not a SSH DiffieHellmanReply packet: {:?}", e),
+                e => log::debug!("Could not parse data as a SSH DiffieHellmanReply packet: {:?}", e),
                 }
             }
-            e => log::debug!("Could not parse DH server response: {:?}", e),
+            e => log::debug!("Could not parse data as a SSH packet: {:?}", e),
         }
     }
 
@@ -213,10 +213,10 @@ impl Ssh {
                             self.server_new_keys = Some(new_keys);
                         }
                     }
-                e => log::debug!("Not a SSH NewKeys packet: {:?}", e),
+                e => log::debug!("Could not parse data as a SSH NewKeys packet: {:?}", e),
                 }
             }
-            e => log::debug!("Could not parse new keys: {:?}", e),
+            e => log::debug!("Could not parse data as a SSH packet: {:?}", e),
         }
     }
 
