@@ -98,7 +98,7 @@ impl Ssh {
             client_dh_key_exchange: None,
             server_dh_key_exchange: None,
             client_new_keys: None,
-            // server_new_keys: None,
+            server_new_keys: None,
             // client_service_request: None,
             // server_service_accept: None,
         }
@@ -298,7 +298,7 @@ impl Ssh {
                         SshPacket::NewKeys => {
                             println!("encountered SSH New Keys packet");
                             self.parse_new_keys(data, dir);
-                            
+
                             // finish parsing when client and server have both sent a NewKeys packet
                             if self.client_new_keys.is_some() && self.server_new_keys.is_some() {
                                 return ParseResult::Done(0);
