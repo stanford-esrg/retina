@@ -301,13 +301,13 @@ impl Ssh {
                         SshPacket::NewKeys => {
                             println!("encountered SSH New Keys packet");
                             // self.parse_new_keys(data, dir);
-                            // if dir {
-                            //     status = ParseResult::Continue(0);
-                            // } else {
-                            //     // finish parsing when server sends a NewKeys packet to client
-                            //     return ParseResult::Done(0);
-                            // }
-                            return ParseResult::Done(0);
+                            if dir {
+                                status = ParseResult::Continue(0);
+                            } else {
+                                // finish parsing when server sends a NewKeys packet to client
+                                return ParseResult::Done(0);
+                            }
+                            // return ParseResult::Done(0);
                         }
                         _ => (),
                     }
