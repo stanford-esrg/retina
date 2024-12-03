@@ -31,11 +31,13 @@ pub struct SshKeyExchange {
     pub first_kex_packet_follows: bool,
 }
 
+/// A parsed Diffie-Hellman Key Exchange message sent by the client.
 #[derive(Debug, Default)]
 pub struct SshDhInit {
     pub e: Vec<u8>,
 }
 
+/// A parsed Diffie-Hellman Key Exchange message sent by the server.
 #[derive(Debug, Default)]
 pub struct SshDhResponse {
     pub pubkey_and_certs: Vec<u8>,
@@ -45,13 +47,3 @@ pub struct SshDhResponse {
 
 #[derive(Debug, Default)]
 pub struct SshNewKeys;
-
-// #[derive(Debug)]
-// pub struct SshServiceRequest {
-//     pub service_name: String,
-// }
-
-// #[derive(Debug)]
-// pub struct SshServiceAccept {
-//     pub service_name: String,
-// }

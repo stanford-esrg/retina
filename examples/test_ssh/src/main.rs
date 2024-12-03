@@ -42,12 +42,9 @@ fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
         ssh.comments_stoc(),
     );
 
-    println!("\nKey Exchange: Client to Server");
-    println!("kex_algs: {}", ssh.key_exchange_algs_ctos().join(","));
-
-    println!("\nKey Exchange: Server to Client");
+    println!("\nKey Exchange");
     println!("cookie: {:?}", ssh.key_exchange_cookie_stoc());
-    println!("kex_algs: {}", ssh.key_exchange_algs_stoc().join(","));
+    println!("kex_algs: {}", ssh.kex_algs_stoc().join(","));
     println!("server_host_key_algs: {}", ssh.server_host_key_algs_stoc().join(","));
     println!("encryption_algs_ctos: {}", ssh.encryption_algs_ctos_stoc().join(","));
     println!("encryption_algs_stoc: {}", ssh.encryption_algs_stoc().join(","));

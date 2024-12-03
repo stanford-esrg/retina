@@ -13,10 +13,8 @@ pub struct Ssh {
     /// Server protocol version exchange message.
     pub server_version_exchange: Option<SshVersionExchange>,
 
-    /// Client Key Exchange message.
-    pub client_key_exchange: Option<SshKeyExchange>,
-    /// Server Key Exchange message.
-    pub server_key_exchange: Option<SshKeyExchange>,
+    /// Key Exchange message.
+    pub key_exchange: Option<SshKeyExchange>,
 
     /// Client Diffie-Hellman Key Exchange message.
     pub client_dh_key_exchange: Option<SshDhInit>,
@@ -27,11 +25,6 @@ pub struct Ssh {
     pub client_new_keys: Option<SshNewKeys>,
     /// Server New Keys message.
     pub server_new_keys: Option<SshNewKeys>,
-
-    // /// Client Service Request message.
-    // pub client_service_request: Option<SshServiceRequest>,
-    // /// Server Service Accept message.
-    // pub server_service_accept: Option<SshServiceAccept>,
 }
 
 impl Ssh {
@@ -101,143 +94,81 @@ impl Ssh {
         }
     }
 
-    /// Returns the key exchange algorithms used in SSH key exchange.
-    pub fn key_exchange_algs_ctos(&self) -> Vec<String> {
-        match &self.client_key_exchange {
-            Some(client_key_exchange) => client_key_exchange.kex_algs.iter().map(|c| format!("{}", c)).collect(),
-            None => vec![]
-        }
-    }
-
-    // pub fn server_host_key_algs_ctos(&self) -> Vec<String> {
-    //     match &self.client_key_exchange {
-    //         Some(client_key_exchange) => client_key_exchange.server_host_key_algs.iter().map(|c| format!("{}", c)).collect(),
-    //         None => vec![],
-    //     }
-    // }
-
-    // pub fn encryption_algs_ctos(&self) -> Vec<String> {
-    //     match &self.client_key_exchange {
-    //         Some(client_key_exchange) => client_key_exchange.encryption_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
-    //         None => vec![],
-    //     }
-    // }
-
-    // pub fn mac_algs_ctos(&self) -> Vec<String> {
-    //     match &self.client_key_exchange {
-    //         Some(client_key_exchange) => client_key_exchange.mac_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
-    //         None => vec![],
-    //     }
-    // }
-
-    // pub fn mac_algs_ctos(&self) -> Vec<String> {
-    //     match &self.client_key_exchange {
-    //         Some(client_key_exchange) => client_key_exchange.mac_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
-    //         None => vec![],
-    //     }
-    // }
-
-    // pub fn compression_algs_ctos(&self) -> Vec<String> {
-    //     match &self.client_key_exchange {
-    //         Some(client_key_exchange) => client_key_exchange.compression_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
-    //         None => vec![],
-    //     }
-    // }
-
-    // pub fn compression_algs_ctos(&self) -> Vec<String> {
-    //     match &self.client_key_exchange {
-    //         Some(client_key_exchange) => client_key_exchange.compression_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
-    //         None => vec![],
-    //     }
-    // }
-
-    // pub fn languages_ctos(&self) -> Option<Vec<String>> {
-    //     match &self.client_key_exchange {
-    //         Some(client_key_exchange) => client_key_exchange.languages_client_to_server.iter().map(|c| format!("{}", c)).collect(),
-    //         None => None,
-    //     }
-    // }
-
-    // pub fn languages_ctos(&self) -> Option<Vec<String>> {
-    //     match &self.client_key_exchange {
-    //         Some(client_key_exchange) => client_key_exchange.languages_server_to_client.iter().map(|c| format!("{}", c)).collect(),
-    //         None => None,
-    //     }
-    // }
-
+    /// Returns the cookie used in SSH key exchange.
     pub fn key_exchange_cookie_stoc(&self) -> Vec<u8> {
-        match &self.server_key_exchange {
-            Some(server_key_exchange) => server_key_exchange.cookie.iter().map(|&c| c).collect(),
+        match &self.key_exchange {
+            Some(key_exchange) => key_exchange.cookie.iter().map(|&c| c).collect(),
             None => vec![],
         }
     }
 
-    pub fn key_exchange_algs_stoc(&self) -> Vec<String> {
-        match &self.server_key_exchange {
-            Some(server_key_exchange) => server_key_exchange.kex_algs.iter().map(|c| format!("{}", c)).collect(),
+    /// Returns the key exchange algorithms used in SSH key exchange.
+    pub fn kex_algs_stoc(&self) -> Vec<String> {
+        match &self.key_exchange {
+            Some(key_exchange) => key_exchange.kex_algs.iter().map(|c| format!("{}", c)).collect(),
             None => vec![]
         }
     }
 
     pub fn server_host_key_algs_stoc(&self) -> Vec<String> {
-        match &self.server_key_exchange {
-            Some(server_key_exchange) => server_key_exchange.server_host_key_algs.iter().map(|c| format!("{}", c)).collect(),
+        match &self.key_exchange {
+            Some(key_exchange) => key_exchange.server_host_key_algs.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
     
     pub fn encryption_algs_ctos_stoc(&self) -> Vec<String> {
-        match &self.server_key_exchange {
-            Some(server_key_exchange) => server_key_exchange.encryption_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
+        match &self.key_exchange {
+            Some(key_exchange) => key_exchange.encryption_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn encryption_algs_stoc(&self) -> Vec<String> {
-        match &self.server_key_exchange {
-            Some(server_key_exchange) => server_key_exchange.encryption_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
+        match &self.key_exchange {
+            Some(key_exchange) => key_exchange.encryption_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn mac_algs_ctos_stoc(&self) -> Vec<String> {
-        match &self.server_key_exchange {
-            Some(server_key_exchange) => server_key_exchange.mac_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
+        match &self.key_exchange {
+            Some(key_exchange) => key_exchange.mac_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn mac_algs_stoc(&self) -> Vec<String> {
-        match &self.server_key_exchange {
-            Some(server_key_exchange) => server_key_exchange.mac_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
+        match &self.key_exchange {
+            Some(key_exchange) => key_exchange.mac_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn compression_algs_ctos_stoc(&self) -> Vec<String> {
-        match &self.server_key_exchange {
-            Some(server_key_exchange) => server_key_exchange.compression_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
+        match &self.key_exchange {
+            Some(key_exchange) => key_exchange.compression_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn compression_algs_stoc(&self) -> Vec<String> {
-        match &self.server_key_exchange {
-            Some(server_key_exchange) => server_key_exchange.compression_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
+        match &self.key_exchange {
+            Some(key_exchange) => key_exchange.compression_algs_server_to_client.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn languages_ctos_stoc(&self) -> Vec<String> {
-        match &self.server_key_exchange {
-            Some(server_key_exchange) => server_key_exchange.languages_client_to_server.iter().map(|c| format!("{}", c)).collect(),
+        match &self.key_exchange {
+            Some(key_exchange) => key_exchange.languages_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
 
     pub fn languages_stoc(&self) -> Vec<String> {
-        match &self.server_key_exchange {
-            Some(server_key_exchange) => server_key_exchange.languages_server_to_client.iter().map(|c| format!("{}", c)).collect(),
+        match &self.key_exchange {
+            Some(key_exchange) => key_exchange.languages_server_to_client.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
