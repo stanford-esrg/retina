@@ -87,9 +87,6 @@ impl ConnParsable for SshParser {
     }
 }
 
-impl SshParser {
-}
-
 impl Ssh {
     /// Allocate a new SSH handshake instance.
     pub(crate) fn new() -> Ssh {
@@ -100,8 +97,8 @@ impl Ssh {
             server_key_exchange: None,
             client_dh_key_exchange: None,
             server_dh_key_exchange: None,
-            client_new_keys: None,
-            server_new_keys: None,
+            // client_new_keys: None,
+            // server_new_keys: None,
             // client_service_request: None,
             // server_service_accept: None,
         }
@@ -219,25 +216,25 @@ impl Ssh {
         }
     }
 
-    pub(crate) fn parse_new_keys(&mut self, data: &[u8], dir: bool) {
-        match ssh_parser::parse_ssh_packet(data) {
-            Ok((_, (pkt, _))) => {
-                match pkt {
-                    SshPacket::NewKeys => {
-                        let new_keys = pkt;
+    // pub(crate) fn parse_new_keys(&mut self, data: &[u8], dir: bool) {
+    //     match ssh_parser::parse_ssh_packet(data) {
+    //         Ok((_, (pkt, _))) => {
+    //             match pkt {
+    //                 SshPacket::NewKeys => {
+    //                     let new_keys = pkt;
 
-                        if dir {
-                             self.client_new_keys = Some(new_keys);
-                        } else {
-                            self.server_new_keys = Some(new_keys);
-                        }
-                    }
-                e => println!("Could not parse new keys 2: {:?}", e),
-                }
-            }
-            e => println!("Could not parse new keys 1: {:?}", e),
-        }
-    }
+    //                     if dir {
+    //                          self.client_new_keys = Some(new_keys);
+    //                     } else {
+    //                         self.server_new_keys = Some(new_keys);
+    //                     }
+    //                 }
+    //             e => println!("Could not parse new keys 2: {:?}", e),
+    //             }
+    //         }
+    //         e => println!("Could not parse new keys 1: {:?}", e),
+    //     }
+    // }
 
     // pub(crate) fn parse_service_request(&mut self, data: &[u8]) {
     //     match ssh_parser::parse_ssh_packet(data) {
@@ -275,7 +272,7 @@ impl Ssh {
     //     }
     // }
 
-    pub(crate) fn process(&mut self, data: &[u8], direction: bool) -> ParseResult {
+    pub(crate) fn process(&mut self, data: &[u8], dir: bool) -> ParseResult {
         let mut status = ParseResult::Continue(0);
         log::trace!("process ({} bytes)", data.len());
 
@@ -289,7 +286,7 @@ impl Ssh {
                     match pkt {
                         SshPacket::KeyExchange(_) => {
                             println!("encountered SSH key exchange packet");
-                            self.parse_key_exchange(data, direction);
+                            self.parse_key_exchange(data, dir);
                             status = ParseResult::Continue(0);
                         }
                         SshPacket::DiffieHellmanInit(_) => {
@@ -304,7 +301,13 @@ impl Ssh {
                         }
                         SshPacket::NewKeys => {
                             println!("encountered SSH New Keys packet");
-                            self.parse_new_keys(data);
+                            // self.parse_new_keys(data, dir);
+                            // if dir {
+                            //     status = ParseResult::Continue(0);
+                            // } else {
+                            //     // finish parsing when server sends a NewKeys packet to client
+                            //     return ParseResult::Done(0);
+                            // }
                             return ParseResult::Done(0);
                         }
                         _ => (),

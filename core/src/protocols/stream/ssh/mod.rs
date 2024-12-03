@@ -26,10 +26,10 @@ pub struct Ssh {
     /// Server Diffie-Hellman Key Exchange message.
     pub server_dh_key_exchange: Option<SshDhResponse>,
 
-    /// Client New Keys message.
-    pub client_new_keys: Option<SshPacket::NewKeys>,
-    /// Server New Keys message.
-    pub server_new_keys: Option<SshPacket::NewKeys>,
+    // /// Client New Keys message.
+    // pub client_new_keys: Option<SshPacket::NewKeys>,
+    // /// Server New Keys message.
+    // pub server_new_keys: Option<SshPacket::NewKeys>,
 
     // /// Client Service Request message.
     // pub client_service_request: Option<SshServiceRequest>,
