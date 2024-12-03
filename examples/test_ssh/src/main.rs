@@ -1,5 +1,4 @@
 use retina_core::{config::load_config, Runtime};
-// use retina_core::subscription::Connection;
 use retina_datatypes::{ConnRecord, SshHandshake};
 use retina_filtergen::{filter, retina_main};
 
@@ -11,20 +10,6 @@ struct Args {
     #[clap(short, long, parse(from_os_str), value_name = "FILE")]
     config: PathBuf,
 }
-
-// #[filter("ssh")]
-// fn frame_cb(mbuf: &ZcFrame) {
-//     let contents = mbuf.data();
-//     println!("mbuf data: {:x?}", contents);
-// }
-
-// #[filter("ssh")]
-// fn five_tuple_cb(five_tuple: &FiveTuple, pkts: &PktCount) {
-//     let dst_port = five_tuple.resp.port();
-//     let src_port = five_tuple.orig.port();
-//     println!("dst_port: {:?}", dst_port);
-//     println!("src_port: {:?}", src_port);
-// }
 
 #[filter("ssh")]
 fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
