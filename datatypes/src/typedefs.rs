@@ -4,7 +4,7 @@
 use lazy_static::lazy_static;
 use proc_macro2::Span;
 use quote::quote;
-use retina_core::{filter::{DataType, Level, SubscriptionSpec}, protocols::stream::dns::Data};
+use retina_core::filter::{DataType, Level, SubscriptionSpec};
 use std::collections::HashMap;
 
 use crate::*;
