@@ -54,18 +54,6 @@ lazy_static! {
             ),
             ("ZcFrame", DataType::new_default_packet("ZcFrame")),
             ("Payload", DataType::new_default_packet("Payload")),
-            ("PacketList", {
-                DataType {
-                    level: Level::Connection,
-                    needs_parse: false,
-                    track_sessions: false,
-                    needs_update: false,
-                    needs_update_reassembled: false,
-                    track_packets: true,
-                    stream_protos: vec![],
-                    as_str: "PacketList",
-                }
-            }),
             ("SessionList", {
                 DataType {
                     level: Level::Connection,
@@ -73,11 +61,20 @@ lazy_static! {
                     track_sessions: true,
                     needs_update: false,
                     needs_update_reassembled: false,
-                    track_packets: false,
                     stream_protos: vec!["tls", "dns", "http", "quic", "ssh"],
                     as_str: "SessionList",
                 }
             }),
+            ("BidirZcPktStream", { DataType::new_default_pktlist("BidirZcPktStream", false) }),
+            ("OrigZcPktStream", { DataType::new_default_pktlist("OrigZcPktStream", false) }),
+            ("RespZcPktStream", { DataType::new_default_pktlist("RespZcPktStream", false) }),
+            ("OrigZcPktsReassembled", { DataType::new_default_pktlist("OrigZcPktsReassembled", true) }),
+            ("RespZcPktsReassembled", { DataType::new_default_pktlist("RespZcPktsReassembled", true) }),
+            ("BidirPktStream", { DataType::new_default_pktlist("BidirPktStream", false) }),
+            ("OrigPktStream", { DataType::new_default_pktlist("OrigPktStream", false) }),
+            ("RespPktStream", { DataType::new_default_pktlist("RespPktStream", false) }),
+            ("OrigPktsReassembled", { DataType::new_default_pktlist("OrigPktsReassembled", true) }),
+            ("RespPktsReassembled", { DataType::new_default_pktlist("RespPktsReassembled", true) }),
             ("CoreId", { DataType::new_default_static("CoreId") }),
             ("FiveTuple", { DataType::new_default_static("FiveTuple") }),
             ("EtherTCI", { DataType::new_default_static("EtherTCI") }),
@@ -105,7 +102,6 @@ lazy_static! {
     /// The directly tracked datatypes are: PacketList, SessionList, and CoreId
     #[doc(hidden)]
     pub static ref DIRECTLY_TRACKED: HashMap<&'static str, &'static str> = HashMap::from([
-        ("PacketList", "packets"),
         ("SessionList", "sessions"),
         ("CoreId", "core_id")
     ]);
@@ -115,9 +111,6 @@ lazy_static! {
     pub static ref FILTER_STR: &'static str = "FilterStr";
 }
 
-/// A list of all packets (zero-copy) seen in the connection.
-/// For TCP connections, these packets will be in post-reassembly order.
-pub type PacketList = Vec<Mbuf>;
 /// A list of all sessions (zero-copy) parsed in the connection.
 pub type SessionList = Vec<Session>;
 

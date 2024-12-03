@@ -45,6 +45,13 @@ impl Mbuf {
         })
     }
 
+    pub fn new_ref(mbuf: &Mbuf) -> Mbuf {
+        unsafe {
+            dpdk::rte_mbuf_refcnt_update(mbuf.raw.as_ptr(), 1);
+        }
+        Mbuf::new_unchecked(mbuf.raw.as_ptr())
+    }
+
     /// Creates a new Mbuf from a byte slice.
     pub(crate) fn from_bytes(data: &[u8], mp: *mut dpdk::rte_mempool) -> Result<Mbuf> {
         let mut mbuf = unsafe { Mbuf::new(dpdk::rte_pktmbuf_alloc(mp))? };
@@ -181,6 +188,12 @@ impl<'a> Packet<'a> for Mbuf {
 impl Drop for Mbuf {
     fn drop(&mut self) {
         // log::debug!("Dropping a Mbuf, freeing mbuf@{:p}", self.raw().buf_addr);
+
+        // Reference counting allows Mbufs to be shared across data structures
+        // (e.g., store in pre-reassembly and post-reassembly order) and cores.
+        // Using DPDK built-ins to manage reference counting is more efficient
+        // than Rust standard library (Rc or Arc). Note `rte_pktmbuf_free` updates
+        // refcount internally and only releases the mbuf if refcount becomes 0.
         unsafe { dpdk::rte_pktmbuf_free(self.raw()) };
     }
 }

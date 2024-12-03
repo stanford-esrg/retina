@@ -12,7 +12,7 @@ use crate::protocols::stream::{
     ConnData, ParseResult, ParserRegistry, ParsingState, ProbeRegistryResult,
 };
 use crate::subscription::{Subscription, Trackable};
-use crate::FiveTuple;
+use crate::{FiveTuple, Mbuf};
 
 #[derive(Debug)]
 pub(crate) struct ConnInfo<T>
@@ -77,7 +77,9 @@ where
         }
         if self.actions.buffer_frame() {
             // Track frame for (potential) future delivery
-            self.sdata.track_packet(pdu.mbuf_own());
+            // Used when a filter has partially matched for a
+            // subscription that requests packets
+            self.sdata.track_packet(Mbuf::new_ref(pdu.mbuf_ref()));
         }
     }
 
