@@ -43,10 +43,8 @@ pub struct SshDhResponse {
     pub signature: Vec<u8>,
 }
 
-// #[derive(Clone, Debug, Default)]
-// pub struct SshNewKeys {
-//     // pub ssh_msg_newkeys: Vec<u8>,
-// }
+#[derive(Debug, Default)]
+pub struct SshNewKeys;
 
 // #[derive(Debug)]
 // pub struct SshServiceRequest {

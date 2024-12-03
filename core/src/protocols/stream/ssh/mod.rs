@@ -5,9 +5,6 @@ pub mod parser;
 
 pub use self::handshake::*;
 
-// use serde::Serialize;
-use ssh_parser::SshPacket;
-
 /// Parsed SSH handshake contents.
 #[derive(Debug, Default)]
 pub struct Ssh {
@@ -27,9 +24,9 @@ pub struct Ssh {
     pub server_dh_key_exchange: Option<SshDhResponse>,
 
     /// Client New Keys message.
-    pub client_new_keys: Option<SshPacket>,
-    // /// Server New Keys message.
-    // pub server_new_keys: Option<SshPacket>,
+    pub client_new_keys: Option<SshNewKeys>,
+    /// Server New Keys message.
+    pub server_new_keys: Option<SshNewKeys>,
 
     // /// Client Service Request message.
     // pub client_service_request: Option<SshServiceRequest>,

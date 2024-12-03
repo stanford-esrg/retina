@@ -218,13 +218,12 @@ impl Ssh {
             Ok((_, (pkt, _))) => {
                 match pkt {
                     SshPacket::NewKeys => {
-                        let new_keys = pkt;
-                        self.client_new_keys = Some(new_keys);
-                        // if dir {
-                        //     self.client_new_keys = Some(new_keys);
-                        // } else {
-                        //     self.server_new_keys = Some(new_keys);
-                        // }
+                        let new_keys = SshNewKeys;
+                        if dir {
+                            self.client_new_keys = Some(new_keys);
+                        } else {
+                            self.server_new_keys = Some(new_keys);
+                        }
                     }
                 e => println!("Could not parse new keys 2: {:?}", e),
                 }
@@ -299,13 +298,12 @@ impl Ssh {
                         SshPacket::NewKeys => {
                             println!("encountered SSH New Keys packet");
                             self.parse_new_keys(data, dir);
-                            // if dir {
-                            //     status = ParseResult::Continue(0);
-                            // } else {
-                            //     // finish parsing when server sends a NewKeys packet to client
-                            //     return ParseResult::Done(0);
-                            // }
-                            return ParseResult::Done(0);
+                            
+                            // finish parsing when client and server have both sent a NewKeys packet
+                            if self.client_new_keys.is_some() && self.server_new_keys.is_some() {
+                                return ParseResult::Done(0);
+                            }
+                            status = ParseResult::Continue(0);
                         }
                         _ => (),
                     }
