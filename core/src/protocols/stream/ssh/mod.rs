@@ -104,13 +104,13 @@ impl Ssh {
         }
     }
 
-    // /// Returns the key exchange algorithms used in SSH key exchange.
-    // pub fn key_exchange_algs_ctos(&self) -> Vec<String> {
-    //     match &self.client_key_exchange {
-    //         Some(client_key_exchange) => client_key_exchange.kex_algs.iter().map(|c| format!("{}", c)).collect(),
-    //         None => vec![]
-    //     }
-    // }
+    /// Returns the key exchange algorithms used in SSH key exchange.
+    pub fn key_exchange_algs_ctos(&self) -> Vec<String> {
+        match &self.client_key_exchange {
+            Some(client_key_exchange) => client_key_exchange.kex_algs.iter().map(|c| format!("{}", c)).collect(),
+            None => vec![]
+        }
+    }
 
     // pub fn server_host_key_algs_ctos(&self) -> Vec<String> {
     //     match &self.client_key_exchange {

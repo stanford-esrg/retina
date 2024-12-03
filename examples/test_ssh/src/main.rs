@@ -36,11 +36,14 @@ fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
     );
 
     println!("Version Exchange: Server to Client");
-    println!("protoversion: {}, softwareversion: {}, comments: {}\n", 
+    println!("protoversion: {}, softwareversion: {}, comments: {}", 
         ssh.protocol_version_stoc(),
         ssh.software_version_stoc(),
         ssh.comments_stoc(),
     );
+
+    println!("\nKey Exchange: Client to Server");
+    println!("kex_algs: {}", ssh.key_exchange_algs_ctos().join(","));
 
     println!("\nKey Exchange: Server to Client");
     println!("cookie: {:?}", ssh.key_exchange_cookie_stoc());
