@@ -113,7 +113,7 @@ impl Ssh {
                     let version_exchange = SshVersionExchange {
                         protoversion: Some(self.byte_to_string(ssh_id_string.proto)),
                         softwareversion: Some(self.byte_to_string(ssh_id_string.software)),
-                        comments: if ssh_id_string.comments.is_some() { Some(self.byte_to_string(ssh_id_string.comments)) } else { None },
+                        comments: if ssh_id_string.comments.is_some() { Some(self.byte_to_string(ssh_id_string.comments.unwrap())) } else { None },
                         // if ssh_id_string.comments.map(|b| !b.is_empty()).unwrap_or(false) {
                         //     let comments_vec = ssh_id_string.comments.map(|b| b.to_vec()).unwrap_or_else(|| Vec::new());
                         //     Some(String::from_utf8(comments_vec).expect("Invalid message."))
@@ -137,7 +137,7 @@ impl Ssh {
         data.split(|&b| b == b',').map(|chunk| String::from_utf8(chunk.to_vec()).unwrap()).collect()
     }
 
-    pub(crate) fn parse_key_exchange(&mut self, data: &[u8], dir: bool) {
+    pub(crate) fn parse_key_exchange(&mut self, data: &[u8]) {
         match ssh_parser::parse_ssh_packet(data) {
             Ok((_, (pkt, _))) => {
                 match pkt {
@@ -240,7 +240,7 @@ impl Ssh {
                     match pkt {
                         SshPacket::KeyExchange(_) => {
                             println!("encountered SSH key exchange packet");
-                            self.parse_key_exchange(data, dir);
+                            self.parse_key_exchange(data);
                             status = ParseResult::Continue(0);
                         }
                         SshPacket::DiffieHellmanInit(_) => {
