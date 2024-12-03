@@ -12,11 +12,11 @@ struct Args {
     config: PathBuf,
 }
 
-#[filter("ssh")]
-fn frame_cb(mbuf: &ZcFrame) {
-    let contents = mbuf.data();
-    println!("mbuf data: {:x?}", contents);
-}
+// #[filter("ssh")]
+// fn frame_cb(mbuf: &ZcFrame) {
+//     let contents = mbuf.data();
+//     println!("mbuf data: {:x?}", contents);
+// }
 
 // #[filter("ssh")]
 // fn five_tuple_cb(five_tuple: &FiveTuple, pkts: &PktCount) {
@@ -26,47 +26,44 @@ fn frame_cb(mbuf: &ZcFrame) {
 //     println!("src_port: {:?}", src_port);
 // }
 
+// #[filter("ssh")]
+// fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
+//     println!("Version Exchange: Client to Server");
+//     println!("protoversion: {}, softwareversion: {}, comments: {}", 
+//         ssh.protocol_version_ctos(),
+//         ssh.software_version_ctos(),
+//         ssh.comments_ctos(),
+//     );
+
+//     println!("Version Exchange: Server to Client");
+//     println!("protoversion: {}, softwareversion: {}, comments: {}", 
+//         ssh.protocol_version_stoc(),
+//         ssh.software_version_stoc(),
+//         ssh.comments_stoc(),
+//     );
+
+//     println!("\nKey Exchange");
+//     println!("cookie: {:?}", ssh.key_exchange_cookie_stoc());
+//     println!("kex_algs: {}", ssh.kex_algs_stoc().join(","));
+//     println!("server_host_key_algs: {}", ssh.server_host_key_algs_stoc().join(","));
+//     println!("encryption_algs_ctos: {}", ssh.encryption_algs_ctos().join(","));
+//     println!("encryption_algs_stoc: {}", ssh.encryption_algs_stoc().join(","));
+//     println!("mac_algs_ctos: {}", ssh.mac_algs_ctos().join(","));
+//     println!("mac_algs_stoc: {}", ssh.mac_algs_stoc().join(","));
+//     println!("compression_algs_ctos: {}", ssh.compression_algs_ctos().join(","));
+//     println!("compression_algs_stoc: {}", ssh.compression_algs_stoc().join(","));
+//     println!("languages_ctos: {}", ssh.languages_ctos().join(","));
+//     println!("languages_stoc: {}", ssh.languages_stoc().join(","));
+
+//     println!("\nconn. metrics: {:?}", conn_record);
+// }
+
 #[filter("ssh")]
-fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
-    println!("Version Exchange: Client to Server");
-    println!("protoversion: {}, softwareversion: {}, comments: {}", 
-        ssh.protocol_version_ctos(),
-        ssh.software_version_ctos(),
-        ssh.comments_ctos(),
-    );
-
-    println!("Version Exchange: Server to Client");
-    println!("protoversion: {}, softwareversion: {}, comments: {}", 
-        ssh.protocol_version_stoc(),
-        ssh.software_version_stoc(),
-        ssh.comments_stoc(),
-    );
-
-    println!("\nKey Exchange");
-    println!("cookie: {:?}", ssh.key_exchange_cookie_stoc());
-    println!("kex_algs: {}", ssh.kex_algs_stoc().join(","));
-    println!("server_host_key_algs: {}", ssh.server_host_key_algs_stoc().join(","));
-    println!("encryption_algs_ctos: {}", ssh.encryption_algs_ctos().join(","));
-    println!("encryption_algs_stoc: {}", ssh.encryption_algs_stoc().join(","));
-    println!("mac_algs_ctos: {}", ssh.mac_algs_ctos().join(","));
-    println!("mac_algs_stoc: {}", ssh.mac_algs_stoc().join(","));
-    println!("compression_algs_ctos: {}", ssh.compression_algs_ctos().join(","));
-    println!("compression_algs_stoc: {}", ssh.compression_algs_stoc().join(","));
-    println!("languages_ctos: {}", ssh.languages_ctos().join(","));
-    println!("languages_stoc: {}", ssh.languages_stoc().join(","));
-
-    // println!("\nDH Init");
-    // println!("e: {:?}", ssh.dh_init_e());
-    
-    // println!("\nDH Reply");
-    // println!("pubkey_and_certs: {:?}", ssh.dh_response_pubkey_and_certs());
-    // println!("f: {:?}", ssh.dh_response_f());
-    // println!("signature: {:?}", ssh.dh_response_signature());
-
-    println!("\nconn. metrics: {:?}", conn_record);
+fn log_ssh(ssh: &SshHandshake) {
+    println!("{:?}", ssh);
 }
 
-#[retina_main(2)]
+#[retina_main(1)]
 fn main() {
     let args = Args::parse();
     let config = load_config(&args.config);
