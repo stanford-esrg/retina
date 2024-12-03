@@ -29,10 +29,10 @@ pub struct Ssh {
 
 impl Ssh {
     /// Returns the SSH protocol version (e.g. 2.0).
-    pub fn protocol_version_ctos(&self) -> &String {
+    pub fn protocol_version_ctos(&self) -> &str {
         match &self.client_version_exchange {
             Some(client_version_exchange) => match &client_version_exchange.protoversion {
-                Some(protoversion) => protoversion,
+                Some(protoversion) => protoversion.as_str(),
                 None => "",
             },
             None => "",
