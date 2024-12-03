@@ -101,7 +101,7 @@ impl Ssh {
             client_dh_key_exchange: None,
             server_dh_key_exchange: None,
             client_new_keys: None,
-            // server_new_keys: None,
+            server_new_keys: None,
             // client_service_request: None,
             // server_service_accept: None,
         }
@@ -219,12 +219,18 @@ impl Ssh {
         }
     }
 
-    pub(crate) fn parse_new_keys(&mut self, data: &[u8]) {
+    pub(crate) fn parse_new_keys(&mut self, data: &[u8], dir: bool) {
         match ssh_parser::parse_ssh_packet(data) {
             Ok((_, (pkt, _))) => {
                 match pkt {
                     SshPacket::NewKeys => {
-                        self.client_new_keys = Some(pkt);
+                        let new_keys = pkt;
+
+                        if dir {
+                             self.client_new_keys = Some(new_keys);
+                        } else {
+                            self.server_new_keys = Some(new_keys);
+                        }
                     }
                 e => println!("Could not parse new keys 2: {:?}", e),
                 }

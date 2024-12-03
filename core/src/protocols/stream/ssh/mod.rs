@@ -28,10 +28,10 @@ pub struct Ssh {
 
     /// Client New Keys message.
     pub client_new_keys: Option<SshPacket::NewKeys>,
-    // /// Server New Keys message.
-    // pub server_new_keys: Option<SshPacket::NewKeys>,
+    /// Server New Keys message.
+    pub server_new_keys: Option<SshPacket::NewKeys>,
 
-    /// Client Service Request message.
+    // /// Client Service Request message.
     // pub client_service_request: Option<SshServiceRequest>,
     // /// Server Service Accept message.
     // pub server_service_accept: Option<SshServiceAccept>,
