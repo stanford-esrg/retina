@@ -42,7 +42,8 @@ fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
         ssh.comments_stoc(),
     );
 
-    println!("Key Exchange: Server to Client");
+    println!("\nKey Exchange: Server to Client");
+    println!("cookie: {:?}", ssh.key_exchange_cookie_stoc());
     println!("kex_algs: {}", ssh.key_exchange_algs_stoc().join(","));
     println!("server_host_key_algs: {}", ssh.server_host_key_algs_stoc().join(","));
     println!("encryption_algs_ctos: {}", ssh.encryption_algs_ctos_stoc().join(","));
@@ -54,10 +55,15 @@ fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
     println!("languages_ctos: {}", ssh.languages_ctos_stoc().join(","));
     println!("languages_stoc: {}", ssh.languages_stoc().join(","));
 
-    println!("DH Init");
-    println!("e: {}", ssh.dh_init_e().join(","));
+    println!("\nDH Init");
+    println!("e: {:?}", ssh.dh_init_e());
+    
+    println!("\nDH Reply");
+    println!("pubkey_and_certs: {:?}", ssh.dh_response_pubkey_and_certs());
+    println!("f: {:?}", ssh.dh_response_f());
+    println!("signature: {:?}", ssh.dh_response_signature());
 
-    println!("conn. metrics: {:?}", conn_record);
+    println!("\nconn. metrics: {:?}", conn_record);
 }
 
 #[retina_main(1)]

@@ -16,8 +16,6 @@ pub struct SshVersionExchange {
 /// A parsed SSH Key Exchange message.
 #[derive(Debug, PartialEq, Serialize)]
 pub struct SshKeyExchange {
-    // #[serde(with = "base64")]
-    // pub ssh_msg_kexinit: Vec<u8>,
     #[serde(with = "base64")]
     pub cookie: Vec<u8>,
     pub kex_algs: Vec<String>,
@@ -35,13 +33,11 @@ pub struct SshKeyExchange {
 
 #[derive(Debug, Default)]
 pub struct SshDhInit {
-    // pub ssh_msg_kexdh_init: Vec<u8>,
     pub e: Vec<u8>,
 }
 
 #[derive(Debug, Default)]
 pub struct SshDhResponse {
-    // pub ssh_msg_kexdh_reply: Vec<u8>,
     pub pubkey_and_certs: Vec<u8>,
     pub f: Vec<u8>,
     pub signature: Vec<u8>,
@@ -52,14 +48,12 @@ pub struct SshDhResponse {
 //     // pub ssh_msg_newkeys: Vec<u8>,
 // }
 
-#[derive(Debug)]
-pub struct SshServiceRequest {
-    // pub ssh_msg_service_request: Vec<u8>,
-    pub service_name: String,
-}
+// #[derive(Debug)]
+// pub struct SshServiceRequest {
+//     pub service_name: String,
+// }
 
-#[derive(Debug)]
-pub struct SshServiceAccept {
-    // pub ssh_msg_service_accept: Vec<u8>,
-    pub service_name: String,
-}
+// #[derive(Debug)]
+// pub struct SshServiceAccept {
+//     pub service_name: String,
+// }

@@ -100,11 +100,15 @@ impl Ssh {
             server_key_exchange: None,
             client_dh_key_exchange: None,
             server_dh_key_exchange: None,
-            // client_new_keys: None,
+            client_new_keys: None,
             // server_new_keys: None,
-            client_service_request: None,
-            server_service_accept: None,
+            // client_service_request: None,
+            // server_service_accept: None,
         }
+    }
+
+    fn byte_to_string(&mut self, b: &[u8]) -> String {
+        String::from_utf8(b.to_vec()).unwrap()
     }
 
     pub(crate) fn parse_version_exchange(&mut self, data: &[u8], dir: bool) {
@@ -113,14 +117,17 @@ impl Ssh {
             match ssh_parser::parse_ssh_identification(contains_ssh_identifier) {
                 Ok((_, (_, ssh_id_string))) => {
                     let version_exchange = SshVersionExchange {
-                        protoversion: Some(String::from_utf8(ssh_id_string.proto.to_vec()).expect("Invalid message.").clone()),
-                        softwareversion: Some(String::from_utf8(ssh_id_string.software.to_vec()).expect("Invalid message.").clone()),
-                        comments: if ssh_id_string.comments.map(|b| !b.is_empty()).unwrap_or(false) {
-                            let comments_vec = ssh_id_string.comments.map(|b| b.to_vec()).unwrap_or_else(|| Vec::new());
-                            Some(String::from_utf8(comments_vec).expect("Invalid message.").clone())
-                        } else {
-                            None
-                        }
+                        protoversion: Some(self.byte_to_string(ssh_id_string.proto)),
+                        softwareversion: Some(self.byte_to_string(ssh_id_string.software)),
+                        comments: Some(self.byte_to_string(ssh_id_string.comments)),
+                        // protoversion: Some(String::from_utf8(ssh_id_string.proto.to_vec()).expect("Invalid message.").clone()),
+                        // softwareversion: Some(String::from_utf8(ssh_id_string.software.to_vec()).expect("Invalid message.").clone()),
+                        // comments: if ssh_id_string.comments.map(|b| !b.is_empty()).unwrap_or(false) {
+                        //     let comments_vec = ssh_id_string.comments.map(|b| b.to_vec()).unwrap_or_else(|| Vec::new());
+                        //     Some(String::from_utf8(comments_vec).expect("Invalid message.").clone())
+                        // } else {
+                        //     None
+                        // }
                     };
 
                     if dir {
@@ -212,55 +219,55 @@ impl Ssh {
         }
     }
 
-    // pub(crate) fn parse_new_keys(&mut self, data: &[u8]) {
+    pub(crate) fn parse_new_keys(&mut self, data: &[u8]) {
+        match ssh_parser::parse_ssh_packet(data) {
+            Ok((_, (pkt, _))) => {
+                match pkt {
+                    SshPacket::NewKeys => {
+                        self.client_new_keys = Some(pkt);
+                    }
+                e => println!("Could not parse new keys 2: {:?}", e),
+                }
+            }
+            e => println!("Could not parse new keys 1: {:?}", e),
+        }
+    }
+
+    // pub(crate) fn parse_service_request(&mut self, data: &[u8]) {
     //     match ssh_parser::parse_ssh_packet(data) {
     //         Ok((_, (pkt, _))) => {
     //             match pkt {
-    //                 SshPacket::NewKeys => {
-    //                     self.client_new_keys = Some(SshPacket::NewKeys);
-    //                 }
-    //             e => println!("Could not parse new keys 2: {:?}", e),
+    //                     SshPacket::ServiceRequest(pkt) => {
+    //                         let service_response = SshServiceRequest {
+    //                             service_name: String::from_utf8(pkt.to_vec()).expect("Invalid message.").clone(),
+    //                         };
+
+    //                         self.client_service_request = Some(service_response);
+    //                     }
+    //             e => println!("Could not parse service request 2: {:?}", e),
     //             }
     //         }
-    //         e => println!("Could not parse new keys 1: {:?}", e),
+    //         e => println!("Could not parse service request 1: {:?}", e),
     //     }
     // }
 
-    pub(crate) fn parse_service_request(&mut self, data: &[u8]) {
-        match ssh_parser::parse_ssh_packet(data) {
-            Ok((_, (pkt, _))) => {
-                match pkt {
-                        SshPacket::ServiceRequest(pkt) => {
-                            let service_response = SshServiceRequest {
-                                service_name: String::from_utf8(pkt.to_vec()).expect("Invalid message.").clone(),
-                            };
+    // pub(crate) fn parse_service_accept(&mut self, data: &[u8]) {
+    //     match ssh_parser::parse_ssh_packet(data) {
+    //         Ok((_, (pkt, _))) => {
+    //             match pkt {
+    //                     SshPacket::ServiceAccept(pkt) => {
+    //                         let service_accept = SshServiceAccept {
+    //                             service_name: String::from_utf8(pkt.to_vec()).expect("Invalid message.").clone(),
+    //                         };
 
-                            self.client_service_request = Some(service_response);
-                        }
-                e => println!("Could not parse service request 2: {:?}", e),
-                }
-            }
-            e => println!("Could not parse service request 1: {:?}", e),
-        }
-    }
-
-    pub(crate) fn parse_service_accept(&mut self, data: &[u8]) {
-        match ssh_parser::parse_ssh_packet(data) {
-            Ok((_, (pkt, _))) => {
-                match pkt {
-                        SshPacket::ServiceAccept(pkt) => {
-                            let service_accept = SshServiceAccept {
-                                service_name: String::from_utf8(pkt.to_vec()).expect("Invalid message.").clone(),
-                            };
-
-                            self.server_service_accept = Some(service_accept);
-                        }
-                e => println!("Could not parse service accept 2: {:?}", e),
-                }
-            }
-            e => println!("Could not parse service accept 1: {:?}", e),
-        }
-    }
+    //                         self.server_service_accept = Some(service_accept);
+    //                     }
+    //             e => println!("Could not parse service accept 2: {:?}", e),
+    //             }
+    //         }
+    //         e => println!("Could not parse service accept 1: {:?}", e),
+    //     }
+    // }
 
     pub(crate) fn process(&mut self, data: &[u8], direction: bool) -> ParseResult {
         let mut status = ParseResult::Continue(0);
@@ -277,20 +284,25 @@ impl Ssh {
                         SshPacket::KeyExchange(_) => {
                             println!("encountered SSH key exchange packet");
                             self.parse_key_exchange(data, direction);
+                            status = ParseResult::Continue(0);
                         }
                         SshPacket::DiffieHellmanInit(_) => {
                             println!("encountered SSH DH Init packet");
                             self.parse_dh_client_init(data);
+                            status = ParseResult::Continue(0);
                         }
                         SshPacket::DiffieHellmanReply(_) => {
                             println!("encountered SSH DH Reply packet");
-                            // self.parse_dh_server_response(data);
+                            self.parse_dh_server_response(data);
+                            status = ParseResult::Continue(0);
+                        }
+                        SshPacket::NewKeys => {
+                            println!("encountered SSH New Keys packet");
+                            self.parse_new_keys(data);
                             return ParseResult::Done(0);
                         }
-
                         _ => (),
                     }
-                    status = ParseResult::Continue(0);
                 }
                 e => {
                     log::debug!("parse error: {:?}", e);

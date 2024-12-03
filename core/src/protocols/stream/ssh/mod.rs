@@ -6,7 +6,7 @@ pub mod parser;
 pub use self::handshake::*;
 
 // use serde::Serialize;
-// use ssh_parser::SshPacket;
+use ssh_parser::SshPacket;
 
 /// Parsed SSH handshake contents.
 #[derive(Debug, Default)]
@@ -26,15 +26,15 @@ pub struct Ssh {
     /// Server Diffie-Hellman Key Exchange message.
     pub server_dh_key_exchange: Option<SshDhResponse>,
 
-    // /// Client New Keys message.
-    // pub client_new_keys: Option<SshPacket::NewKeys>,
+    /// Client New Keys message.
+    pub client_new_keys: Option<SshPacket::NewKeys>,
     // /// Server New Keys message.
     // pub server_new_keys: Option<SshPacket::NewKeys>,
 
     /// Client Service Request message.
-    pub client_service_request: Option<SshServiceRequest>,
-    /// Server Service Accept message.
-    pub server_service_accept: Option<SshServiceAccept>,
+    // pub client_service_request: Option<SshServiceRequest>,
+    // /// Server Service Accept message.
+    // pub server_service_accept: Option<SshServiceAccept>,
 }
 
 impl Ssh {
@@ -168,6 +168,13 @@ impl Ssh {
     //     }
     // }
 
+    pub fn key_exchange_cookie_stoc(&self) -> Vec<u8> {
+        match &self.server_key_exchange {
+            Some(server_key_exchange) => server_key_exchange.cookie.iter().map(|&c| c).collect(),
+            None => vec![],
+        }
+    }
+
     pub fn key_exchange_algs_stoc(&self) -> Vec<String> {
         match &self.server_key_exchange {
             Some(server_key_exchange) => server_key_exchange.kex_algs.iter().map(|c| format!("{}", c)).collect(),
@@ -183,8 +190,8 @@ impl Ssh {
     }
     
     pub fn encryption_algs_ctos_stoc(&self) -> Vec<String> {
-        match &self.client_key_exchange {
-            Some(client_key_exchange) => client_key_exchange.encryption_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
+        match &self.server_key_exchange {
+            Some(server_key_exchange) => server_key_exchange.encryption_algs_client_to_server.iter().map(|c| format!("{}", c)).collect(),
             None => vec![],
         }
     }
@@ -240,7 +247,28 @@ impl Ssh {
 
     pub fn dh_init_e(&self) -> Vec<u8> {
         match &self.client_dh_key_exchange {
-            Some(client_dh_key_exchange) => client_dh_key_exchange.e.iter().collect(),
+            Some(client_dh_key_exchange) => client_dh_key_exchange.e.iter().map(|&c| c).collect(),
+            None => vec![],
+        }
+    }
+
+    pub fn dh_response_pubkey_and_certs(&self) -> Vec<u8> {
+        match &self.client_dh_key_exchange {
+            Some(client_dh_key_exchange) => client_dh_key_exchange.e.iter().map(|&c| c).collect(),
+            None => vec![],
+        }
+    }
+
+    pub fn dh_response_f(&self) -> Vec<u8> {
+        match &self.client_dh_key_exchange {
+            Some(client_dh_key_exchange) => client_dh_key_exchange.e.iter().map(|&c| c).collect(),
+            None => vec![],
+        }
+    }
+
+    pub fn dh_response_signature(&self) -> Vec<u8> {
+        match &self.client_dh_key_exchange {
+            Some(client_dh_key_exchange) => client_dh_key_exchange.e.iter().map(|&c| c).collect(),
             None => vec![],
         }
     }
