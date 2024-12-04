@@ -3,6 +3,7 @@
 mod handshake;
 pub mod parser;
 
+use serde::Serialize;
 pub use self::handshake::*;
 
 /// Parsed SSH handshake contents.
