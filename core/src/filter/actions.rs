@@ -28,8 +28,12 @@ pub enum ActionData {
     /// - All other filters: post-reassembly
     PacketDeliver,
 
-    /// Store future packets in this connection in tracked data
-    /// TCP packets are tracked post-reassembly
+    /// Store packets in this connection in tracked data for
+    /// potential future delivery. Used on a non-terminal match
+    /// for a packet-level datatype.
+    PacketCache,
+    /// Store packets in this connection in tracked data for a
+    /// datatype that requires tracking and delivering packets.
     PacketTrack,
 
     // Connection/session actions //
@@ -48,8 +52,9 @@ pub enum ActionData {
 
     /// The subscribable type "update" methods should be invoked (for TCP: pre-reassembly)
     UpdatePDU,
+
     /// The subscribable type "update" methods should be invoked post-reassembly (TCP only)
-    ReassembledUpdatePDU,
+    Reassemble,
 
     /// Deliver connection data (via the ConnectionDelivery filter) when it terminates
     ConnDeliver,
@@ -120,15 +125,27 @@ impl Actions {
         self.data.intersects(ActionData::UpdatePDU)
     }
 
-    /// Conn tracker must deliver PDU to tracked data after reassembly
-    pub(crate) fn update_pdu_reassembled(&self) -> bool {
-        self.data.intersects(ActionData::ReassembledUpdatePDU)
+    /// True if the connection needs to be reassembled
+    pub(crate) fn reassemble(&self) -> bool {
+        self.data.intersects(ActionData::Reassemble) || self.parse_any()
     }
 
-    /// True if the framework should track (buffer) mbufs for this connection
+    /// True if the framework should buffer mbufs for this connection,
+    /// either for future delivery (Cache) or for a datatype that requires
+    /// tracking packets.
     #[inline]
-    pub(crate) fn buffer_frame(&self) -> bool {
-        self.data.intersects(ActionData::PacketTrack)
+    pub(crate) fn buffer_packet(&self, reassembled: bool) -> bool {
+        match reassembled {
+            true => self.data.intersects(ActionData::PacketTrack),
+            false => self
+                .data
+                .intersects(ActionData::PacketTrack | ActionData::PacketCache),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn cache_packet(&self) -> bool {
+        self.data.intersects(ActionData::PacketCache)
     }
 
     /// True if application-layer probing or parsing should be applied
@@ -141,16 +158,6 @@ impl Actions {
                 | ActionData::SessionDeliver
                 | ActionData::SessionTrack,
         )
-    }
-
-    /// True if the framework should consume PDUs for reassembly (TCP),
-    /// parsing, or operations that require ownership of packets.
-    #[inline]
-    pub(crate) fn update_conn(&self) -> bool {
-        self.parse_any()
-            || self.update_pdu_reassembled()
-            || self.buffer_frame()
-            || self.packet_deliver()
     }
 
     /// True if nothing except delivery is required
@@ -293,8 +300,9 @@ impl FromStr for ActionData {
             "SessionDeliver" => Ok(ActionData::SessionDeliver),
             "SessionTrack" => Ok(ActionData::SessionTrack),
             "UpdatePDU" => Ok(ActionData::UpdatePDU),
-            "ReassembledUpdatePDU" => Ok(ActionData::ReassembledUpdatePDU),
+            "Reassemble" => Ok(ActionData::Reassemble),
             "PacketTrack" => Ok(ActionData::PacketTrack),
+            "PacketCache" => Ok(ActionData::PacketCache),
             "ConnDeliver" => Ok(ActionData::ConnDeliver),
             _ => Result::Err(core::fmt::Error),
         }
@@ -312,8 +320,9 @@ impl fmt::Display for ActionData {
             ActionData::SessionDeliver => "SessionDeliver",
             ActionData::SessionTrack => "SessionTrack",
             ActionData::UpdatePDU => "UpdatePDU",
-            ActionData::ReassembledUpdatePDU => "ReassembledUpdatePDU",
+            ActionData::Reassemble => "Reassemble",
             ActionData::PacketTrack => "PacketTrack",
+            ActionData::PacketCache => "PacketCache",
             ActionData::ConnDeliver => "ConnDeliver",
             _ => panic!("Unknown ActionData"),
         };
