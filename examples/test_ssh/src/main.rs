@@ -9,8 +9,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 
-static file = Mutex::new(BufWriter::new(File::create("ssh.jsonl")?));
-static mut wtr = file.lock().unwrap();
+static file: Mutex<BufWriter<File>> = Mutex::new(BufWriter::new(File::create("ssh.jsonl")?));
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -61,8 +60,8 @@ struct Args {
 #[filter("ssh")]
 fn log_ssh(ssh: &SshHandshake) {
     if let Ok(serialized) = serde_json::to_string(&ssh) {
-        wtr.write_all(serialized.as_bytes()).unwrap();
-        wtr.write_all(b"\n").unwrap();
+        file.lock().unwrap().write_all(serialized.as_bytes()).unwrap();
+        file.lock().unwrap().write_all(b"\n").unwrap();
     }
 }
 
