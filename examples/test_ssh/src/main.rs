@@ -5,6 +5,7 @@ use retina_filtergen::{filter, retina_main};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use clap::Parser;
+use lazy_static::lazy_static;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
