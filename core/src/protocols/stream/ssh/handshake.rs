@@ -45,5 +45,5 @@ pub struct SshDhResponse {
     pub signature: Vec<u8>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct SshNewKeys;
