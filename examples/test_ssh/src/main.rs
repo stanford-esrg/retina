@@ -37,7 +37,7 @@ fn log_ssh(ssh: &SshHandshake, conn_record: &ConnRecord) {
         wtr.write_all(serialized.as_bytes()).unwrap();
         wtr.write_all(b"\n").unwrap();
         wtr.write_all(conn_metrics.unwrap().as_bytes()).unwrap();
-        wtr.flush().unwrap();
+        wtr.write_all(b"\n\n").unwrap();
     }
 }
 
@@ -48,4 +48,7 @@ fn main() {
 
     let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
     runtime.run();
+
+    let mut wtr = file.lock().unwrap();
+    wtr.flush().unwrap();
 }
