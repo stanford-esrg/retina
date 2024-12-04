@@ -9,7 +9,6 @@ use lazy_static::lazy_static;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-
 lazy_static! {
     static ref file: Mutex<BufWriter<File>> = Mutex::new(
         BufWriter::new(File::create("ssh.jsonl").unwrap())
@@ -30,44 +29,15 @@ struct Args {
     outfile: PathBuf,
 }
 
-// #[filter("ssh")]
-// fn ssh_cb(ssh: &SshHandshake, conn_record: &ConnRecord) {
-//     println!("Version Exchange: Client to Server");
-//     println!("protoversion: {}, softwareversion: {}, comments: {}", 
-//         ssh.protocol_version_ctos(),
-//         ssh.software_version_ctos(),
-//         ssh.comments_ctos(),
-//     );
-
-//     println!("Version Exchange: Server to Client");
-//     println!("protoversion: {}, softwareversion: {}, comments: {}", 
-//         ssh.protocol_version_stoc(),
-//         ssh.software_version_stoc(),
-//         ssh.comments_stoc(),
-//     );
-
-//     println!("\nKey Exchange");
-//     println!("cookie: {:?}", ssh.key_exchange_cookie_stoc());
-//     println!("kex_algs: {}", ssh.kex_algs_stoc().join(","));
-//     println!("server_host_key_algs: {}", ssh.server_host_key_algs_stoc().join(","));
-//     println!("encryption_algs_ctos: {}", ssh.encryption_algs_ctos().join(","));
-//     println!("encryption_algs_stoc: {}", ssh.encryption_algs_stoc().join(","));
-//     println!("mac_algs_ctos: {}", ssh.mac_algs_ctos().join(","));
-//     println!("mac_algs_stoc: {}", ssh.mac_algs_stoc().join(","));
-//     println!("compression_algs_ctos: {}", ssh.compression_algs_ctos().join(","));
-//     println!("compression_algs_stoc: {}", ssh.compression_algs_stoc().join(","));
-//     println!("languages_ctos: {}", ssh.languages_ctos().join(","));
-//     println!("languages_stoc: {}", ssh.languages_stoc().join(","));
-
-//     println!("\nconn. metrics: {:?}", conn_record);
-// }
-
 #[filter("ssh")]
-fn log_ssh(ssh: &SshHandshake) {
+fn log_ssh(ssh: &SshHandshake, conn_record: &ConnRecord) {
     if let Ok(serialized) = serde_json::to_string(&ssh) {
+        let conn_metrics = serde_json::to_string(&conn_record);
         let mut wtr = file.lock().unwrap();
         wtr.write_all(serialized.as_bytes()).unwrap();
         wtr.write_all(b"\n").unwrap();
+        wtr.write_all(conn_metrics.unwrap().as_bytes()).unwrap();
+        wtr.flush().unwrap();
     }
 }
 
