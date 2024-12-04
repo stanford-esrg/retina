@@ -9,8 +9,8 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 
-let file = Mutex::new(BufWriter::new(File::create("ssh.jsonl")?));
-let mut wtr = file.lock().unwrap();
+static file = Mutex::new(BufWriter::new(File::create("ssh.jsonl")?));
+static mut wtr = file.lock().unwrap();
 
 #[derive(Parser, Debug)]
 struct Args {
