@@ -6,7 +6,7 @@ pub mod parser;
 pub use self::handshake::*;
 
 /// Parsed SSH handshake contents.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct Ssh {
     /// Client protocol version exchange message.
     pub client_version_exchange: Option<SshVersionExchange>,
