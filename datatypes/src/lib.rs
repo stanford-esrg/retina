@@ -7,9 +7,9 @@
 //!
 //! Each subscribable datatype must:
 //!
-//! - Be defined as a [retina_core::filter::DataType], with appropriate parameters and [retina_core::filter::Level].
+//! - Be defined as a [DataType](retina_core::filter::DataType), with appropriate parameters and [retina_core::filter::Level].
 //! - Implement one of the traits defined in this module (Tracked, FromSession, etc.)
-//! - Be added to the [crate::typedefs::DATATYPES] map
+//! - Be added to the [DATATYPES](`crate::typedefs::DATATYPES`) map (note: we are actively working on an approach that eliminates this requirement).
 //!
 //!
 

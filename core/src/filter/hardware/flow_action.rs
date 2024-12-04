@@ -5,7 +5,7 @@ use std::mem;
 
 pub(super) type ActionRules = Vec<dpdk::rte_flow_action>;
 
-/// Builds a vector of rte_flow_action
+// Builds a vector of rte_flow_action
 // #[derive(Debug, Clone)]
 pub(super) struct FlowAction {
     pub(super) rules: ActionRules,

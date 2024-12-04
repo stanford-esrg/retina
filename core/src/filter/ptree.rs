@@ -9,17 +9,17 @@ use std::fmt;
 
 #[derive(Debug, Clone, Copy)]
 pub enum FilterLayer {
-    /// Quick-pass filter per-packet
+    // Quick-pass filter per-packet
     PacketContinue,
-    /// Packet delivery | packet filter
+    // Packet delivery | packet filter
     Packet,
-    /// Connection (protocol) filter
+    // Connection (protocol) filter
     Protocol,
-    /// Session delivery | session filter
+    // Session delivery | session filter
     Session,
-    /// Connection delivery (conn. termination)
+    // Connection delivery (conn. termination)
     ConnectionDeliver,
-    /// Packet delivery (packet datatype match at later layer)
+    // Packet delivery (packet datatype match at later layer)
     PacketDeliver,
 }
 
@@ -36,9 +36,9 @@ impl fmt::Display for FilterLayer {
     }
 }
 
-/// Represents a subscription (callback, datatype)
-/// that will be delivered at a given filter node.
-/// Used in compile-time filter generation.
+// Represents a subscription (callback, datatype)
+// that will be delivered at a given filter node.
+// Used in compile-time filter generation.
 #[derive(Hash, Debug, Clone, PartialEq, Eq)]
 pub struct Deliver {
     // Subscription ID as given by filtergen module
@@ -49,30 +49,30 @@ pub struct Deliver {
     pub must_deliver: bool,
 }
 
-/// A node representing a predicate in the tree
+// A node representing a predicate in the tree
 #[derive(Debug, Clone)]
 pub struct PNode {
-    /// ID of node
+    // ID of node
     pub id: usize,
 
-    /// Predicate represented by this PNode
+    // Predicate represented by this PNode
     pub pred: Predicate,
 
-    /// Actions to apply at this node
-    /// [for action filters]
+    // Actions to apply at this node
+    // [for action filters]
     pub actions: Actions,
 
-    /// Subscriptions to deliver, by index, at this node
-    /// Empty for non-delivery filters.
+    // Subscriptions to deliver, by index, at this node
+    // Empty for non-delivery filters.
     pub deliver: HashSet<Deliver>,
 
-    /// The patterns for which the predicate is a part of
+    // The patterns for which the predicate is a part of
     pub patterns: Vec<usize>,
 
-    /// Child PNodes
+    // Child PNodes
     pub children: Vec<PNode>,
 
-    /// Mutually exclusive with the node preceding it in child list
+    // Mutually exclusive with the node preceding it in child list
     pub if_else: bool,
 }
 
@@ -267,25 +267,25 @@ impl fmt::Display for PNode {
     }
 }
 
-/// A n-ary tree representing a Filter.
-/// Paths from root to leaf represent a pattern for data to match.
-/// Filter returns action(s) or delivers data.
+// A n-ary tree representing a Filter.
+// Paths from root to leaf represent a pattern for data to match.
+// Filter returns action(s) or delivers data.
 #[derive(Debug, Clone)]
 pub struct PTree {
-    /// Root node
+    // Root node
     pub root: PNode,
 
-    /// Number of nodes in tree
+    // Number of nodes in tree
     pub size: usize,
 
-    /// Possible actions
+    // Possible actions
     pub actions: Actions,
 
-    /// Which filter this PTree represents
+    // Which filter this PTree represents
     pub filter_layer: FilterLayer,
 
-    /// Has `collapse` been applied?
-    /// Use to ensure no filters are applied after `collapse`
+    // Has `collapse` been applied?
+    // Use to ensure no filters are applied after `collapse`
     collapsed: bool,
 }
 
@@ -303,9 +303,9 @@ impl PTree {
         }
     }
 
-    /// Add a filter to an existing PTree
-    /// Applied for multiple subscriptions, when multiple actions
-    /// and/or delivery filters will be checked at the same stage
+    // Add a filter to an existing PTree
+    // Applied for multiple subscriptions, when multiple actions
+    // and/or delivery filters will be checked at the same stage
     pub fn add_filter(
         &mut self,
         patterns: &[FlatPattern],
@@ -367,9 +367,9 @@ impl PTree {
         }
     }
 
-    /// Add a single pattern (root-to-leaf path) to the tree.
-    /// Add nodes that don't exist. Update actions or subscription IDs
-    /// for terminal nodes at this stage.
+    // Add a single pattern (root-to-leaf path) to the tree.
+    // Add nodes that don't exist. Update actions or subscription IDs
+    // for terminal nodes at this stage.
     fn add_pattern(
         &mut self,
         pattern: &FlatPattern,
@@ -441,7 +441,7 @@ impl PTree {
         }
     }
 
-    /// Returns a copy of the subtree rooted at Node `id`
+    // Returns a copy of the subtree rooted at Node `id`
     pub fn get_subtree(&self, id: usize) -> Option<PNode> {
         fn get_subtree(id: usize, node: &PNode) -> Option<PNode> {
             if node.id == id {
@@ -702,8 +702,8 @@ impl PTree {
         prune_redundant_branches(&mut self.root, self.filter_layer, can_prune_next);
     }
 
-    /// Apply all filter tree optimizations.
-    /// This must only be invoked AFTER the tree is completely built.
+    // Apply all filter tree optimizations.
+    // This must only be invoked AFTER the tree is completely built.
     pub fn collapse(&mut self) {
         if matches!(
             self.filter_layer,
@@ -767,7 +767,7 @@ impl PTree {
         layered
     }
 
-    /// modified from https://vallentin.dev/2019/05/14/pretty-print-tree
+    // modified from https://vallentin.dev/2019/05/14/pretty-print-tree
     fn pprint(&self) -> String {
         fn pprint(s: &mut String, node: &PNode, prefix: String, last: bool) {
             let prefix_current = if last { "`- " } else { "|- " };

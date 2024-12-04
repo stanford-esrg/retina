@@ -1,14 +1,25 @@
+//! Utilities for compile-time filter generation and subscription handling.
+//!
+//! This module's exports will be most relevant for those adding new filter utilities
+//! and/or datatypes. Nothing in this module is needed for writing an ordinary
+//! Retina application.
+//!
+
 pub mod actions;
 pub use actions::{ActionData, Actions};
 
+#[doc(hidden)]
 #[macro_use]
 pub mod macros;
+#[doc(hidden)]
 pub mod ast;
 mod hardware;
 #[allow(clippy::upper_case_acronyms)]
 mod parser;
 mod pattern;
+#[doc(hidden)]
 pub mod ptree;
+#[doc(hidden)]
 pub mod ptree_flat;
 
 pub mod datatypes;
@@ -29,20 +40,32 @@ use std::fmt;
 use anyhow::{bail, Result};
 use thiserror::Error;
 
-/// Filter types
+// Filter functions
+// Note: Rust won't enforce trait bounds on type alias, but T must implement Tracked.
+
+/// Software filter applied to each packet. Will drop, deliver, and/or
+/// forward packets to the connection manager. If hardware assist is enabled,
+/// the framework will additionally attempt to install the filter in the NICs.
 pub type PacketContFn = fn(&Mbuf, &CoreId) -> Actions;
+/// Filter applied to the first packet of a connection to initialize actions.
 pub type PacketFilterFn<T> = fn(&Mbuf, &T) -> Actions;
+/// Filter applied when the application-layer protocol is identified.
+/// This may drop connections or update actions.
+/// It may also drain buffered packets to packet-level subscriptions that match
+/// at the protocol stage.
 pub type ProtoFilterFn<T> = fn(&ConnData, &T) -> Actions;
-
-// Will apply session filter and potentially deliver or store session
+/// Filter applied when the application-layer session is parsed.
+/// This may drop connections, drop sessions, or update actions.
+/// It may also deliver session-level subscriptions.
 pub type SessionFilterFn<T> = fn(&Session, &ConnData, &T) -> Actions;
-
-// Subscription deliver functions
-// \note Rust won't enforce trait bounds on type alias,
-//       but T should implement Tracked.
+/// Filter applied to disambiguate and deliver matched packet-level subscriptions
+/// that required stateful filtering (i.e., could not be delivered at the packet stage).
 pub type PacketDeliverFn<T> = fn(&Mbuf, &ConnData, &T);
+/// Filter applied to disambiguate and deliver matched connection-level subscriptions
+/// (those delivered at connection termination).
 pub type ConnDeliverFn<T> = fn(&ConnData, &T);
 
+#[doc(hidden)]
 pub struct FilterFactory<T>
 where
     T: Trackable,
@@ -115,12 +138,12 @@ impl Filter {
         })
     }
 
-    /// Returns disjunct of layered patterns
+    // Returns disjunct of layered patterns
     pub fn get_patterns_layered(&self) -> Vec<LayeredPattern> {
         self.patterns.clone()
     }
 
-    /// Returns disjuct of flat patterns
+    // Returns disjuct of flat patterns
     pub fn get_patterns_flat(&self) -> Vec<FlatPattern> {
         self.patterns
             .iter()
@@ -128,12 +151,12 @@ impl Filter {
             .collect::<Vec<_>>()
     }
 
-    /// Returns predicate tree
+    // Returns predicate tree
     pub fn to_ptree(&self) -> FlatPTree {
         FlatPTree::new(&self.get_patterns_flat())
     }
 
-    /// Returns `true` if filter can be completely realized in hardware
+    // Returns `true` if filter can be completely realized in hardware
     pub fn is_hardware_filterable(&self) -> bool {
         // needs to take port as argument
         todo!();

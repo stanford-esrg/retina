@@ -33,8 +33,8 @@ pub(crate) struct HardwareFilter<'a> {
 }
 
 impl<'a> HardwareFilter<'a> {
-    /// Creates a new HardwareFilter for port given a filter.
-    /// Prunes all predicates not supported by the device.
+    // Creates a new HardwareFilter for port given a filter.
+    // Prunes all predicates not supported by the device.
     pub(crate) fn new(filter: &Filter, port: &'a Port) -> Self {
         let hw_patterns = filter
             .get_patterns_flat()
@@ -72,7 +72,7 @@ impl<'a> HardwareFilter<'a> {
         }
     }
 
-    /// Installs the hardware filter to the port.
+    // Installs the hardware filter to the port.
     pub(crate) fn install(&self) -> Result<()> {
         debug!("{}", self);
         if self.patterns.iter().all(|p| p.is_empty()) {
@@ -452,7 +452,7 @@ fn drop_eth_traffic(port: &Port, group: u32, priority: u32) -> Result<()> {
     Ok(())
 }
 
-/// Flush all flow rules associated with port
+// Flush all flow rules associated with port
 pub(crate) fn flush_rules(port: &Port) {
     info!("Flushing flow rules on Port {}", port.id);
     unsafe {

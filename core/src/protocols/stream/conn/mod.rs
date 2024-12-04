@@ -18,6 +18,9 @@ pub(crate) enum ConnDataError {
 }
 
 /// A trait that all extractable ConnData fields must implement
+/// This is used for filtering on L3/L4 fields following the packet
+/// filter stage (i.e., when protocol, port, etc. cannot be extracted
+/// fro a packet).
 pub trait ConnField {
     /// Parse from the ConnData
     fn parse_from(conn: &ConnData) -> Result<Self>
