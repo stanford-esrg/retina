@@ -75,9 +75,7 @@ fn has_path(from: &ProtocolName, to: &ProtocolName) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Predicate {
     /// Matches on a protocol
-    Unary {
-        protocol: ProtocolName,
-    },
+    Unary { protocol: ProtocolName },
     /// Matches on a field in a protocol
     Binary {
         protocol: ProtocolName,

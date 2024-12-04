@@ -11,8 +11,8 @@
 //! Each filter stage returns a set of actions and a set of terminal actions.
 //! The terminal actions are the subset of actions that are maintained through
 //! the next filter stage.
-use std::fmt;
 use bitmask_enum::bitmask;
+use std::fmt;
 
 #[bitmask]
 #[bitmask_config(vec_debug)]

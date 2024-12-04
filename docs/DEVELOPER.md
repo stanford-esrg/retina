@@ -1,5 +1,7 @@
 # Retina (v1.0.0) Detailed Developer Documentation
 
+*Work in progress*
+
 This document is intended as a resource for Retina developers and contributors. It is meant to supplement the core [developer documentation](https://stanford-esrg.github.io/retina/retina_core/) and the [original paper](https://zakird.com/papers/retina.pdf). It contains a more detailed and centralized system design description than the documentation. Compared to the original paper, it both reflects more recent changes and inlines links to relevant code.
 
 Retina is in its early stages, and we are actively working on new releases and research that will significantly expand its utility. We welcome contributors and open issues, and we would love to hear about your use-cases (especially if Retina doesn't suit your needs!).
