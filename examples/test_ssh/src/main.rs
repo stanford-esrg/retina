@@ -8,6 +8,10 @@ use clap::Parser;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+
+let file = Mutex::new(BufWriter::new(File::create("ssh.jsonl")?));
+let mut wtr = file.lock().unwrap();
+
 #[derive(Parser, Debug)]
 struct Args {
     #[clap(short, long, parse(from_os_str), value_name = "FILE")]
@@ -56,17 +60,10 @@ struct Args {
 
 #[filter("ssh")]
 fn log_ssh(ssh: &SshHandshake) {
-    let file = Mutex::new(BufWriter::new(File::create("ssh.jsonl")?));
-
     if let Ok(serialized) = serde_json::to_string(&ssh) {
-        let mut wtr = file.lock().unwrap();
         wtr.write_all(serialized.as_bytes()).unwrap();
         wtr.write_all(b"\n").unwrap();
     }
-
-    let mut wtr = file.lock().unwrap();
-    wtr.flush()?;
-
 }
 
 #[retina_main(1)]
