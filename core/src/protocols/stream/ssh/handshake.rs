@@ -6,7 +6,7 @@ use crate::utils::base64;
 use serde::Serialize;
 
 /// A parsed SSH Protocol Version Exchange message.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct SshVersionExchange {
     pub protoversion: Option<String>,
     pub softwareversion: Option<String>,
@@ -32,13 +32,13 @@ pub struct SshKeyExchange {
 }
 
 /// A parsed Diffie-Hellman Key Exchange message sent by the client.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct SshDhInit {
     pub e: Vec<u8>,
 }
 
 /// A parsed Diffie-Hellman Key Exchange message sent by the server.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct SshDhResponse {
     pub pubkey_and_certs: Vec<u8>,
     pub f: Vec<u8>,
