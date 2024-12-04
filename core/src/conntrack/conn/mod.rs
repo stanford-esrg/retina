@@ -96,6 +96,17 @@ where
         match &mut self.l4conn {
             L4Conn::Tcp(tcp_conn) => {
                 tcp_conn.reassemble(pdu, &mut self.info, subscription, registry);
+                // Check if, after actions update, the framework/subscriptions no longer require
+                // receiving reassembled traffic
+                if !self.info.actions.reassemble() {
+                    // Safe to discard out-of-order buffers
+                    if tcp_conn.ctos.ooo_buf.len() != 0 {
+                        tcp_conn.ctos.ooo_buf.buf.clear();
+                    }
+                    if tcp_conn.stoc.ooo_buf.len() != 0 {
+                        tcp_conn.stoc.ooo_buf.buf.clear();
+                    }
+                }
             }
             L4Conn::Udp(_udp_conn) => self.info.consume_pdu(pdu, subscription, registry),
         }

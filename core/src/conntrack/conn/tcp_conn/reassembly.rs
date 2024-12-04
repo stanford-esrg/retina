@@ -13,6 +13,8 @@ use std::collections::VecDeque;
 pub(crate) struct TcpFlow {
     /// Expected sequence number of next segment
     pub(super) next_seq: Option<u32>,
+    /// Last-seen ack number for peer's flow
+    pub(crate) last_ack: Option<u32>,
     /// Flow status for consumed control packets.
     /// Matches TCP flag bits.
     pub(super) consumed_flags: u8,
@@ -26,6 +28,7 @@ impl TcpFlow {
     pub(super) fn default(capacity: usize) -> Self {
         TcpFlow {
             next_seq: None,
+            last_ack: None,
             consumed_flags: 0,
             ooo_buf: OutOfOrderBuffer::new(capacity),
         }
@@ -34,9 +37,10 @@ impl TcpFlow {
     /// Creates a new TCP flow with given next sequence number, flags,
     /// and out-of-order buffer
     #[inline]
-    pub(super) fn new(capacity: usize, next_seq: u32, flags: u8) -> Self {
+    pub(super) fn new(capacity: usize, next_seq: u32, flags: u8, ack: u32) -> Self {
         TcpFlow {
             next_seq: Some(next_seq),
+            last_ack: Some(ack),
             consumed_flags: flags,
             ooo_buf: OutOfOrderBuffer::new(capacity),
         }
@@ -68,6 +72,7 @@ impl TcpFlow {
                 if segment.flags() & FIN != 0 {
                     expected_seq = cur_seq.wrapping_add(1);
                 }
+                self.last_ack = Some(segment.ack_no());
                 info.consume_pdu(segment, subscription, registry);
                 self.flush_ooo_buffer::<T>(expected_seq, info, subscription, registry);
             } else if wrapping_lt(next_seq, cur_seq) {
@@ -76,6 +81,7 @@ impl TcpFlow {
             } else if let Some(expected_seq) = overlap(&mut segment, next_seq) {
                 // Segment starts before the next expected segment but has new data
                 self.consumed_flags |= segment.flags();
+                self.last_ack = Some(segment.ack_no());
                 info.consume_pdu(segment, subscription, registry);
                 self.flush_ooo_buffer::<T>(expected_seq, info, subscription, registry);
             } else {
@@ -93,6 +99,7 @@ impl TcpFlow {
                 let expected_seq = cur_seq.wrapping_add(1 + length);
                 self.next_seq = Some(expected_seq);
                 self.consumed_flags |= segment.flags();
+                self.last_ack = Some(segment.ack_no());
                 info.consume_pdu(segment, subscription, registry);
                 self.flush_ooo_buffer::<T>(expected_seq, info, subscription, registry);
             } else {
@@ -128,6 +135,7 @@ impl TcpFlow {
         }
         let next_seq = self.ooo_buf.flush_ordered::<T>(
             expected_seq,
+            &mut self.last_ack,
             &mut self.consumed_flags,
             info,
             subscription,
@@ -177,6 +185,7 @@ impl OutOfOrderBuffer {
     fn flush_ordered<T: Trackable>(
         &mut self,
         expected_seq: u32,
+        last_ack: &mut Option<u32>,
         consumed_flags: &mut u8,
         info: &mut ConnInfo<T>,
         subscription: &Subscription<T::Subscribed>,
@@ -204,6 +213,7 @@ impl OutOfOrderBuffer {
                 if segment.flags() & FIN != 0 {
                     next_seq = next_seq.wrapping_add(1);
                 }
+                *last_ack = Some(segment.ack_no());
                 info.consume_pdu(segment, subscription, registry);
                 index = 0;
             } else if wrapping_lt(next_seq, cur_seq) {
@@ -213,6 +223,7 @@ impl OutOfOrderBuffer {
                 if let Some(update_seq) = overlap(&mut segment, next_seq) {
                     next_seq = update_seq;
                     *consumed_flags |= segment.flags();
+                    *last_ack = Some(segment.ack_no());
                     info.consume_pdu(segment, subscription, registry);
                     index = 0;
                 } else {
@@ -242,7 +253,10 @@ pub fn wrapping_lt(lhs: u32, rhs: u32) -> bool {
 fn overlap(segment: &mut L4Pdu, expected_seq: u32) -> Option<u32> {
     let length = segment.length();
     let cur_seq = segment.seq_no();
-    let end_seq = cur_seq.wrapping_add(length as u32);
+    let mut end_seq = cur_seq.wrapping_add(length as u32);
+    if segment.flags() & FIN != 0 {
+        end_seq = end_seq.wrapping_add(1);
+    }
 
     if wrapping_lt(expected_seq, end_seq) {
         // contains new data

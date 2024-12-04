@@ -982,7 +982,7 @@ mod tests {
         // Remaining: eth -> tcp, udp
         assert!(ptree.size == 4);
         expected_actions.clear();
-        expected_actions.data = ActionData::ProtoFilter | ActionData::PacketTrack;
+        expected_actions.data = ActionData::ProtoFilter | ActionData::PacketCache;
         assert!(ptree.actions == expected_actions);
 
         let mut ptree = PTree::new_empty(FilterLayer::PacketContinue);
@@ -1003,7 +1003,7 @@ mod tests {
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
         ptree.add_filter(&filter.get_patterns_flat(), &datatype, &DELIVER);
         let mut expected_actions = Actions::new();
-        expected_actions.data |= ActionData::PacketTrack | ActionData::ProtoFilter;
+        expected_actions.data |= ActionData::PacketCache | ActionData::ProtoFilter;
         assert!(ptree.actions == expected_actions);
     }
 

@@ -54,8 +54,10 @@ pub struct DataType {
     pub track_sessions: bool,
     /// True if the datatype requires invoking `update` method before reassembly
     pub needs_update: bool,
-    /// True if the datatype requires invoking `update` method after reassembly
-    pub needs_update_reassembled: bool,
+    /// True if the datatype requires reassembly (for `track_packets` or `update`)
+    pub needs_reassembly: bool,
+    /// True if the datatype requires tracking packets
+    pub needs_packet_track: bool,
     /// A vector of the application-layer parsers required by this datatype
     /// Retina loads the union of parsers required by all datatypes and filters
     pub stream_protos: Vec<&'static str>,
@@ -72,7 +74,8 @@ impl DataType {
             needs_parse: false,
             track_sessions: false,
             needs_update: true,
-            needs_update_reassembled: false,
+            needs_reassembly: false,
+            needs_packet_track: false,
             stream_protos: vec![],
             as_str,
         }
@@ -86,7 +89,8 @@ impl DataType {
             needs_parse: true,
             track_sessions: false,
             needs_update: false,
-            needs_update_reassembled: false,
+            needs_reassembly: false,
+            needs_packet_track: false,
             stream_protos,
             as_str,
         }
@@ -100,7 +104,8 @@ impl DataType {
             needs_parse: false,
             track_sessions: false,
             needs_update: false,
-            needs_update_reassembled: false,
+            needs_reassembly: false,
+            needs_packet_track: false,
             stream_protos: vec![],
             as_str,
         }
@@ -114,7 +119,8 @@ impl DataType {
             needs_parse: false,
             track_sessions: false,
             needs_update: false,
-            needs_update_reassembled: false,
+            needs_reassembly: false,
+            needs_packet_track: false,
             stream_protos: vec![],
             as_str,
         }
@@ -122,13 +128,14 @@ impl DataType {
 
     /// Creates a typical datatype for a packet list
     /// (Connection-level, requires updates in order to track packets)
-    pub fn new_default_pktlist(as_str: &'static str, reassembly: bool) -> Self {
+    pub fn new_default_pktlist(as_str: &'static str, needs_reassembly: bool) -> Self {
         DataType {
             level: Level::Connection,
             needs_parse: false,
             track_sessions: false,
-            needs_update: !reassembly,
-            needs_update_reassembled: reassembly,
+            needs_update: false,
+            needs_reassembly,
+            needs_packet_track: true,
             stream_protos: vec![],
             as_str,
         }
@@ -208,10 +215,15 @@ impl DataType {
             actions.if_matched.terminal_actions |= ActionData::UpdatePDU;
             actions.if_matching.data |= ActionData::UpdatePDU;
         }
-        if self.needs_update_reassembled {
-            actions.if_matched.data |= ActionData::ReassembledUpdatePDU;
-            actions.if_matched.terminal_actions |= ActionData::ReassembledUpdatePDU;
-            actions.if_matching.data |= ActionData::ReassembledUpdatePDU;
+        if self.needs_reassembly {
+            actions.if_matched.data |= ActionData::Reassemble;
+            actions.if_matched.terminal_actions |= ActionData::Reassemble;
+            actions.if_matching.data |= ActionData::Reassemble;
+        }
+        if self.needs_packet_track {
+            actions.if_matched.data |= ActionData::PacketTrack;
+            actions.if_matched.terminal_actions |= ActionData::PacketTrack;
+            actions.if_matching.data |= ActionData::PacketTrack;
         }
     }
 
@@ -243,7 +255,7 @@ impl DataType {
         // and (2) tracked until then.
         if matches!(self.level, Level::Packet) {
             assert!(matches!(sub_level, Level::Packet));
-            actions.if_matching.data |= ActionData::PacketTrack;
+            actions.if_matching.data |= ActionData::PacketCache;
             // Matched packet-level subscription is delivered in filter
         }
 
@@ -284,7 +296,7 @@ impl DataType {
             actions.if_matched.data |= ActionData::PacketDeliver;
             actions.if_matched.terminal_actions |= ActionData::PacketDeliver;
             // Track in case of match in next filter
-            actions.if_matching.data |= ActionData::PacketTrack;
+            actions.if_matching.data |= ActionData::PacketCache;
         }
 
         // Connection- and session-level subscriptions depend on the actions required
@@ -592,6 +604,6 @@ mod tests {
         let mut spec = SubscriptionSpec::new(String::from(""), String::from("cb"));
         spec.add_datatype(DataType::new_default_packet("Packet"));
         assert!(spec.proto_filter().if_matched.packet_deliver());
-        assert!(spec.proto_filter().if_matching.buffer_frame());
+        assert!(spec.proto_filter().if_matching.cache_packet());
     }
 }
