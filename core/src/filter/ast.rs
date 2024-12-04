@@ -43,6 +43,8 @@ lazy_static! {
 }
 
 lazy_static! {
+    /// Graph of possible protocol layers used to build the filter tree.
+    /// For example, "tls" must be preceded by "tcp".
     pub(crate) static ref NODE_BIMAP: BiMap::<NodeIndex, ProtocolName> = {
         LAYERS
             .node_indices()
@@ -51,8 +53,8 @@ lazy_static! {
     };
 }
 
-/// Returns `true` if there is a path from `from` to `to` in the
-/// protocol LAYERS graph.
+// Returns `true` if there is a path from `from` to `to` in the
+// protocol LAYERS graph.
 fn has_path(from: &ProtocolName, to: &ProtocolName) -> bool {
     // Returns `false` if from == to
     let from_node = NODE_BIMAP.get_by_right(from);
@@ -72,9 +74,11 @@ fn has_path(from: &ProtocolName, to: &ProtocolName) -> bool {
 /// An individual filter predicate
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Predicate {
+    /// Matches on a protocol
     Unary {
         protocol: ProtocolName,
     },
+    /// Matches on a field in a protocol
     Binary {
         protocol: ProtocolName,
         field: FieldName,
@@ -84,7 +88,7 @@ pub enum Predicate {
 }
 
 impl Predicate {
-    /// Returns the name of the protocol.
+    // Returns the name of the protocol.
     pub fn get_protocol(&self) -> &ProtocolName {
         match self {
             Predicate::Unary { protocol } => protocol,
@@ -92,24 +96,24 @@ impl Predicate {
         }
     }
 
-    /// Returns `true` if predicate is a unary constraint.
+    // Returns `true` if predicate is a unary constraint.
     pub fn is_unary(&self) -> bool {
         matches!(self, Predicate::Unary { .. })
     }
 
-    /// Returns `true` if predicate is a binary constraint.
+    // Returns `true` if predicate is a binary constraint.
     pub fn is_binary(&self) -> bool {
         matches!(self, Predicate::Binary { .. })
     }
 
-    /// Returns `true` if predicate can be pushed to a packet filter.
-    /// i.e., the lowest filter level needed to apply the predicate is a packet filter.
+    // Returns `true` if predicate can be pushed to a packet filter.
+    // i.e., the lowest filter level needed to apply the predicate is a packet filter.
     pub fn on_packet(&self) -> bool {
         !self.needs_conntrack()
     }
 
-    /// Returns `true` if predicate *requires* raw packets
-    /// (i.e., cannot be connection-level data)
+    // Returns `true` if predicate *requires* raw packets
+    // (i.e., cannot be connection-level data)
     pub fn req_packet(&self) -> bool {
         if !self.on_packet() {
             return false;
@@ -127,20 +131,20 @@ impl Predicate {
         !ConnData::supported_protocols().contains(&self.get_protocol().name())
     }
 
-    /// Returns `true` if predicate can be satisfied by a connection filter.
-    /// i.e., the lowest filter level needed to apply the predicate is a connection filter.
+    // Returns `true` if predicate can be satisfied by a connection filter.
+    // i.e., the lowest filter level needed to apply the predicate is a connection filter.
     pub fn on_proto(&self) -> bool {
         self.needs_conntrack() && self.is_unary()
     }
 
-    /// Returns `true` if predicate can be satisfied by a session filter.
-    /// i.e., the lowest filter level needed to apply the predicate is a session filter.
+    // Returns `true` if predicate can be satisfied by a session filter.
+    // i.e., the lowest filter level needed to apply the predicate is a session filter.
     pub fn on_session(&self) -> bool {
         self.needs_conntrack() && self.is_binary()
     }
 
-    /// Returns `true` if the predicate's protocol requires connection tracking
-    /// i.e., is an application-layer protocol that runs on top of TCP or UDP.
+    // Returns `true` if the predicate's protocol requires connection tracking
+    // i.e., is an application-layer protocol that runs on top of TCP or UDP.
     fn needs_conntrack(&self) -> bool {
         has_path(self.get_protocol(), &protocol!("tcp"))
             || has_path(self.get_protocol(), &protocol!("udp"))
@@ -156,6 +160,8 @@ impl Predicate {
         }
     }
 
+    // Returns `true` if the predicate would have been checked at the previous
+    // filter layer based on both the filter layer and the subscription level.
     pub(super) fn is_prev_layer(
         &self,
         filter_layer: FilterLayer,
@@ -187,7 +193,7 @@ impl Predicate {
         }
     }
 
-    // Predicate would have been checked at prev. layer
+    // Returns true if the predicate would have been checked at prev. layer
     // Does not consider subscription type; meant to be used for filter collapse.
     pub(super) fn is_prev_layer_pred(&self, filter_layer: FilterLayer) -> bool {
         match filter_layer {
@@ -204,13 +210,13 @@ impl Predicate {
         }
     }
 
-    /// Returns `true` if predicate can be pushed down to hardware port.
+    // Returns `true` if predicate can be pushed down to hardware port.
     pub(super) fn is_hardware_filterable(&self, port: &Port) -> bool {
         hardware::device_supported(self, port)
     }
 
-    /// Returns `true` if `self` and `pred` are entirely mutually exclusive
-    /// (i.e., could be correctly represented by "if `a` {} else if `b` {}"...)
+    // Returns `true` if `self` and `pred` are entirely mutually exclusive
+    // (i.e., could be correctly represented by "if `a` {} else if `b` {}"...)
     pub(super) fn is_excl(&self, pred: &Predicate) -> bool {
         // Unary predicates at the same layer are mutually exclusive
         // E.g.: `ipv4 | ipv6`, `tcp | udp`
@@ -301,7 +307,7 @@ impl Predicate {
         false
     }
 
-    /// Returns `true` if `self` is a subset of `pred` (`pred` is parent of)
+    // Returns `true` if `self` is a subset of `pred` (`pred` is parent of)
     pub(super) fn is_child(&self, pred: &Predicate) -> bool {
         if self.get_protocol() != pred.get_protocol() {
             return false;
