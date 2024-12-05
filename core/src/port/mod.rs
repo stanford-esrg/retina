@@ -306,7 +306,7 @@ impl Port {
             port_conf.rx_adv_conf.rss_conf.rss_key = symmetric_rss_key.as_ptr() as *mut u8;
             port_conf.rx_adv_conf.rss_conf.rss_key_len = symmetric_rss_key.len() as u8;
             port_conf.rx_adv_conf.rss_conf.rss_hf =
-                (dpdk::RTE_ETH_RSS_IP | dpdk::RTE_ETH_RSS_TCP | dpdk::RTE_ETH_RSS_UDP)
+                (dpdk::ETH_RSS_IP | dpdk::ETH_RSS_TCP | dpdk::ETH_RSS_UDP) as u64
                     & dev_info.flow_type_rss_offloads;
         }
 

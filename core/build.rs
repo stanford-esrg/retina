@@ -115,6 +115,7 @@ fn main() {
         .join("dpdk_headers.h");
     let bindings = builder
         .header(headers_file.to_str().unwrap())
+        .clang_macro_fallback()
         // mark as opaque per bindgen bug on packed+aligned structs:
         // https://github.com/rust-lang/rust-bindgen/issues/1538
         .opaque_type(r"rte_arp_ipv4|rte_arp_hdr")
