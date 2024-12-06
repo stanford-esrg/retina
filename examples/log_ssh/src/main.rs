@@ -29,19 +29,27 @@ struct Args {
     outfile: PathBuf,
 }
 
-#[filter("ssh")]
-fn log_ssh(ssh: &SshHandshake, conn_record: &ConnRecord) {
+#[filter("ssh.client_version_exchange.softwareversion ~ '^OpenSSH_\d+\.\d.*$")]
+fn ssh_cb(ssh: &SshHandshake) {
     if let Ok(serialized) = serde_json::to_string(&ssh) {
         let conn_metrics = serde_json::to_string(&conn_record);
         let mut wtr = file.lock().unwrap();
         wtr.write_all(serialized.as_bytes()).unwrap();
         wtr.write_all(b"\n").unwrap();
-        wtr.write_all(conn_metrics.unwrap().as_bytes()).unwrap();
-        wtr.write_all(b"\n\n").unwrap();
     }
 }
 
-#[retina_main(1)]
+#[filter("ssh")]
+fn log_ssh(ssh: &SshHandshake) {
+    if let Ok(serialized) = serde_json::to_string(&ssh) {
+        let conn_metrics = serde_json::to_string(&conn_record);
+        let mut wtr = file.lock().unwrap();
+        wtr.write_all(serialized.as_bytes()).unwrap();
+        wtr.write_all(b"\n").unwrap();
+    }
+}
+
+#[retina_main(2)]
 fn main() {
     let args = Args::parse();
     let config = load_config(&args.config);
