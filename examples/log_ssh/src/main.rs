@@ -1,5 +1,5 @@
 use retina_core::{config::load_config, Runtime};
-use retina_datatypes::{FilterStr, SshHandshake};
+use retina_datatypes::SshHandshake;
 use retina_filtergen::{filter, retina_main};
 
 use std::fs::File;
@@ -30,7 +30,7 @@ struct Args {
 }
 
 #[filter("ssh.software_version_ctos ~ '^OpenSSH_[0-9]+\\.[0-9].*$'")]
-fn ssh_cb(ssh: &SshHandshake, filter_str: &FilterStr) {
+fn ssh_cb(ssh: &SshHandshake) {
     if let Ok(serialized) = serde_json::to_string(&ssh) {
         let mut wtr = file.lock().unwrap();
         wtr.write_all(serialized.as_bytes()).unwrap();
