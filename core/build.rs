@@ -137,7 +137,6 @@ fn main() {
     let mut builder = cc::Build::new();
     builder.opt_level(3);
     builder.pic(true);
-    builder.flag("-mssse3");
     builder.flag("-march=native");
 
     let inlined_file = Path::new(&cargo_dir)
