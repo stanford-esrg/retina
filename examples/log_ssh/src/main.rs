@@ -29,7 +29,7 @@ struct Args {
     outfile: PathBuf,
 }
 
-#[filter("ssh.client_version_exchange.softwareversion ~ '^OpenSSH_[0-9]+\\.[0-9].*$")]
+#[filter("ssh.client_version_exchange.softwareversion ~ '^OpenSSH_[0-9]+\\.[0-9].*$'")]
 fn ssh_cb(ssh: &SshHandshake, filter_str: &FilterStr) {
     if let Ok(serialized) = serde_json::to_string(&ssh) {
         let mut wtr = file.lock().unwrap();
