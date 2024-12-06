@@ -30,9 +30,8 @@ struct Args {
 }
 
 #[filter("ssh.client_version_exchange.softwareversion ~ '^OpenSSH_\d+\.\d.*$")]
-fn ssh_cb(ssh: &SshHandshake) {
+fn ssh_cb(ssh: &SshHandshake, filter_str: &FilterStr) {
     if let Ok(serialized) = serde_json::to_string(&ssh) {
-        let conn_metrics = serde_json::to_string(&conn_record);
         let mut wtr = file.lock().unwrap();
         wtr.write_all(serialized.as_bytes()).unwrap();
         wtr.write_all(b"\n").unwrap();
