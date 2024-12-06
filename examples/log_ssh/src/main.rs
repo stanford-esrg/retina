@@ -1,5 +1,5 @@
 use retina_core::{config::load_config, Runtime};
-use retina_datatypes::SshHandshake;
+use retina_datatypes::{FilterStr, SshHandshake};
 use retina_filtergen::{filter, retina_main};
 
 use std::fs::File;
