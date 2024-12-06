@@ -108,7 +108,7 @@ impl PacketList for BidirPktStream {
         }
     }
 
-    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if !reassembled {
             self.push(pdu);
         }
@@ -154,7 +154,7 @@ impl PacketList for OrigPktStream {
         }
     }
 
-    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if pdu.dir && !reassembled {
             self.push(pdu);
         }
@@ -201,7 +201,7 @@ impl PacketList for RespPktStream {
         }
     }
 
-    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if !pdu.dir && !reassembled {
             self.push(pdu);
         }
@@ -245,7 +245,7 @@ impl PacketList for OrigPktsReassembled {
         }
     }
 
-    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if pdu.dir && reassembled {
             self.push(pdu);
         }
@@ -289,7 +289,7 @@ impl PacketList for RespPktsReassembled {
         }
     }
 
-    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if !pdu.dir && reassembled {
             self.push(pdu);
         }
@@ -314,7 +314,7 @@ impl PacketList for BidirZcPktStream {
         }
     }
 
-    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if !reassembled {
             self.packets.push(Mbuf::new_ref(&pdu.mbuf));
         }
@@ -340,7 +340,7 @@ impl PacketList for OrigZcPktStream {
         }
     }
 
-    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if !reassembled && pdu.dir {
             self.packets.push(Mbuf::new_ref(&pdu.mbuf));
         }
@@ -368,7 +368,7 @@ impl PacketList for RespZcPktStream {
         }
     }
 
-    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if !reassembled && !pdu.dir {
             self.packets.push(Mbuf::new_ref(&pdu.mbuf));
         }
@@ -392,7 +392,7 @@ impl PacketList for OrigZcPktsReassembled {
         }
     }
 
-    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if reassembled && pdu.dir {
             self.packets.push(Mbuf::new_ref(&pdu.mbuf));
         }
@@ -416,7 +416,7 @@ impl PacketList for RespZcPktsReassembled {
         }
     }
 
-    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if reassembled && !pdu.dir {
             self.packets.push(Mbuf::new_ref(&pdu.mbuf));
         }

@@ -29,13 +29,19 @@ pub trait Trackable {
     fn track_session(&mut self, session: Session);
 
     /// Store packets for (possible) future delivery
-    fn track_packet(&mut self, mbuf: Mbuf);
+    fn buffer_packet(&mut self, pdu: &L4Pdu, actions: &Actions, reassembled: bool);
 
-    /// Get reference to stored packets
+    /// Get reference to stored packets (those buffered for delivery)
     fn packets(&self) -> &Vec<Mbuf>;
 
-    /// Drain vector of mbufs
-    fn drain_packets(&mut self);
+    /// Drain data from all types that require storing packets
+    /// Can help free mbufs for future use
+    fn drain_tracked_packets(&mut self);
+
+    /// Drain data from packets cached for future potential delivery
+    /// Used after these packets have been delivered or when associated
+    /// subscription fails to match
+    fn drain_cached_packets(&mut self);
 
     /// Return the core ID that this tracked conn. is on
     fn core_id(&self) -> &CoreId;

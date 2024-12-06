@@ -101,12 +101,12 @@ where
                     return;
                 }
                 let pdu = L4Pdu::new(mbuf, ctxt, dir);
-                if conn.info.actions.update_pdu() {
-                    conn.info.sdata.update(&pdu, false);
-                }
-                if conn.info.actions.update_conn() {
+                conn.info.update_sdata(&pdu, subscription, false);
+                // Consume PDU for reassembly or parsing
+                if conn.info.actions.reassemble() {
                     conn.update(pdu, subscription, &self.registry);
                 } else {
+                    // Ensure FIN is handled, if appl.
                     conn.update_tcp_flags(pdu.flags(), pdu.dir);
                 }
 
@@ -139,10 +139,10 @@ where
                     };
                     if let Ok(mut conn) = conn {
                         conn.info.filter_first_packet(&pdu, subscription);
-                        if conn.info.actions.update_pdu() {
-                            conn.info.sdata.update(&pdu, false);
+                        conn.info.update_sdata(&pdu, subscription, false);
+                        if conn.info.actions.reassemble() {
+                            conn.info.consume_pdu(pdu, subscription, &self.registry);
                         }
-                        conn.info.consume_pdu(pdu, subscription, &self.registry);
                         if !conn.remove_from_table() {
                             self.timerwheel.insert(
                                 &conn_id,

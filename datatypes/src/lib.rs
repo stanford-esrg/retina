@@ -105,7 +105,7 @@ pub trait PacketList {
     /// New packet in connection received (or reassembled, if reassembled=true)
     /// Note this may be invoked both pre- and post-reassembly; types
     /// should check `reassembled` to avoid double-counting.
-    fn update(&mut self, pdu: &L4Pdu, reassembled: bool);
+    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool);
     /// Clear internal data; called if connection no longer matches filter
     /// that requires the Tracked type.
     fn clear(&mut self);
