@@ -33,6 +33,14 @@ impl rte_ipv4_hdr {
     }
 }
 
+/*
+ * DPDK v23.11 uses RTE_BIT64(x) macro to define RSS values, so we use
+ * bindgen clang_macro_fallback to access them.
+ * There may be a bug in clang_macro_fallback impacting values >u32_max:
+ * https://github.com/rust-lang/rust-bindgen/issues/2944
+ * This is okay for the RSS values we use here, but it should be consulted
+ * before adding new RSS offload types.
+ */
 #[cfg(dpdk_ge_2311)]
 pub use rte_eth_fc_mode_RTE_ETH_FC_NONE as rte_eth_fc_mode_RTE_FC_NONE;
 #[cfg(dpdk_ge_2311)]
