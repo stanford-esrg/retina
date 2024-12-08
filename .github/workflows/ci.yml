@@ -11,6 +11,14 @@ env:
 
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        dpdk_version:
+          - "20.11"
+          - "23.11"
+    env:
+      DPDK_VERSION: ${{ matrix.dpdk_version }}
     runs-on: ubuntu-latest
     steps:
     - name: Check out repo
@@ -24,22 +32,22 @@ jobs:
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
-        python-version: 3.7
+        python-version: 3.11
     - name: Install pip
       run: |
           python -m pip install --upgrade pip
     - name: Install pyelftools
       run: |
           pip3 install pyelftools
-    - name: Install libpcap (Linux)
+    - name: Install apt dependencies (Linux)
       run: |
           sudo apt-get update
-          sudo apt-get install libpcap-dev
+          sudo apt-get install libpcap-dev libnuma-dev
     - name: DPDK
       run: |
             echo "Compiling DPDK..." ;
             export STABLE=
-            export VERSION=20.11
+            export VERSION=${{ matrix.dpdk_version }}
             export PKG_CONFIG_PATH=$(pwd)/dpdk-$STABLE$VERSION/install/lib/x86_64-linux-gnu/pkgconfig/ ;
             export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(pwd)/dpdk-$STABLE$VERSION/install/lib/x86_64-linux-gnu/ ;
             export DPDK_PATH=$(pwd)/dpdk-$STABLE$VERSION/install/
@@ -58,9 +66,6 @@ jobs:
             echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
             echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $GITHUB_ENV
             echo "DPDK_PATH=$DPDK_PATH" >> $GITHUB_ENV
-    - name: Remove LLVM and Clang 13/14
-      run: sudo apt remove --auto-remove clang-14 llvm-14 && sudo apt remove --auto-remove clang-13 llvm-13;
-
     - name: Clippy retina-core (no mlx5)
       run: cargo clippy --manifest-path core/Cargo.toml --no-default-features -- --deny warnings
     - name: Unit test retina-core (no mlx5)
