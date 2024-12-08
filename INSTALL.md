@@ -129,13 +129,9 @@ sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=error ./target/release/my_app
 
 #### Troubleshooting: Bindgen
 
-Retina uses [bindgen](https://docs.rs/bindgen/latest/bindgen/) to generate bindings to DPDK functions implemented in C. As of 06/2024, we have encountered issues when using bindgen with clang/llvm >13, apparently due to introduced APIs for SIMD intrinsics.
+Retina uses [bindgen](https://docs.rs/bindgen/latest/bindgen/) to generate bindings to DPDK functions implemented in C.
 
-If you are using clang and building Retina fails with an error such as the below, downgrade clang/llvm to <=13.
-
-```sh
-error: invalid conversion between vector type '__m128i' (vector of 2 'long long' values) and integer type 'int' of different size
-```
+For newer versions of DPDK, bindgen requires us to use `.clang_macro_fallback()` to access certain RSS constants. This requires clang/llvm >=13.
 
 ## Testing Retina (Offline) on a VM
 
