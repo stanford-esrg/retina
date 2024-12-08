@@ -1,5 +1,5 @@
 use crate::dpdk;
-use crate::port::{PortId, SYMMETRIC_RSS_KEY_52};
+use crate::port::{PortId, SYMMETRIC_RSS_KEY};
 
 use std::mem;
 
@@ -78,8 +78,7 @@ impl FlowAction {
 
         // Since the RSS key needs to outlive this method, we use the static
         // SYMMETRIC_RSS_KEY instead of the key queried from the existing rss_conf
-        // Using the SYMMETRIC_RSS_KEY_52 is safe even if the real length is 40
-        a_rss_conf.key = SYMMETRIC_RSS_KEY_52.as_ptr();
+        a_rss_conf.key = SYMMETRIC_RSS_KEY.as_ptr();
 
         self.rss.push(a_rss_conf);
     }

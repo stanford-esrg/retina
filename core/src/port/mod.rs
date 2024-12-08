@@ -19,13 +19,7 @@ use std::ptr;
 
 use anyhow::{bail, Result};
 
-pub(crate) const SYMMETRIC_RSS_KEY_40: [u8; 40] = [
-    0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A,
-    0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A,
-    0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A,
-];
-
-pub(crate) const SYMMETRIC_RSS_KEY_52: [u8; 52] = [
+pub(crate) const SYMMETRIC_RSS_KEY: [u8; 52] = [
     0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A,
     0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A,
     0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A,
@@ -298,13 +292,11 @@ impl Port {
         // turn on RSS
         if dev_info.flow_type_rss_offloads != 0 {
             port_conf.rxmode.mq_mode = dpdk::rte_eth_rx_mq_mode_ETH_MQ_RX_RSS;
-            let symmetric_rss_key = if dev_info.hash_key_size == 52 {
-                SYMMETRIC_RSS_KEY_52.as_slice()
-            } else {
-                SYMMETRIC_RSS_KEY_40.as_slice()
-            };
-            port_conf.rx_adv_conf.rss_conf.rss_key = symmetric_rss_key.as_ptr() as *mut u8;
-            port_conf.rx_adv_conf.rss_conf.rss_key_len = symmetric_rss_key.len() as u8;
+            if ![40, 52].contains(&dev_info.hash_key_size) {
+                panic!("Unexpected hash key size {}", dev_info.hash_key_size);
+            }
+            port_conf.rx_adv_conf.rss_conf.rss_key = SYMMETRIC_RSS_KEY.as_ptr() as *mut u8;
+            port_conf.rx_adv_conf.rss_conf.rss_key_len = dev_info.hash_key_size;
             port_conf.rx_adv_conf.rss_conf.rss_hf =
                 (dpdk::ETH_RSS_IP | dpdk::ETH_RSS_TCP | dpdk::ETH_RSS_UDP) as u64
                     & dev_info.flow_type_rss_offloads;
