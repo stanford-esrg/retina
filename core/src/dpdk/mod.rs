@@ -9,6 +9,53 @@ include!(concat!(env!("OUT_DIR"), "/dpdk.rs"));
 
 use std::os::raw::{c_char, c_int, c_uint, c_void};
 
+#[cfg(dpdk_ge_2311)]
+impl std::fmt::Debug for rte_gtp_psc_generic_hdr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("rte_gtp_psc_generic_hdr")
+            .field("ext_hdr_len", &self.ext_hdr_len)
+            .field("_bitfield_align_1", &self._bitfield_align_1)
+            .field("_bitfield_1", &self._bitfield_1)
+            .field("data", &self.data)
+            .finish()
+    }
+}
+
+impl rte_ipv4_hdr {
+    #[cfg(not(dpdk_ge_2311))]
+    pub fn set_version_ihl(&mut self, version_ihl: u8) {
+        self.version_ihl = version_ihl;
+    }
+
+    #[cfg(dpdk_ge_2311)]
+    pub fn set_version_ihl(&mut self, version_ihl: u8) {
+        self.__bindgen_anon_1.version_ihl = version_ihl;
+    }
+}
+
+/*
+ * DPDK v23.11 uses RTE_BIT64(x) macro to define RSS values, so we use
+ * bindgen clang_macro_fallback to access them.
+ * There may be a bug in clang_macro_fallback impacting values >u32_max:
+ * https://github.com/rust-lang/rust-bindgen/issues/2944
+ * This is okay for the RSS values we use here, but it should be consulted
+ * before adding new RSS offload types.
+ */
+#[cfg(dpdk_ge_2311)]
+pub use rte_eth_fc_mode_RTE_ETH_FC_NONE as rte_eth_fc_mode_RTE_FC_NONE;
+#[cfg(dpdk_ge_2311)]
+pub use rte_eth_rx_mq_mode_RTE_ETH_MQ_RX_RSS as rte_eth_rx_mq_mode_ETH_MQ_RX_RSS;
+#[cfg(dpdk_ge_2311)]
+pub use RTE_ETH_RETA_GROUP_SIZE as RTE_RETA_GROUP_SIZE;
+#[cfg(dpdk_ge_2311)]
+pub use RTE_ETH_RSS_IP as ETH_RSS_IP;
+#[cfg(dpdk_ge_2311)]
+pub use RTE_ETH_RSS_TCP as ETH_RSS_TCP;
+#[cfg(dpdk_ge_2311)]
+pub use RTE_ETH_RSS_UDP as ETH_RSS_UDP;
+#[cfg(dpdk_ge_2311)]
+pub use RTE_ETH_VLAN_STRIP_OFFLOAD as DEV_RX_OFFLOAD_VLAN_STRIP;
+
 #[link(name = "inlined")]
 extern "C" {
     fn rte_pktmbuf_free_(packet: *const rte_mbuf);
