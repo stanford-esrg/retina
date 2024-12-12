@@ -87,7 +87,7 @@
 //!
 //! # Datatype syntax
 //! All subscribed datatypes -- parameters to callbacks -- must be requested by reference.
-//! Supported datatypes are defined in the [retina_datatypes](../datatypes) crate.
+//! Supported datatypes are defined in the [retina_datatypes](../retina_datatypes) crate.
 //!
 //! # Filter syntax
 //! The Retina filter syntax is similar to that of [Wireshark display
@@ -395,8 +395,8 @@ pub fn filter(args: TokenStream, input: TokenStream) -> TokenStream {
     generate(input, config)
 }
 
-// For generating a Retina program without a specification file
-// This expects to receive the number of subscriptions
+/// For generating a Retina program without a specification file
+/// This expects to receive the number of subscriptions
 #[proc_macro_attribute]
 pub fn retina_main(args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemFn);

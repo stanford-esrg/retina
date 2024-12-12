@@ -96,8 +96,7 @@ lazy_static! {
     /// Core ID is a special case, as it cannot be derived from connection,
     /// session, or packet data. It is simpler to define it as a directly tracked datatype.
     ///
-    /// The directly tracked datatypes are: PacketList, SessionList, and CoreId
-    #[doc(hidden)]
+    /// The directly tracked datatypes are SessionList and CoreId
     pub static ref DIRECTLY_TRACKED: HashMap<&'static str, &'static str> = HashMap::from([
         ("SessionList", "sessions"),
         ("CoreId", "core_id")

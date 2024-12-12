@@ -3,7 +3,7 @@ use super::pattern::{FlatPattern, LayeredPattern};
 
 use std::fmt;
 
-/// Represents the sub-filter that a predicate node terminates.
+// Represents the sub-filter that a predicate node terminates.
 #[derive(Debug, Clone)]
 pub enum Terminate {
     Packet,
@@ -23,25 +23,25 @@ impl fmt::Display for Terminate {
     }
 }
 
-/// A node representing a predicate in the tree
+// A node representing a predicate in the tree
 #[derive(Debug, Clone)]
 pub struct FlatPNode {
-    /// ID of node
+    // ID of node
     pub id: usize,
 
-    /// Predicate represented by this FlatPNode
+    // Predicate represented by this FlatPNode
     pub pred: Predicate,
 
-    /// Whether the node terminates a pattern
+    // Whether the node terminates a pattern
     pub is_terminal: bool,
 
-    /// Sub-filter terminal (packet, connection, or session)
+    // Sub-filter terminal (packet, connection, or session)
     pub terminates: Terminate,
 
-    /// The patterns for which the predicate is a part of
+    // The patterns for which the predicate is a part of
     pub patterns: Vec<usize>,
 
-    /// Child FlatPNodes
+    // Child FlatPNodes
     pub children: Vec<FlatPNode>,
 }
 
@@ -73,19 +73,21 @@ impl fmt::Display for FlatPNode {
     }
 }
 
-/// A n-ary tree representing a Filter.
-/// Paths from root to leaf represent a pattern for a frame to match.
+// A n-ary tree representing a boolean (drop/keep) filter.
+// This is used only for installing hardware filters and
+// for validating filter syntax.
+// Paths from root to leaf represent a pattern for a frame to match.
 #[derive(Debug)]
 pub struct FlatPTree {
-    /// Root node
+    // Root node
     pub root: FlatPNode,
 
-    /// Number of nodes in tree
+    // Number of nodes in tree
     pub size: usize,
 }
 
 impl FlatPTree {
-    /// Creates a new predicate tree from a slice of FlatPatterns
+    // Creates a new predicate tree from a slice of FlatPatterns
     pub fn new(patterns: &[FlatPattern]) -> Self {
         let root = FlatPNode {
             id: 0,
@@ -202,7 +204,7 @@ impl FlatPTree {
         }
     }
 
-    /// Returns a copy of the subtree rooted at Node `id`
+    // Returns a copy of the subtree rooted at Node `id`
     pub fn get_subtree(&self, id: usize) -> Option<FlatPNode> {
         fn get_subtree(id: usize, node: &FlatPNode) -> Option<FlatPNode> {
             if node.id == id {
@@ -218,8 +220,8 @@ impl FlatPTree {
         get_subtree(id, &self.root)
     }
 
-    /// Returns list of subtrees rooted at packet terminal nodes.
-    /// Used to generate connection filter.
+    // Returns list of subtrees rooted at packet terminal nodes.
+    // Used to generate connection filter.
     pub fn get_connection_subtrees(&self) -> Vec<FlatPNode> {
         fn get_connection_subtrees(node: &FlatPNode, list: &mut Vec<FlatPNode>) {
             if matches!(node.terminates, Terminate::Packet) {
@@ -234,8 +236,8 @@ impl FlatPTree {
         list
     }
 
-    /// Returns list of subtrees rooted at connection terminal nodes.
-    /// Used to generate session filter.
+    // Returns list of subtrees rooted at connection terminal nodes.
+    // Used to generate session filter.
     pub fn get_session_subtrees(&self) -> Vec<FlatPNode> {
         fn get_session_subtrees(node: &FlatPNode, list: &mut Vec<FlatPNode>) {
             if matches!(node.terminates, Terminate::Connection) {
@@ -250,8 +252,8 @@ impl FlatPTree {
         list
     }
 
-    /// Removes some patterns that are covered by others, but not all.
-    /// (e.g. "ipv4 or ipv4.src_addr = 1.2.3.4" will remove "ipv4.src_addr = 1.2.3.4")
+    // Removes some patterns that are covered by others, but not all.
+    // (e.g. "ipv4 or ipv4.src_addr = 1.2.3.4" will remove "ipv4.src_addr = 1.2.3.4")
     pub fn prune_branches(&mut self) {
         fn prune(node: &mut FlatPNode) {
             if node.is_terminal {
@@ -264,7 +266,7 @@ impl FlatPTree {
         prune(&mut self.root);
     }
 
-    /// modified from https://vallentin.dev/2019/05/14/pretty-print-tree
+    // modified from https://vallentin.dev/2019/05/14/pretty-print-tree
     fn pprint(&self) -> String {
         fn pprint(s: &mut String, node: &FlatPNode, prefix: String, last: bool) {
             let prefix_current = if last { "`- " } else { "|- " };
