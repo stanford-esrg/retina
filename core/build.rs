@@ -10,7 +10,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=DPDK_PATH");
     println!("cargo:rerun-if-env-changed=DPDK_VERSION");
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=src/dpdk/inline.c");
+    println!("cargo:rerun-if-changed=src/dpdk/inlined.c");
     let cargo_manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let cargo_dir = Path::new(&cargo_manifest_dir);
 
