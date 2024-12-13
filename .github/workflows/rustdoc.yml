@@ -10,7 +10,7 @@ env:
 jobs:
   rustdoc:
     env:
-      DPDK_VERSION: ${{ matrix.dpdk_version }}
+      DPDK_VERSION: "20.11"
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
