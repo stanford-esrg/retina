@@ -1,6 +1,6 @@
 //! SSH parser.
-//! 
-//! Uses parsing functions from [the Rusticata SSH 
+//!
+//! Uses parsing functions from [the Rusticata SSH
 //! parser] (https://github.com/rusticata/ssh-parser/blob/master/src/ssh.rs)
 
 use super::handshake::*;
@@ -64,7 +64,7 @@ impl ConnParsable for SshParser {
             ProbeResult::Error
         }
     }
-    
+
     fn remove_session(&mut self, _session_id: usize) -> Option<Session> {
         self.sessions.pop().map(|ssh| Session {
             data: SessionData::Ssh(Box::new(ssh)),
@@ -107,13 +107,21 @@ impl Ssh {
 
     pub(crate) fn parse_version_exchange(&mut self, data: &[u8], dir: bool) {
         let ssh_identifier = b"SSH-";
-        if let Some(contains_ssh_identifier) = data.windows(ssh_identifier.len()).position(|window| window == ssh_identifier).map(|p| &data[p..]) {
+        if let Some(contains_ssh_identifier) = data
+            .windows(ssh_identifier.len())
+            .position(|window| window == ssh_identifier)
+            .map(|p| &data[p..])
+        {
             match ssh_parser::parse_ssh_identification(contains_ssh_identifier) {
                 Ok((_, (_, ssh_id_string))) => {
                     let version_exchange = SshVersionExchange {
                         protoversion: Some(self.byte_to_string(ssh_id_string.proto)),
                         softwareversion: Some(self.byte_to_string(ssh_id_string.software)),
-                        comments: if ssh_id_string.comments.is_some() { Some(self.byte_to_string(ssh_id_string.comments.unwrap())) } else { None },
+                        comments: if ssh_id_string.comments.is_some() {
+                            Some(self.byte_to_string(ssh_id_string.comments.unwrap()))
+                        } else {
+                            None
+                        },
                     };
 
                     if dir {
@@ -128,92 +136,97 @@ impl Ssh {
     }
 
     fn bytes_to_string_vec(&mut self, data: &[u8]) -> Vec<String> {
-        data.split(|&b| b == b',').map(|chunk| String::from_utf8(chunk.to_vec()).unwrap()).collect()
+        data.split(|&b| b == b',')
+            .map(|chunk| String::from_utf8(chunk.to_vec()).unwrap())
+            .collect()
     }
 
     pub(crate) fn parse_key_exchange(&mut self, data: &[u8]) {
         match ssh_parser::parse_ssh_packet(data) {
-            Ok((_, (pkt, _))) => {
-                match pkt {
-                    SshPacket::KeyExchange(pkt) => {
-                        let key_exchange = SshKeyExchange {
-                            cookie: pkt.cookie.to_vec(),
-                            kex_algs: self.bytes_to_string_vec(pkt.kex_algs),
-                            server_host_key_algs: self.bytes_to_string_vec(pkt.server_host_key_algs),
-                            encryption_algs_client_to_server: self.bytes_to_string_vec(pkt.encr_algs_client_to_server),
-                            encryption_algs_server_to_client: self.bytes_to_string_vec(pkt.encr_algs_server_to_client),
-                            mac_algs_client_to_server: self.bytes_to_string_vec(pkt.mac_algs_client_to_server),
-                            mac_algs_server_to_client: self.bytes_to_string_vec(pkt.mac_algs_server_to_client),
-                            compression_algs_client_to_server: self.bytes_to_string_vec(pkt.comp_algs_client_to_server),
-                            compression_algs_server_to_client: self.bytes_to_string_vec(pkt.comp_algs_server_to_client),
-                            languages_client_to_server: self.bytes_to_string_vec(pkt.langs_client_to_server),
-                            languages_server_to_client: self.bytes_to_string_vec(pkt.langs_server_to_client),
-                            first_kex_packet_follows: pkt.first_kex_packet_follows,
-                        };
+            Ok((_, (pkt, _))) => match pkt {
+                SshPacket::KeyExchange(pkt) => {
+                    let key_exchange = SshKeyExchange {
+                        cookie: pkt.cookie.to_vec(),
+                        kex_algs: self.bytes_to_string_vec(pkt.kex_algs),
+                        server_host_key_algs: self.bytes_to_string_vec(pkt.server_host_key_algs),
+                        encryption_algs_client_to_server: self
+                            .bytes_to_string_vec(pkt.encr_algs_client_to_server),
+                        encryption_algs_server_to_client: self
+                            .bytes_to_string_vec(pkt.encr_algs_server_to_client),
+                        mac_algs_client_to_server: self
+                            .bytes_to_string_vec(pkt.mac_algs_client_to_server),
+                        mac_algs_server_to_client: self
+                            .bytes_to_string_vec(pkt.mac_algs_server_to_client),
+                        compression_algs_client_to_server: self
+                            .bytes_to_string_vec(pkt.comp_algs_client_to_server),
+                        compression_algs_server_to_client: self
+                            .bytes_to_string_vec(pkt.comp_algs_server_to_client),
+                        languages_client_to_server: self
+                            .bytes_to_string_vec(pkt.langs_client_to_server),
+                        languages_server_to_client: self
+                            .bytes_to_string_vec(pkt.langs_server_to_client),
+                        first_kex_packet_follows: pkt.first_kex_packet_follows,
+                    };
 
-                        self.key_exchange = Some(key_exchange);
-                    }
-                    e => log::debug!("Could not parse data as a SSH KeyExchange packet: {:?}", e),
+                    self.key_exchange = Some(key_exchange);
                 }
-            }
+                e => log::debug!("Could not parse data as a SSH KeyExchange packet: {:?}", e),
+            },
             e => log::debug!("Could not parse data as a SSH packet: {:?}", e),
         }
     }
-    
+
     pub(crate) fn parse_dh_client_init(&mut self, data: &[u8]) {
         match ssh_parser::parse_ssh_packet(data) {
-            Ok((_, (pkt, _))) => {
-                match pkt {
-                    SshPacket::DiffieHellmanInit(pkt) => {
-                        let dh_init = SshDhInit {
-                            e: pkt.e.to_vec(),
-                        };
+            Ok((_, (pkt, _))) => match pkt {
+                SshPacket::DiffieHellmanInit(pkt) => {
+                    let dh_init = SshDhInit { e: pkt.e.to_vec() };
 
-                        self.client_dh_key_exchange = Some(dh_init);
-                        
-                    }
-                    e => log::debug!("Could not parse data as a SSH DiffieHellmanInit packet: {:?}", e),
+                    self.client_dh_key_exchange = Some(dh_init);
                 }
-            }
+                e => log::debug!(
+                    "Could not parse data as a SSH DiffieHellmanInit packet: {:?}",
+                    e
+                ),
+            },
             e => log::debug!("Could not parse data as a SSH packet: {:?}", e),
         }
     }
 
     pub(crate) fn parse_dh_server_response(&mut self, data: &[u8]) {
         match ssh_parser::parse_ssh_packet(data) {
-            Ok((_, (pkt, _))) => {
-                match pkt {
-                    SshPacket::DiffieHellmanReply(pkt) => {
-                        let dh_response = SshDhResponse {
-                            pubkey_and_certs: pkt.pubkey_and_cert.to_vec(),
-                            f: pkt.f.to_vec(),
-                            signature: pkt.signature.to_vec(),
-                        };
+            Ok((_, (pkt, _))) => match pkt {
+                SshPacket::DiffieHellmanReply(pkt) => {
+                    let dh_response = SshDhResponse {
+                        pubkey_and_certs: pkt.pubkey_and_cert.to_vec(),
+                        f: pkt.f.to_vec(),
+                        signature: pkt.signature.to_vec(),
+                    };
 
-                        self.server_dh_key_exchange = Some(dh_response);
-                    }
-                e => log::debug!("Could not parse data as a SSH DiffieHellmanReply packet: {:?}", e),
+                    self.server_dh_key_exchange = Some(dh_response);
                 }
-            }
+                e => log::debug!(
+                    "Could not parse data as a SSH DiffieHellmanReply packet: {:?}",
+                    e
+                ),
+            },
             e => log::debug!("Could not parse data as a SSH packet: {:?}", e),
         }
     }
 
     pub(crate) fn parse_new_keys(&mut self, data: &[u8], dir: bool) {
         match ssh_parser::parse_ssh_packet(data) {
-            Ok((_, (pkt, _))) => {
-                match pkt {
-                    SshPacket::NewKeys => {
-                        let new_keys = SshNewKeys;
-                        if dir {
-                            self.client_new_keys = Some(new_keys);
-                        } else {
-                            self.server_new_keys = Some(new_keys);
-                        }
+            Ok((_, (pkt, _))) => match pkt {
+                SshPacket::NewKeys => {
+                    let new_keys = SshNewKeys;
+                    if dir {
+                        self.client_new_keys = Some(new_keys);
+                    } else {
+                        self.server_new_keys = Some(new_keys);
                     }
-                e => log::debug!("Could not parse data as a SSH NewKeys packet: {:?}", e),
                 }
-            }
+                e => log::debug!("Could not parse data as a SSH NewKeys packet: {:?}", e),
+            },
             e => log::debug!("Could not parse data as a SSH packet: {:?}", e),
         }
     }
@@ -223,7 +236,11 @@ impl Ssh {
         log::trace!("process ({} bytes)", data.len());
 
         let ssh_identifier = b"SSH-";
-        if let Some(_) = data.windows(ssh_identifier.len()).position(|window| window == ssh_identifier).map(|p| &data[p..]) {
+        if let Some(_) = data
+            .windows(ssh_identifier.len())
+            .position(|window| window == ssh_identifier)
+            .map(|p| &data[p..])
+        {
             self.parse_version_exchange(data, dir);
             status = ParseResult::Continue(0);
         } else {

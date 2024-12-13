@@ -2,17 +2,16 @@ use retina_core::{config::load_config, Runtime};
 use retina_datatypes::SshHandshake;
 use retina_filtergen::{filter, retina_main};
 
-use std::fs::File;
-use std::io::{BufWriter, Write};
 use clap::Parser;
 use lazy_static::lazy_static;
+use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
 lazy_static! {
-    static ref file: Mutex<BufWriter<File>> = Mutex::new(
-        BufWriter::new(File::create("ssh.jsonl").unwrap())
-    );
+    static ref file: Mutex<BufWriter<File>> =
+        Mutex::new(BufWriter::new(File::create("ssh.jsonl").unwrap()));
 }
 
 #[derive(Parser, Debug)]

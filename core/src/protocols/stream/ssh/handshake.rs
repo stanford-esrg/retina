@@ -1,5 +1,5 @@
 //! SSH handshake components.
-//! 
+//!
 
 use crate::utils::base64;
 
