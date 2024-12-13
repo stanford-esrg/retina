@@ -21,12 +21,12 @@ pub struct FlatPattern {
 }
 
 impl FlatPattern {
-    /// Returns true if pattern is empty
+    // Returns true if pattern is empty
     pub(super) fn is_empty(&self) -> bool {
         self.predicates.is_empty()
     }
 
-    /// Returns true if self is a fully qualified FlatPattern
+    // Returns true if self is a fully qualified FlatPattern
     pub(super) fn is_fully_qualified(&self) -> bool {
         let (layers, labels) = (&*LAYERS, &*NODE_BIMAP);
 
@@ -49,8 +49,8 @@ impl FlatPattern {
         ret
     }
 
-    /// Returns true if a pattern should be skipped at a given filter layer
-    /// Example: we don't need to check the pattern "ipv4 and tcp" at the session filter layer.
+    // Returns true if a pattern should be skipped at a given filter layer
+    // Example: we don't need to check the pattern "ipv4 and tcp" at the session filter layer.
     pub(super) fn is_prev_layer(
         &self,
         filter_layer: FilterLayer,
@@ -61,7 +61,7 @@ impl FlatPattern {
             .all(|p| p.is_prev_layer(filter_layer, subscription_level))
     }
 
-    /// Returns a vector of fully qualified patterns from self
+    // Returns a vector of fully qualified patterns from self
     pub(super) fn to_fully_qualified(&self) -> Result<Vec<LayeredPattern>> {
         if self.is_empty() {
             return Ok(Vec::new());
@@ -130,7 +130,7 @@ impl FlatPattern {
         Ok(fq_patterns)
     }
 
-    /// Returns FlatPattern of only predicates that can be filtered in hardware
+    // Returns FlatPattern of only predicates that can be filtered in hardware
     pub(super) fn retain_hardware_predicates(&self, port: &Port) -> FlatPattern {
         FlatPattern {
             predicates: self
@@ -160,7 +160,7 @@ impl fmt::Display for FlatPattern {
     }
 }
 
-/// Represents a fully qualified pattern, ordered by header layer
+// Represents a fully qualified pattern, ordered by header layer
 #[derive(Debug, Clone)]
 pub struct LayeredPattern(LinkedHashMap<ProtocolName, Vec<Predicate>>);
 
@@ -173,7 +173,7 @@ impl LayeredPattern {
         self.0.is_empty()
     }
 
-    /// Adds predicates on protocol header. Returns true on success
+    // Adds predicates on protocol header. Returns true on success
     fn add_protocol(&mut self, proto_name: ProtocolName, field_predicates: Vec<Predicate>) -> bool {
         let (layers, labels) = (&*LAYERS, &*NODE_BIMAP);
 

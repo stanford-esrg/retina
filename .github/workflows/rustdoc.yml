@@ -9,6 +9,8 @@ env:
 
 jobs:
   rustdoc:
+    env:
+      DPDK_VERSION: "20.11"
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
@@ -22,7 +24,7 @@ jobs:
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
-        python-version: 3.7
+        python-version: 3.11
     - name: Install pip
       run: |
           python -m pip install --upgrade pip
@@ -56,8 +58,6 @@ jobs:
             echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
             echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $GITHUB_ENV
             echo "DPDK_PATH=$DPDK_PATH" >> $GITHUB_ENV
-    - name: Remove LLVM and Clang 13/14
-      run: sudo apt remove --auto-remove clang-14 llvm-14 && sudo apt remove --auto-remove clang-13 llvm-13;
 
     - name: Build Documentation (v0.1.0)
       run: git fetch --all --tags && git checkout v0.1.0 && cargo doc --lib --no-deps
