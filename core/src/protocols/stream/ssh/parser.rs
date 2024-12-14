@@ -240,6 +240,7 @@ impl Ssh {
             .windows(ssh_identifier.len())
             .position(|window| window == ssh_identifier)
             .map(|p| &data[p..])
+            .is_some()
         {
             self.parse_version_exchange(data, dir);
             status = ParseResult::Continue(0);
