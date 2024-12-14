@@ -9,7 +9,7 @@ use std::fmt;
 use std::os::raw::{c_int, c_uint};
 use std::ptr::NonNull;
 
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use thiserror::Error;
 
 const RX_BUF_ALIGN: u32 = 1024;
@@ -36,7 +36,9 @@ impl Mempool {
                 config.capacity as c_uint,
                 config.cache_size as c_uint,
                 0,
-                mbuf_size as u16,
+                mbuf_size
+                    .try_into()
+                    .with_context(|| format!("mbuf size {mbuf_size} is larger than 65535, please adjust mtu"))?,
                 socket_id.raw() as c_int,
             )
         };

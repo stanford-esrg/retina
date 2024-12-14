@@ -17,7 +17,7 @@ nb_memory_channels = 6
     duration = 60
     nb_rxd = 32768
     promiscuous = true
-    mtu = 65535
+    mtu = 64000
     hardware_assist = false
     dpdk_supl_args = ["--no-huge","--no-pci","-m 512M","--vdev=net_pcap0,iface=ens0"]
 
