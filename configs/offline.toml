@@ -8,11 +8,11 @@ main_core = 0
 nb_memory_channels = 6
 
 [mempool]
-    capacity = 8192
+    capacity = 262_144
     cache_size = 512
 
 [offline]
-    pcap = "./traces/ssh.pcapng"
+    pcap = "./traces/small_flows.pcap"
     mtu = 9702
 
 [conntrack]
