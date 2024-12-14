@@ -236,7 +236,7 @@ impl Ssh {
         log::trace!("process ({} bytes)", data.len());
 
         let ssh_identifier = b"SSH-";
-        if let Some(_) = data
+        if data
             .windows(ssh_identifier.len())
             .position(|window| window == ssh_identifier)
             .map(|p| &data[p..])

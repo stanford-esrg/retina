@@ -98,7 +98,7 @@ impl Ssh {
     /// Returns the cookie used in SSH key exchange.
     pub fn key_exchange_cookie_stoc(&self) -> Vec<u8> {
         match &self.key_exchange {
-            Some(key_exchange) => key_exchange.cookie.iter().map(|&c| c).collect(),
+            Some(key_exchange) => key_exchange.cookie.iter().copied().collect(),
             None => vec![],
         }
     }
@@ -109,7 +109,7 @@ impl Ssh {
             Some(key_exchange) => key_exchange
                 .kex_algs
                 .iter()
-                .map(|c| format!("{}", c))
+                .map(|c| c.to_string())
                 .collect(),
             None => vec![],
         }
@@ -121,7 +121,7 @@ impl Ssh {
             Some(key_exchange) => key_exchange
                 .server_host_key_algs
                 .iter()
-                .map(|c| format!("{}", c))
+                .map(|c| c.to_string())
                 .collect(),
             None => vec![],
         }
@@ -133,7 +133,7 @@ impl Ssh {
             Some(key_exchange) => key_exchange
                 .encryption_algs_client_to_server
                 .iter()
-                .map(|c| format!("{}", c))
+                .map(|c| c.to_string())
                 .collect(),
             None => vec![],
         }
@@ -145,7 +145,7 @@ impl Ssh {
             Some(key_exchange) => key_exchange
                 .encryption_algs_server_to_client
                 .iter()
-                .map(|c| format!("{}", c))
+                .map(|c| c.to_string())
                 .collect(),
             None => vec![],
         }
@@ -157,7 +157,7 @@ impl Ssh {
             Some(key_exchange) => key_exchange
                 .mac_algs_client_to_server
                 .iter()
-                .map(|c| format!("{}", c))
+                .map(|c| c.to_string())
                 .collect(),
             None => vec![],
         }
@@ -169,7 +169,7 @@ impl Ssh {
             Some(key_exchange) => key_exchange
                 .mac_algs_server_to_client
                 .iter()
-                .map(|c| format!("{}", c))
+                .map(|c| c.to_string())
                 .collect(),
             None => vec![],
         }
@@ -181,7 +181,7 @@ impl Ssh {
             Some(key_exchange) => key_exchange
                 .compression_algs_client_to_server
                 .iter()
-                .map(|c| format!("{}", c))
+                .map(|c| c.to_string())
                 .collect(),
             None => vec![],
         }
@@ -193,7 +193,7 @@ impl Ssh {
             Some(key_exchange) => key_exchange
                 .compression_algs_server_to_client
                 .iter()
-                .map(|c| format!("{}", c))
+                .map(|c| c.to_string())
                 .collect(),
             None => vec![],
         }
@@ -205,7 +205,7 @@ impl Ssh {
             Some(key_exchange) => key_exchange
                 .languages_client_to_server
                 .iter()
-                .map(|c| format!("{}", c))
+                .map(|c| c.to_string())
                 .collect(),
             None => vec![],
         }
@@ -217,7 +217,7 @@ impl Ssh {
             Some(key_exchange) => key_exchange
                 .languages_server_to_client
                 .iter()
-                .map(|c| format!("{}", c))
+                .map(|c| c.to_string())
                 .collect(),
             None => vec![],
         }
