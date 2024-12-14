@@ -98,7 +98,7 @@ impl Ssh {
     /// Returns the cookie used in SSH key exchange.
     pub fn key_exchange_cookie_stoc(&self) -> Vec<u8> {
         match &self.key_exchange {
-            Some(key_exchange) => key_exchange.cookie.iter().copied().collect(),
+            Some(key_exchange) => key_exchange.cookie.to_vec(),
             None => vec![],
         }
     }
