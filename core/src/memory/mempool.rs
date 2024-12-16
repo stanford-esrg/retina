@@ -9,7 +9,7 @@ use std::fmt;
 use std::os::raw::{c_int, c_uint};
 use std::ptr::NonNull;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use thiserror::Error;
 
 const RX_BUF_ALIGN: u32 = 1024;
