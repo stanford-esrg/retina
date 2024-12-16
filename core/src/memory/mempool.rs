@@ -36,9 +36,9 @@ impl Mempool {
                 config.capacity as c_uint,
                 config.cache_size as c_uint,
                 0,
-                mbuf_size
-                    .try_into()
-                    .with_context(|| format!("mbuf size {mbuf_size} is larger than 65535, please adjust mtu"))?,
+                mbuf_size.try_into().with_context(|| {
+                    format!("mbuf size {mbuf_size} is larger than 65535, please adjust mtu")
+                })?,
                 socket_id.raw() as c_int,
             )
         };
