@@ -48,6 +48,10 @@ lazy_static! {
                 "QuicStream",
                 DataType::new_default_session("QuicStream", QuicStream::stream_protocols()),
             ),
+            (
+                "SshHandshake",
+                DataType::new_default_session("SshHandshake", SshHandshake::stream_protocols()),
+            ),
             ("ZcFrame", DataType::new_default_packet("ZcFrame")),
             ("Payload", DataType::new_default_packet("Payload")),
             ("SessionList", {
@@ -58,7 +62,7 @@ lazy_static! {
                     needs_update: false,
                     needs_reassembly: false,
                     needs_packet_track: false,
-                    stream_protos: vec!["tls", "dns", "http", "quic"],
+                    stream_protos: vec!["tls", "dns", "http", "quic", "ssh"],
                     as_str: "SessionList",
                 }
             }),
