@@ -4,6 +4,10 @@ use crate::conntrack::{ConnTracker, TrackerConfig};
 use crate::dpdk;
 use crate::memory::mbuf::Mbuf;
 use crate::port::{RxQueue, RxQueueType};
+use crate::stats::{
+    update_thread_local_stats, StatExt, IDLE_CYCLES, IGNORED_BY_PACKET_FILTER_BYTE,
+    IGNORED_BY_PACKET_FILTER_PKT, TOTAL_BYTE, TOTAL_CYCLES, TOTAL_PKT,
+};
 use crate::subscription::*;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -89,6 +93,13 @@ where
         while self.is_running.load(Ordering::Relaxed) {
             for rxqueue in self.rxqueues.iter() {
                 let mbufs: Vec<Mbuf> = self.rx_burst(rxqueue, 32);
+                if mbufs.is_empty() {
+                    IDLE_CYCLES.inc();
+                    if IDLE_CYCLES.get() & 1023 == 0 {
+                        update_thread_local_stats(self.id);
+                    }
+                }
+                TOTAL_CYCLES.inc();
                 for mbuf in mbufs.into_iter() {
                     // log::debug!("{:#?}", mbuf);
                     // log::debug!("Mark: {}", mbuf.mark());
@@ -102,10 +113,16 @@ where
                     nb_pkts += 1;
                     nb_bytes += mbuf.data_len() as u64;
 
+                    TOTAL_PKT.inc();
+                    TOTAL_BYTE.inc_by(mbuf.data_len() as u64);
+
                     let actions = self.subscription.continue_packet(&mbuf, &self.id);
                     if !actions.drop() {
                         self.subscription
                             .process_packet(mbuf, &mut conn_table, actions);
+                    } else {
+                        IGNORED_BY_PACKET_FILTER_PKT.inc();
+                        IGNORED_BY_PACKET_FILTER_BYTE.inc_by(mbuf.data_len() as u64);
                     }
                 }
             }
