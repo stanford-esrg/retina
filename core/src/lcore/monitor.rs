@@ -1,6 +1,7 @@
 use crate::config::RuntimeConfig;
 use crate::dpdk;
 use crate::port::{statistics::PortStats, Port, PortId, RxQueue, RxQueueType};
+use crate::stats::DPDK_STATS;
 
 use std::collections::{BTreeMap, HashMap};
 use std::ffi::CString;
@@ -135,6 +136,7 @@ impl Monitor {
                 let delta = curr_ts - prev_ts;
                 match AggRxStats::collect(&self.ports, &display.keywords) {
                     Ok(curr_rx) => {
+                        curr_rx.update_prometheus_stats();
                         let nms = delta.as_millis() as f64;
                         if init {
                             init_rx = curr_rx;
@@ -473,6 +475,33 @@ impl AggRxStats {
 
     fn dropped_pkts(&self) -> u64 {
         self.hw_dropped_pkts + self.sw_dropped_pkts
+    }
+
+    fn update_prometheus_stats(&self) {
+        DPDK_STATS
+            .ingress_pkts
+            .inc_by(self.ingress_pkts - DPDK_STATS.ingress_pkts.get());
+        DPDK_STATS
+            .ingress_bits
+            .inc_by(self.ingress_bits - DPDK_STATS.ingress_bits.get());
+        DPDK_STATS
+            .good_pkts
+            .inc_by(self.good_pkts - DPDK_STATS.good_pkts.get());
+        DPDK_STATS
+            .good_bits
+            .inc_by(self.good_bits - DPDK_STATS.good_bits.get());
+        DPDK_STATS
+            .process_pkts
+            .inc_by(self.process_pkts - DPDK_STATS.process_pkts.get());
+        DPDK_STATS
+            .process_bits
+            .inc_by(self.process_bits - DPDK_STATS.process_bits.get());
+        DPDK_STATS
+            .hw_dropped_pkts
+            .inc_by(self.hw_dropped_pkts - DPDK_STATS.hw_dropped_pkts.get());
+        DPDK_STATS
+            .sw_dropped_pkts
+            .inc_by(self.sw_dropped_pkts - DPDK_STATS.sw_dropped_pkts.get());
     }
 }
 
