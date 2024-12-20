@@ -54,6 +54,10 @@ syn = { version = "2.0.15" }
 regex = "1.7.3"
 ring = "0.17.8"
 aes-gcm = "0.10.3"
+tokio = { version = "1.42.0", features = ["full"] }
+hyper = { version = "0.14", features = ["full"] }
+prometheus = "0.13.4"
+array-init = "2.0"
 
 [features]
 timing = []

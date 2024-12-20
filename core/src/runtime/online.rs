@@ -1,3 +1,6 @@
+use hyper::service::{make_service_fn, service_fn};
+use hyper::Server;
+
 use crate::config::{ConnTrackConfig, OnlineConfig, RuntimeConfig};
 use crate::dpdk;
 use crate::filter::Filter;
@@ -6,6 +9,7 @@ use crate::lcore::rx_core::RxCore;
 use crate::lcore::{CoreId, SocketId};
 use crate::memory::mempool::Mempool;
 use crate::port::*;
+use crate::stats::serve_req;
 use crate::subscription::*;
 
 use std::collections::BTreeMap;
@@ -20,7 +24,7 @@ where
 {
     ports: BTreeMap<PortId, Port>,
     rx_cores: BTreeMap<CoreId, RxCore<S>>,
-    monitor: Monitor,
+    monitor: Option<Monitor>,
     filter: Filter,
     options: OnlineOptions,
 }
@@ -90,7 +94,7 @@ where
             rx_cores.insert(core_id, rx_core);
         }
 
-        let monitor = Monitor::new(config, &ports, Arc::clone(&is_running));
+        let monitor = Some(Monitor::new(config, &ports, Arc::clone(&is_running)));
 
         OnlineRuntime {
             ports,
@@ -134,7 +138,27 @@ where
         let id = unsafe { dpdk::rte_lcore_id() };
         log::info!("Running main on Core {}", id);
         let start = Instant::now();
-        self.monitor.run();
+        let tokio_runtime = tokio::runtime::Builder::new_current_thread() // Use a current-thread runtime
+            .enable_all() // Enables all necessary features (I/O, time, etc.)
+            .build()
+            .expect("Failed to create Tokio runtime");
+        let mut monitor = self.monitor.take().unwrap();
+        tokio_runtime.block_on(async move {
+            let jh1 = tokio::spawn(async move {
+                monitor.run().await;
+            });
+            tokio::spawn(async move {
+                let addr = ([127, 0, 0, 1], 9898).into();
+                let serve_future = Server::bind(&addr).serve(make_service_fn(|_| async {
+                    Ok::<_, hyper::Error>(service_fn(serve_req))
+                }));
+
+                if let Err(err) = serve_future.await {
+                    eprintln!("Prometheus server error: {}", err);
+                }
+            });
+            jh1.await.unwrap();
+        });
         println!("Main done. Ran for {:?}", start.elapsed());
     }
 
