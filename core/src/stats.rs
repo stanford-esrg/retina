@@ -2,12 +2,69 @@ use hyper::{header::CONTENT_TYPE, Body, Request, Response};
 use prometheus::{
     register_int_counter, Counter, Encoder, Gauge, HistogramVec, IntCounter, Opts, TextEncoder,
 };
-use std::cell::{Cell, OnceCell};
+use std::{
+    cell::{Cell, OnceCell},
+    sync::LazyLock,
+};
 
 use lazy_static::lazy_static;
 use prometheus::{labels, opts, register_counter, register_gauge, register_histogram_vec};
 
 use crate::CoreId;
+
+pub struct DpdkPrometheusStats {
+    pub ingress_bits: IntCounter,
+    pub ingress_pkts: IntCounter,
+    pub good_bits: IntCounter,
+    pub good_pkts: IntCounter,
+    pub process_bits: IntCounter,
+    pub process_pkts: IntCounter,
+    pub hw_dropped_pkts: IntCounter,
+    pub sw_dropped_pkts: IntCounter,
+}
+
+pub static DPDK_STATS: LazyLock<DpdkPrometheusStats> = LazyLock::new(|| DpdkPrometheusStats {
+    ingress_pkts: register_int_counter!(Opts::new(
+        "ingress_pkts",
+        "Number of packets received by the NIC."
+    ))
+    .unwrap(),
+    ingress_bits: register_int_counter!(Opts::new(
+        "ingress_bits",
+        "Number of bits received by the NIC."
+    ))
+    .unwrap(),
+    good_pkts: register_int_counter!(Opts::new(
+        "good_pkts",
+        "Number of packets received by the DPDK."
+    ))
+    .unwrap(),
+    good_bits: register_int_counter!(Opts::new(
+        "good_bits",
+        "Number of bits received by the DPDK."
+    ))
+    .unwrap(),
+    process_pkts: register_int_counter!(Opts::new(
+        "process_pkts",
+        "Number of packets received by the retina workers."
+    ))
+    .unwrap(),
+    process_bits: register_int_counter!(Opts::new(
+        "process_bits",
+        "Number of bits received by the retina workers."
+    ))
+    .unwrap(),
+    hw_dropped_pkts: register_int_counter!(Opts::new(
+        "hw_dropped_pkts",
+        "Number of packets dropped by hardware."
+    ))
+    .unwrap(),
+    sw_dropped_pkts: register_int_counter!(Opts::new(
+        "sw_dropped_pkts",
+        "Number of packets dropped by software."
+    ))
+    .unwrap(),
+});
 
 struct PerCorePrometheusStats {
     ignored_by_packet_filter_pkt: IntCounter,
@@ -21,15 +78,15 @@ struct PerCorePrometheusStats {
 }
 
 thread_local! {
-    pub static IGNORED_BY_PACKET_FILTER_PKT: Cell<u64> = Cell::new(0);
-    pub static IGNORED_BY_PACKET_FILTER_BYTE: Cell<u64> = Cell::new(0);
-    pub static DROPPED_MIDDLE_OF_CONNECTION_TCP_PKT: Cell<u64> = Cell::new(0);
-    pub static DROPPED_MIDDLE_OF_CONNECTION_TCP_BYTE: Cell<u64> = Cell::new(0);
-    pub static TOTAL_PKT: Cell<u64> = Cell::new(0);
-    pub static TOTAL_BYTE: Cell<u64> = Cell::new(0);
-    pub static IDLE_CYCLES: Cell<u64> = Cell::new(0);
-    pub static TOTAL_CYCLES: Cell<u64> = Cell::new(0);
-    pub static PROMETHEUS: OnceCell<PerCorePrometheusStats> = OnceCell::new();
+    pub static IGNORED_BY_PACKET_FILTER_PKT: Cell<u64> = const { Cell::new(0) };
+    pub static IGNORED_BY_PACKET_FILTER_BYTE: Cell<u64> = const { Cell::new(0) };
+    pub static DROPPED_MIDDLE_OF_CONNECTION_TCP_PKT: Cell<u64> = const { Cell::new(0) };
+    pub static DROPPED_MIDDLE_OF_CONNECTION_TCP_BYTE: Cell<u64> = const { Cell::new(0) };
+    pub static TOTAL_PKT: Cell<u64> = const { Cell::new(0) };
+    pub static TOTAL_BYTE: Cell<u64> = const { Cell::new(0) };
+    pub static IDLE_CYCLES: Cell<u64> = const { Cell::new(0) };
+    pub static TOTAL_CYCLES: Cell<u64> = const { Cell::new(0) };
+    pub static PROMETHEUS: OnceCell<PerCorePrometheusStats> = const { OnceCell::new() };
 }
 
 pub trait StatExt: Sized {
