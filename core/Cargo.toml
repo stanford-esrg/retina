@@ -58,6 +58,7 @@ tokio = { version = "1.42.0", features = ["full"] }
 hyper = { version = "0.14", features = ["full"] }
 prometheus = "0.13.4"
 array-init = "2.0"
+prometheus-client = "0.22.3"
 
 [features]
 timing = []
