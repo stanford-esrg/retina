@@ -1,6 +1,8 @@
-use hyper::{header::CONTENT_TYPE, Body, Request, Response};
-use prometheus::{
-    register_int_counter, Counter, Encoder, Gauge, HistogramVec, IntCounter, Opts, TextEncoder,
+use http_body_util::Full;
+use hyper::{
+    body::{Body, Bytes},
+    header::CONTENT_TYPE,
+    Request, Response,
 };
 use prometheus_client::{
     encoding::EncodeLabelSet,
@@ -10,11 +12,8 @@ use prometheus_client::{
 use std::{
     cell::{Cell, OnceCell},
     fmt::Write,
-    sync::{LazyLock, Mutex},
+    sync::LazyLock,
 };
-
-use lazy_static::lazy_static;
-use prometheus::{labels, opts, register_counter, register_gauge, register_histogram_vec};
 
 use crate::CoreId;
 
@@ -34,88 +33,151 @@ impl EncodeLabelSet for CoreId {
 
 #[derive(Default)]
 pub struct Families {
+    ignored_by_packet_filter_pkt: Family<CoreId, prometheus_client::metrics::counter::Counter>,
+    ignored_by_packet_filter_byte: Family<CoreId, prometheus_client::metrics::counter::Counter>,
+    dropped_middle_of_connection_tcp_pkt:
+        Family<CoreId, prometheus_client::metrics::counter::Counter>,
+    dropped_middle_of_connection_tcp_byte:
+        Family<CoreId, prometheus_client::metrics::counter::Counter>,
+    total_pkt: Family<CoreId, prometheus_client::metrics::counter::Counter>,
     total_byte: Family<CoreId, prometheus_client::metrics::counter::Counter>,
+    idle_cycles: Family<CoreId, prometheus_client::metrics::counter::Counter>,
+    total_cycles: Family<CoreId, prometheus_client::metrics::counter::Counter>,
 }
 
 pub static FAMILIES: LazyLock<Families> = LazyLock::new(Families::default);
 
 pub struct DpdkPrometheusStats {
     pub ingress_bits: prometheus_client::metrics::counter::Counter,
-    pub ingress_pkts: IntCounter,
-    pub good_bits: IntCounter,
+    pub ingress_pkts: prometheus_client::metrics::counter::Counter,
+    pub good_bits: prometheus_client::metrics::counter::Counter,
     pub good_pkts: prometheus_client::metrics::counter::Counter,
-    pub process_bits: IntCounter,
-    pub process_pkts: IntCounter,
-    pub hw_dropped_pkts: IntCounter,
-    pub sw_dropped_pkts: IntCounter,
+    pub process_bits: prometheus_client::metrics::counter::Counter,
+    pub process_pkts: prometheus_client::metrics::counter::Counter,
+    pub hw_dropped_pkts: prometheus_client::metrics::counter::Counter,
+    pub sw_dropped_pkts: prometheus_client::metrics::counter::Counter,
 }
 
 pub static STAT_REGISTRY: LazyLock<Registry> = LazyLock::new(|| {
     let mut r = Registry::default();
     r.register_with_unit(
-        "ingress_bits",
+        "dpdk_ingress",
         "Number of bits received by the NIC.",
         Unit::Bytes,
         DPDK_STATS.ingress_bits.clone(),
     );
-    r.register(
-        "good_pkts",
+    r.register_with_unit(
+        "dpdk_ingress",
+        "Number of packets received by the NIC.",
+        Unit::Other("pkts".to_string()),
+        DPDK_STATS.ingress_pkts.clone(),
+    );
+    r.register_with_unit(
+        "dpdk_good",
+        "Number of bytes received by the DPDK.",
+        Unit::Bytes,
+        DPDK_STATS.good_bits.clone(),
+    );
+    r.register_with_unit(
+        "dpdk_good",
         "Number of packets received by the DPDK.",
+        Unit::Other("pkts".to_string()),
         DPDK_STATS.good_pkts.clone(),
     );
     r.register_with_unit(
-        "total_byte",
+        "dpdk_processed",
+        "Number of bytes received by the DPDK.",
+        Unit::Bytes,
+        DPDK_STATS.process_bits.clone(),
+    );
+    r.register_with_unit(
+        "dpdk_processed",
+        "Number of packets received by the DPDK.",
+        Unit::Other("pkts".to_string()),
+        DPDK_STATS.process_pkts.clone(),
+    );
+    r.register_with_unit(
+        "dpdk_hw_dropped",
+        "Number of packets dropped by hardware.",
+        Unit::Other("pkts".to_string()),
+        DPDK_STATS.hw_dropped_pkts.clone(),
+    );
+    r.register_with_unit(
+        "dpdk_sw_dropped",
+        "Number of packets dropped by software.",
+        Unit::Other("pkts".to_string()),
+        DPDK_STATS.sw_dropped_pkts.clone(),
+    );
+
+    r.register_with_unit(
+        "retina_ignored_by_packet_filter",
+        "Number of packets ignored by packet filter.",
+        Unit::Other("pkts".to_string()),
+        FAMILIES.ignored_by_packet_filter_pkt.clone(),
+    );
+    r.register_with_unit(
+        "retina_ignored_by_packet_filter",
+        "Number of bytes ignored by packet filter.",
+        Unit::Bytes,
+        FAMILIES.ignored_by_packet_filter_byte.clone(),
+    );
+    r.register_with_unit(
+        "retina_dropped_middle_of_connection_tcp",
+        "Number of packets dropped due missing SYN packet.",
+        Unit::Other("pkts".to_string()),
+        FAMILIES.dropped_middle_of_connection_tcp_pkt.clone(),
+    );
+    r.register_with_unit(
+        "retina_dropped_middle_of_connection_tcp",
+        "Number of bytes dropped due missing SYN packet.",
+        Unit::Bytes,
+        FAMILIES.dropped_middle_of_connection_tcp_byte.clone(),
+    );
+    r.register_with_unit(
+        "retina_worker_received",
+        "Number of total packets received from dpdk.",
+        Unit::Other("pkts".to_string()),
+        FAMILIES.total_pkt.clone(),
+    );
+    r.register_with_unit(
+        "retina_worker_received",
         "Number of total bytes received from dpdk.",
         Unit::Bytes,
         FAMILIES.total_byte.clone(),
+    );
+    r.register(
+        "retina_idle_cycles",
+        "Number of polling loop iterations that had no packet.",
+        FAMILIES.idle_cycles.clone(),
+    );
+    r.register(
+        "retina_all_cycles",
+        "Number of total polling loop iterations.",
+        FAMILIES.total_cycles.clone(),
     );
     r
 });
 
 pub static DPDK_STATS: LazyLock<DpdkPrometheusStats> = LazyLock::new(|| DpdkPrometheusStats {
-    ingress_pkts: register_int_counter!(Opts::new(
-        "ingress_pkts",
-        "Number of packets received by the NIC."
-    ))
-    .unwrap(),
+    ingress_pkts: prometheus_client::metrics::counter::Counter::default(),
     ingress_bits: prometheus_client::metrics::counter::Counter::default(),
     good_pkts: prometheus_client::metrics::counter::Counter::default(),
-    good_bits: register_int_counter!(Opts::new(
-        "good_bits",
-        "Number of bits received by the DPDK."
-    ))
-    .unwrap(),
-    process_pkts: register_int_counter!(Opts::new(
-        "process_pkts",
-        "Number of packets received by the retina workers."
-    ))
-    .unwrap(),
-    process_bits: register_int_counter!(Opts::new(
-        "process_bits",
-        "Number of bits received by the retina workers."
-    ))
-    .unwrap(),
-    hw_dropped_pkts: register_int_counter!(Opts::new(
-        "hw_dropped_pkts",
-        "Number of packets dropped by hardware."
-    ))
-    .unwrap(),
-    sw_dropped_pkts: register_int_counter!(Opts::new(
-        "sw_dropped_pkts",
-        "Number of packets dropped by software."
-    ))
-    .unwrap(),
+    good_bits: prometheus_client::metrics::counter::Counter::default(),
+    process_bits: prometheus_client::metrics::counter::Counter::default(),
+    process_pkts: prometheus_client::metrics::counter::Counter::default(),
+    hw_dropped_pkts: prometheus_client::metrics::counter::Counter::default(),
+    sw_dropped_pkts: prometheus_client::metrics::counter::Counter::default(),
 });
 
 struct PerCorePrometheusStats {
-    ignored_by_packet_filter_pkt: IntCounter,
-    ignored_by_packet_filter_byte: IntCounter,
-    dropped_middle_of_connection_tcp_pkt: IntCounter,
-    dropped_middle_of_connection_tcp_byte: IntCounter,
-    total_pkt: IntCounter,
+    ignored_by_packet_filter_pkt: prometheus_client::metrics::counter::Counter,
+    ignored_by_packet_filter_byte: prometheus_client::metrics::counter::Counter,
+    dropped_middle_of_connection_tcp_pkt: prometheus_client::metrics::counter::Counter,
+    dropped_middle_of_connection_tcp_byte: prometheus_client::metrics::counter::Counter,
+    total_pkt: prometheus_client::metrics::counter::Counter,
     total_byte: prometheus_client::metrics::counter::Counter,
-    idle_cycles: IntCounter,
-    total_cycles: IntCounter,
+    idle_cycles: prometheus_client::metrics::counter::Counter,
+    total_cycles: prometheus_client::metrics::counter::Counter,
 }
 
 thread_local! {
@@ -145,53 +207,27 @@ impl StatExt for std::thread::LocalKey<Cell<u64>> {
 
 pub fn update_thread_local_stats(core: CoreId) {
     PROMETHEUS.with(|pr| {
-        let pr = pr.get_or_init(|| {
-            let core_id = core.0 as usize;
-            PerCorePrometheusStats {
-                ignored_by_packet_filter_pkt: register_int_counter!(Opts::new(
-                    "ignored_by_packet_filter_pkt",
-                    "Number of packets ignored by packet filter."
-                )
-                .const_label("core", format!("{core_id}")))
-                .unwrap(),
-                ignored_by_packet_filter_byte: register_int_counter!(Opts::new(
-                    "ignored_by_packet_filter_byte",
-                    "Number of bytes ignored by packet filter."
-                )
-                .const_label("core", format!("{core_id}")))
-                .unwrap(),
-                dropped_middle_of_connection_tcp_pkt: register_int_counter!(Opts::new(
-                    "dropped_middle_of_connection_tcp_pkt",
-                    "Number of packets dropped due missing SYN packet."
-                )
-                .const_label("core", format!("{core_id}")))
-                .unwrap(),
-                dropped_middle_of_connection_tcp_byte: register_int_counter!(Opts::new(
-                    "dropped_middle_of_connection_tcp_byte",
-                    "Number of bytes dropped due missing SYN packet."
-                )
-                .const_label("core", format!("{core_id}")))
-                .unwrap(),
-                total_pkt: register_int_counter!(Opts::new(
-                    "total_pkt",
-                    "Number of total packets received from dpdk."
-                )
-                .const_label("core", format!("{core_id}")))
-                .unwrap(),
-                total_byte: FAMILIES.total_byte.get_or_create(&core).clone(),
-                idle_cycles: register_int_counter!(Opts::new(
-                    "idle_cycles",
-                    "Number of polling loop iterations that had no packet."
-                )
-                .const_label("core", format!("{core_id}")))
-                .unwrap(),
-                total_cycles: register_int_counter!(Opts::new(
-                    "total_cycles",
-                    "Number of total polling loop iterations."
-                )
-                .const_label("core", format!("{core_id}")))
-                .unwrap(),
-            }
+        let pr = pr.get_or_init(|| PerCorePrometheusStats {
+            ignored_by_packet_filter_pkt: FAMILIES
+                .ignored_by_packet_filter_pkt
+                .get_or_create(&core)
+                .clone(),
+            ignored_by_packet_filter_byte: FAMILIES
+                .ignored_by_packet_filter_byte
+                .get_or_create(&core)
+                .clone(),
+            dropped_middle_of_connection_tcp_pkt: FAMILIES
+                .dropped_middle_of_connection_tcp_pkt
+                .get_or_create(&core)
+                .clone(),
+            dropped_middle_of_connection_tcp_byte: FAMILIES
+                .dropped_middle_of_connection_tcp_byte
+                .get_or_create(&core)
+                .clone(),
+            total_pkt: FAMILIES.total_pkt.get_or_create(&core).clone(),
+            total_byte: FAMILIES.total_byte.get_or_create(&core).clone(),
+            idle_cycles: FAMILIES.idle_cycles.get_or_create(&core).clone(),
+            total_cycles: FAMILIES.total_cycles.get_or_create(&core).clone(),
         });
         pr.ignored_by_packet_filter_pkt
             .inc_by(IGNORED_BY_PACKET_FILTER_PKT.get());
@@ -216,38 +252,9 @@ pub fn update_thread_local_stats(core: CoreId) {
     });
 }
 
-lazy_static! {
-    static ref HTTP_COUNTER: Counter = register_counter!(opts!(
-        "example_http_requests_total",
-        "Number of HTTP requests made.",
-        labels! {"handler" => "all",}
-    ))
-    .unwrap();
-    static ref HTTP_BODY_GAUGE: Gauge = register_gauge!(opts!(
-        "example_http_response_size_bytes",
-        "The HTTP response sizes in bytes.",
-        labels! {"handler" => "all",}
-    ))
-    .unwrap();
-    static ref HTTP_REQ_HISTOGRAM: HistogramVec = register_histogram_vec!(
-        "example_http_request_duration_seconds",
-        "The HTTP request latencies in seconds.",
-        &["handler"]
-    )
-    .unwrap();
-}
-
-pub async fn serve_req(_req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
-    let encoder = TextEncoder::new();
-
-    HTTP_COUNTER.inc();
-    let timer = HTTP_REQ_HISTOGRAM.with_label_values(&["all"]).start_timer();
-
-    let metric_families = prometheus::gather();
+pub async fn serve_req(_req: Request<impl Body>) -> Result<Response<Full<Bytes>>, hyper::Error> {
     let mut buffer = String::new();
     prometheus_client::encoding::text::encode(&mut buffer, &STAT_REGISTRY).unwrap();
-    // encoder.encode(&metric_families, &mut buffer).unwrap();
-    HTTP_BODY_GAUGE.set(buffer.len() as f64);
 
     let response = Response::builder()
         .status(200)
@@ -255,10 +262,8 @@ pub async fn serve_req(_req: Request<Body>) -> Result<Response<Body>, hyper::Err
             CONTENT_TYPE,
             "application/openmetrics-text; version=1.0.0; charset=utf-8",
         )
-        .body(Body::from(buffer))
+        .body(Full::new(Bytes::from(buffer)))
         .unwrap();
-
-    timer.observe_duration();
 
     Ok(response)
 }
