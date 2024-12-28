@@ -1,5 +1,6 @@
-use hyper::service::{make_service_fn, service_fn};
-use hyper::Server;
+use hyper::service::service_fn;
+use hyper_util::rt::TokioIo;
+use tokio::net::TcpListener;
 
 use crate::config::{ConnTrackConfig, OnlineConfig, RuntimeConfig};
 use crate::dpdk;
@@ -148,13 +149,23 @@ where
                 monitor.run().await;
             });
             tokio::spawn(async move {
-                let addr = ([127, 0, 0, 1], 9898).into();
-                let serve_future = Server::bind(&addr).serve(make_service_fn(|_| async {
-                    Ok::<_, hyper::Error>(service_fn(serve_req))
-                }));
-
-                if let Err(err) = serve_future.await {
-                    eprintln!("Prometheus server error: {}", err);
+                let listener = TcpListener::bind("127.0.0.1:9898")
+                    .await
+                    .expect("failed to run prometheus server");
+                loop {
+                    let Ok((socket, _)) = listener.accept().await else {
+                        eprintln!("Prometheus server accept failed");
+                        break;
+                    };
+                    let socket = TokioIo::new(socket);
+                    tokio::spawn(async move {
+                        if let Err(e) = hyper::server::conn::http1::Builder::new()
+                            .serve_connection(socket, service_fn(serve_req))
+                            .await
+                        {
+                            eprintln!("Prometheus server error: {}", e);
+                        }
+                    });
                 }
             });
             jh1.await.unwrap();
