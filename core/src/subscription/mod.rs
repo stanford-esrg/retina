@@ -3,7 +3,10 @@ use crate::conntrack::ConnTracker;
 use crate::filter::*;
 use crate::lcore::CoreId;
 use crate::memory::mbuf::Mbuf;
+use crate::protocols::packet::tcp::TCP_PROTOCOL;
+use crate::protocols::packet::udp::UDP_PROTOCOL;
 use crate::protocols::stream::{ConnData, ParserRegistry, Session};
+use crate::stats::{StatExt, TCP_BYTE, TCP_PKT, UDP_BYTE, UDP_PKT};
 
 #[cfg(feature = "timing")]
 use crate::timing::timer::Timers;
@@ -93,6 +96,17 @@ where
     ) {
         if actions.data.intersects(ActionData::PacketContinue) {
             if let Ok(ctxt) = L4Context::new(&mbuf) {
+                match ctxt.proto {
+                    TCP_PROTOCOL => {
+                        TCP_PKT.inc();
+                        TCP_BYTE.inc_by(mbuf.data_len() as u64);
+                    }
+                    UDP_PROTOCOL => {
+                        UDP_PKT.inc();
+                        UDP_BYTE.inc_by(mbuf.data_len() as u64);
+                    }
+                    _ => {}
+                }
                 conn_tracker.process(mbuf, ctxt, self);
             }
         }
