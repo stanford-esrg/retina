@@ -41,6 +41,10 @@ pub struct Families {
         Family<CoreId, prometheus_client::metrics::counter::Counter>,
     total_pkt: Family<CoreId, prometheus_client::metrics::counter::Counter>,
     total_byte: Family<CoreId, prometheus_client::metrics::counter::Counter>,
+    tcp_pkt: Family<CoreId, prometheus_client::metrics::counter::Counter>,
+    tcp_byte: Family<CoreId, prometheus_client::metrics::counter::Counter>,
+    udp_pkt: Family<CoreId, prometheus_client::metrics::counter::Counter>,
+    udp_byte: Family<CoreId, prometheus_client::metrics::counter::Counter>,
     idle_cycles: Family<CoreId, prometheus_client::metrics::counter::Counter>,
     total_cycles: Family<CoreId, prometheus_client::metrics::counter::Counter>,
 }
@@ -145,6 +149,30 @@ pub static STAT_REGISTRY: LazyLock<Registry> = LazyLock::new(|| {
         Unit::Bytes,
         FAMILIES.total_byte.clone(),
     );
+    r.register_with_unit(
+        "retina_tcp_received",
+        "Number of tcp packets received from dpdk.",
+        Unit::Other("pkts".to_string()),
+        FAMILIES.tcp_pkt.clone(),
+    );
+    r.register_with_unit(
+        "retina_tcp_received",
+        "Number of tcp bytes received from dpdk.",
+        Unit::Bytes,
+        FAMILIES.tcp_byte.clone(),
+    );
+    r.register_with_unit(
+        "retina_udp_received",
+        "Number of udp packets received from dpdk.",
+        Unit::Other("pkts".to_string()),
+        FAMILIES.udp_pkt.clone(),
+    );
+    r.register_with_unit(
+        "retina_udp_received",
+        "Number of udp bytes received from dpdk.",
+        Unit::Bytes,
+        FAMILIES.udp_byte.clone(),
+    );
     r.register(
         "retina_idle_cycles",
         "Number of polling loop iterations that had no packet.",
@@ -176,6 +204,10 @@ struct PerCorePrometheusStats {
     dropped_middle_of_connection_tcp_byte: prometheus_client::metrics::counter::Counter,
     total_pkt: prometheus_client::metrics::counter::Counter,
     total_byte: prometheus_client::metrics::counter::Counter,
+    tcp_pkt: prometheus_client::metrics::counter::Counter,
+    tcp_byte: prometheus_client::metrics::counter::Counter,
+    udp_pkt: prometheus_client::metrics::counter::Counter,
+    udp_byte: prometheus_client::metrics::counter::Counter,
     idle_cycles: prometheus_client::metrics::counter::Counter,
     total_cycles: prometheus_client::metrics::counter::Counter,
 }
@@ -187,6 +219,10 @@ thread_local! {
     pub static DROPPED_MIDDLE_OF_CONNECTION_TCP_BYTE: Cell<u64> = const { Cell::new(0) };
     pub static TOTAL_PKT: Cell<u64> = const { Cell::new(0) };
     pub static TOTAL_BYTE: Cell<u64> = const { Cell::new(0) };
+    pub static TCP_PKT: Cell<u64> = const { Cell::new(0) };
+    pub static TCP_BYTE: Cell<u64> = const { Cell::new(0) };
+    pub static UDP_PKT: Cell<u64> = const { Cell::new(0) };
+    pub static UDP_BYTE: Cell<u64> = const { Cell::new(0) };
     pub static IDLE_CYCLES: Cell<u64> = const { Cell::new(0) };
     pub static TOTAL_CYCLES: Cell<u64> = const { Cell::new(0) };
     pub static PROMETHEUS: OnceCell<PerCorePrometheusStats> = const { OnceCell::new() };
@@ -226,6 +262,10 @@ pub fn update_thread_local_stats(core: CoreId) {
                 .clone(),
             total_pkt: FAMILIES.total_pkt.get_or_create(&core).clone(),
             total_byte: FAMILIES.total_byte.get_or_create(&core).clone(),
+            tcp_pkt: FAMILIES.tcp_pkt.get_or_create(&core).clone(),
+            tcp_byte: FAMILIES.tcp_byte.get_or_create(&core).clone(),
+            udp_pkt: FAMILIES.udp_pkt.get_or_create(&core).clone(),
+            udp_byte: FAMILIES.udp_byte.get_or_create(&core).clone(),
             idle_cycles: FAMILIES.idle_cycles.get_or_create(&core).clone(),
             total_cycles: FAMILIES.total_cycles.get_or_create(&core).clone(),
         });
@@ -245,6 +285,14 @@ pub fn update_thread_local_stats(core: CoreId) {
         TOTAL_PKT.set(0);
         pr.total_byte.inc_by(TOTAL_BYTE.get());
         TOTAL_BYTE.set(0);
+        pr.tcp_pkt.inc_by(TCP_PKT.get());
+        TCP_PKT.set(0);
+        pr.tcp_byte.inc_by(TCP_BYTE.get());
+        TCP_BYTE.set(0);
+        pr.udp_pkt.inc_by(UDP_PKT.get());
+        UDP_PKT.set(0);
+        pr.udp_byte.inc_by(UDP_BYTE.get());
+        UDP_BYTE.set(0);
         pr.idle_cycles.inc_by(IDLE_CYCLES.get());
         IDLE_CYCLES.set(0);
         pr.total_cycles.inc_by(TOTAL_CYCLES.get());
