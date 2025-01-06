@@ -19,6 +19,7 @@ use crate::memory::mbuf::Mbuf;
 use crate::protocols::packet::tcp::TCP_PROTOCOL;
 use crate::protocols::packet::udp::UDP_PROTOCOL;
 use crate::protocols::stream::ParserRegistry;
+use crate::stats::{StatExt, TCP_NEW_CONNECTIONS, UDP_NEW_CONNECTIONS};
 use crate::subscription::{Subscription, Trackable};
 
 use std::cmp;
@@ -148,6 +149,15 @@ where
                                 conn.last_seen_ts,
                                 conn.inactivity_window,
                             );
+                            match ctxt.proto {
+                                TCP_PROTOCOL => {
+                                    TCP_NEW_CONNECTIONS.inc();
+                                }
+                                UDP_PROTOCOL => {
+                                    UDP_NEW_CONNECTIONS.inc();
+                                }
+                                _ => {}
+                            }
                             self.table.insert(conn_id, conn);
                         }
                     }

@@ -45,6 +45,8 @@ pub struct Families {
     tcp_byte: Family<CoreId, prometheus_client::metrics::counter::Counter>,
     udp_pkt: Family<CoreId, prometheus_client::metrics::counter::Counter>,
     udp_byte: Family<CoreId, prometheus_client::metrics::counter::Counter>,
+    tcp_new_connections: Family<CoreId, prometheus_client::metrics::counter::Counter>,
+    udp_new_connections: Family<CoreId, prometheus_client::metrics::counter::Counter>,
     idle_cycles: Family<CoreId, prometheus_client::metrics::counter::Counter>,
     total_cycles: Family<CoreId, prometheus_client::metrics::counter::Counter>,
 }
@@ -174,6 +176,16 @@ pub static STAT_REGISTRY: LazyLock<Registry> = LazyLock::new(|| {
         FAMILIES.udp_byte.clone(),
     );
     r.register(
+        "retina_tcp_new_connections",
+        "Number of inserts into the tcp session table.",
+        FAMILIES.tcp_new_connections.clone(),
+    );
+    r.register(
+        "retina_udp_new_connections",
+        "Number of inserts into the udp session table.",
+        FAMILIES.udp_new_connections.clone(),
+    );
+    r.register(
         "retina_idle_cycles",
         "Number of polling loop iterations that had no packet.",
         FAMILIES.idle_cycles.clone(),
@@ -208,6 +220,8 @@ struct PerCorePrometheusStats {
     tcp_byte: prometheus_client::metrics::counter::Counter,
     udp_pkt: prometheus_client::metrics::counter::Counter,
     udp_byte: prometheus_client::metrics::counter::Counter,
+    tcp_new_connections: prometheus_client::metrics::counter::Counter,
+    udp_new_connections: prometheus_client::metrics::counter::Counter,
     idle_cycles: prometheus_client::metrics::counter::Counter,
     total_cycles: prometheus_client::metrics::counter::Counter,
 }
@@ -223,6 +237,8 @@ thread_local! {
     pub static TCP_BYTE: Cell<u64> = const { Cell::new(0) };
     pub static UDP_PKT: Cell<u64> = const { Cell::new(0) };
     pub static UDP_BYTE: Cell<u64> = const { Cell::new(0) };
+    pub static TCP_NEW_CONNECTIONS: Cell<u64> = const { Cell::new(0) };
+    pub static UDP_NEW_CONNECTIONS: Cell<u64> = const { Cell::new(0) };
     pub static IDLE_CYCLES: Cell<u64> = const { Cell::new(0) };
     pub static TOTAL_CYCLES: Cell<u64> = const { Cell::new(0) };
     pub static PROMETHEUS: OnceCell<PerCorePrometheusStats> = const { OnceCell::new() };
@@ -266,6 +282,8 @@ pub fn update_thread_local_stats(core: CoreId) {
             tcp_byte: FAMILIES.tcp_byte.get_or_create(&core).clone(),
             udp_pkt: FAMILIES.udp_pkt.get_or_create(&core).clone(),
             udp_byte: FAMILIES.udp_byte.get_or_create(&core).clone(),
+            tcp_new_connections: FAMILIES.tcp_new_connections.get_or_create(&core).clone(),
+            udp_new_connections: FAMILIES.udp_new_connections.get_or_create(&core).clone(),
             idle_cycles: FAMILIES.idle_cycles.get_or_create(&core).clone(),
             total_cycles: FAMILIES.total_cycles.get_or_create(&core).clone(),
         });
@@ -293,6 +311,10 @@ pub fn update_thread_local_stats(core: CoreId) {
         UDP_PKT.set(0);
         pr.udp_byte.inc_by(UDP_BYTE.get());
         UDP_BYTE.set(0);
+        pr.tcp_new_connections.inc_by(TCP_NEW_CONNECTIONS.get());
+        TCP_NEW_CONNECTIONS.set(0);
+        pr.udp_new_connections.inc_by(UDP_NEW_CONNECTIONS.get());
+        UDP_NEW_CONNECTIONS.set(0);
         pr.idle_cycles.inc_by(IDLE_CYCLES.get());
         IDLE_CYCLES.set(0);
         pr.total_cycles.inc_by(TOTAL_CYCLES.get());
