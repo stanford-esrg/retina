@@ -48,10 +48,16 @@ impl ConnRecord {
         self.orig.nb_pkts + self.resp.nb_pkts
     }
 
+    /// Returns the total number of packet bytes observed, including headers and malformed packets.
+    #[inline]
+    pub fn total_pkt_bytes(&self) -> u64 {
+        self.orig.nb_pkt_bytes + self.resp.nb_pkt_bytes
+    }
+
     /// Returns the total number of payload bytes observed, excluding those from malformed packets.
     #[inline]
-    pub fn total_bytes(&self) -> u64 {
-        self.orig.nb_bytes + self.resp.nb_bytes
+    pub fn total_payload_bytes(&self) -> u64 {
+        self.orig.nb_payload_bytes + self.resp.nb_payload_bytes
     }
 
     /// Returns the connection history.
@@ -257,9 +263,12 @@ pub struct Flow {
     pub nb_malformed_pkts: u64,
     /// Number of late start packets.
     pub nb_late_start_pkts: u64,
+    /// Number of packet bytes observed in the flow. Includes bytes from malformed
+    /// segments and ethernet and ip headers.
+    pub nb_pkt_bytes: u64,
     /// Number of payload bytes observed in the flow. Does not include bytes from malformed
     /// segments.
-    pub nb_bytes: u64,
+    pub nb_payload_bytes: u64,
     /// Maximum number of simultaneous content gaps.
     ///
     /// A content gap is a "hole" in the TCP sequence number, indicated re-ordered or missing
@@ -284,7 +293,8 @@ impl Flow {
             nb_pkts: 0,
             nb_malformed_pkts: 0,
             nb_late_start_pkts: 0,
-            nb_bytes: 0,
+            nb_pkt_bytes: 0,
+            nb_payload_bytes: 0,
             max_simult_gaps: 0,
             data_start: 0,
             capacity: DEFAULT_CHUNK_CAPACITY,
@@ -296,6 +306,7 @@ impl Flow {
     #[inline]
     fn insert_segment(&mut self, segment: &L4Pdu) {
         self.nb_pkts += 1;
+        self.nb_pkt_bytes += segment.mbuf.data_len() as u64;
 
         if segment.offset() > segment.mbuf.data_len()
             || (segment.offset() + segment.length()) > segment.mbuf.data_len()
@@ -303,7 +314,7 @@ impl Flow {
             self.nb_malformed_pkts += 1;
             return;
         }
-        self.nb_bytes += segment.length() as u64;
+        self.nb_payload_bytes += segment.length() as u64;
 
         let seq_no = if segment.flags() & SYN != 0 {
             segment.seq_no().wrapping_add(1)
