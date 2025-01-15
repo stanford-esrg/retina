@@ -25,6 +25,9 @@
 //! ```
 //! shows the number of received packets per second. For more complex usages, see
 //! [Prometheus docs](https://prometheus.io/docs/introduction/overview/).
+//! 
+//! You can also use the [`register_base_prometheus_registry`] function
+//! to add your own metrics to the prometheus registry.
 
 use http_body_util::Full;
 use hyper::{
@@ -34,13 +37,13 @@ use hyper::{
 };
 use prometheus_client::{
     encoding::EncodeLabelSet,
-    metrics::family::Family,
+    metrics::{counter::Counter, family::Family},
     registry::{Registry, Unit},
 };
 use std::{
     cell::{Cell, OnceCell},
     fmt::Write,
-    sync::LazyLock,
+    sync::{LazyLock, Mutex, OnceLock},
 };
 
 use crate::CoreId;
@@ -60,40 +63,58 @@ impl EncodeLabelSet for CoreId {
 }
 
 #[derive(Default)]
-pub struct Families {
-    ignored_by_packet_filter_pkt: Family<CoreId, prometheus_client::metrics::counter::Counter>,
-    ignored_by_packet_filter_byte: Family<CoreId, prometheus_client::metrics::counter::Counter>,
+struct Families {
+    ignored_by_packet_filter_pkt: Family<CoreId, Counter>,
+    ignored_by_packet_filter_byte: Family<CoreId, Counter>,
     dropped_middle_of_connection_tcp_pkt:
-        Family<CoreId, prometheus_client::metrics::counter::Counter>,
+        Family<CoreId, Counter>,
     dropped_middle_of_connection_tcp_byte:
-        Family<CoreId, prometheus_client::metrics::counter::Counter>,
-    total_pkt: Family<CoreId, prometheus_client::metrics::counter::Counter>,
-    total_byte: Family<CoreId, prometheus_client::metrics::counter::Counter>,
-    tcp_pkt: Family<CoreId, prometheus_client::metrics::counter::Counter>,
-    tcp_byte: Family<CoreId, prometheus_client::metrics::counter::Counter>,
-    udp_pkt: Family<CoreId, prometheus_client::metrics::counter::Counter>,
-    udp_byte: Family<CoreId, prometheus_client::metrics::counter::Counter>,
-    tcp_new_connections: Family<CoreId, prometheus_client::metrics::counter::Counter>,
-    udp_new_connections: Family<CoreId, prometheus_client::metrics::counter::Counter>,
-    idle_cycles: Family<CoreId, prometheus_client::metrics::counter::Counter>,
-    total_cycles: Family<CoreId, prometheus_client::metrics::counter::Counter>,
+        Family<CoreId, Counter>,
+    total_pkt: Family<CoreId, Counter>,
+    total_byte: Family<CoreId, Counter>,
+    tcp_pkt: Family<CoreId, Counter>,
+    tcp_byte: Family<CoreId, Counter>,
+    udp_pkt: Family<CoreId, Counter>,
+    udp_byte: Family<CoreId, Counter>,
+    tcp_new_connections: Family<CoreId, Counter>,
+    udp_new_connections: Family<CoreId, Counter>,
+    idle_cycles: Family<CoreId, Counter>,
+    total_cycles: Family<CoreId, Counter>,
 }
 
-pub static FAMILIES: LazyLock<Families> = LazyLock::new(Families::default);
+static FAMILIES: LazyLock<Families> = LazyLock::new(Families::default);
 
-pub struct DpdkPrometheusStats {
-    pub ingress_bits: prometheus_client::metrics::counter::Counter,
-    pub ingress_pkts: prometheus_client::metrics::counter::Counter,
-    pub good_bits: prometheus_client::metrics::counter::Counter,
-    pub good_pkts: prometheus_client::metrics::counter::Counter,
-    pub process_bits: prometheus_client::metrics::counter::Counter,
-    pub process_pkts: prometheus_client::metrics::counter::Counter,
-    pub hw_dropped_pkts: prometheus_client::metrics::counter::Counter,
-    pub sw_dropped_pkts: prometheus_client::metrics::counter::Counter,
+pub(crate) struct DpdkPrometheusStats {
+    pub(crate) ingress_bits: Counter,
+    pub(crate) ingress_pkts: Counter,
+    pub(crate) good_bits: Counter,
+    pub(crate) good_pkts: Counter,
+    pub(crate) process_bits: Counter,
+    pub(crate) process_pkts: Counter,
+    pub(crate) hw_dropped_pkts: Counter,
+    pub(crate) sw_dropped_pkts: Counter,
 }
 
-pub static STAT_REGISTRY: LazyLock<Registry> = LazyLock::new(|| {
-    let mut r = Registry::default();
+pub(crate) static BASE_STAT_REGISTRY: OnceLock<Mutex<Option<Registry>>> = OnceLock::new();
+
+/// Retina uses prometheus to report metrics. You can use this function to
+/// add your own metrics to the prometheus registry.
+pub fn register_base_prometheus_registry(r: Registry) {
+    if BASE_STAT_REGISTRY.set(Mutex::new(Some(r))).is_err() {
+        panic!(
+            "Base registry already set. You should call `register_base_prometheus_registry` only \
+                once before building the runtime."
+        );
+    }
+}
+
+pub(crate) static STAT_REGISTRY: LazyLock<Registry> = LazyLock::new(|| {
+    let mut r = BASE_STAT_REGISTRY
+        .get_or_init(|| Mutex::new(Some(Registry::default())))
+        .lock()
+        .unwrap()
+        .take()
+        .unwrap();
     r.register_with_unit(
         "dpdk_ingress",
         "Number of bits received by the NIC.",
@@ -226,53 +247,54 @@ pub static STAT_REGISTRY: LazyLock<Registry> = LazyLock::new(|| {
     r
 });
 
-pub static DPDK_STATS: LazyLock<DpdkPrometheusStats> = LazyLock::new(|| DpdkPrometheusStats {
-    ingress_pkts: prometheus_client::metrics::counter::Counter::default(),
-    ingress_bits: prometheus_client::metrics::counter::Counter::default(),
-    good_pkts: prometheus_client::metrics::counter::Counter::default(),
-    good_bits: prometheus_client::metrics::counter::Counter::default(),
-    process_bits: prometheus_client::metrics::counter::Counter::default(),
-    process_pkts: prometheus_client::metrics::counter::Counter::default(),
-    hw_dropped_pkts: prometheus_client::metrics::counter::Counter::default(),
-    sw_dropped_pkts: prometheus_client::metrics::counter::Counter::default(),
-});
+pub(crate) static DPDK_STATS: LazyLock<DpdkPrometheusStats> =
+    LazyLock::new(|| DpdkPrometheusStats {
+        ingress_pkts: Counter::default(),
+        ingress_bits: Counter::default(),
+        good_pkts: Counter::default(),
+        good_bits: Counter::default(),
+        process_bits: Counter::default(),
+        process_pkts: Counter::default(),
+        hw_dropped_pkts: Counter::default(),
+        sw_dropped_pkts: Counter::default(),
+    });
 
 struct PerCorePrometheusStats {
-    ignored_by_packet_filter_pkt: prometheus_client::metrics::counter::Counter,
-    ignored_by_packet_filter_byte: prometheus_client::metrics::counter::Counter,
-    dropped_middle_of_connection_tcp_pkt: prometheus_client::metrics::counter::Counter,
-    dropped_middle_of_connection_tcp_byte: prometheus_client::metrics::counter::Counter,
-    total_pkt: prometheus_client::metrics::counter::Counter,
-    total_byte: prometheus_client::metrics::counter::Counter,
-    tcp_pkt: prometheus_client::metrics::counter::Counter,
-    tcp_byte: prometheus_client::metrics::counter::Counter,
-    udp_pkt: prometheus_client::metrics::counter::Counter,
-    udp_byte: prometheus_client::metrics::counter::Counter,
-    tcp_new_connections: prometheus_client::metrics::counter::Counter,
-    udp_new_connections: prometheus_client::metrics::counter::Counter,
-    idle_cycles: prometheus_client::metrics::counter::Counter,
-    total_cycles: prometheus_client::metrics::counter::Counter,
+    ignored_by_packet_filter_pkt: Counter,
+    ignored_by_packet_filter_byte: Counter,
+    dropped_middle_of_connection_tcp_pkt: Counter,
+    dropped_middle_of_connection_tcp_byte: Counter,
+    total_pkt: Counter,
+    total_byte: Counter,
+    tcp_pkt: Counter,
+    tcp_byte: Counter,
+    udp_pkt: Counter,
+    udp_byte: Counter,
+    tcp_new_connections: Counter,
+    udp_new_connections: Counter,
+    idle_cycles: Counter,
+    total_cycles: Counter,
 }
 
 thread_local! {
-    pub static IGNORED_BY_PACKET_FILTER_PKT: Cell<u64> = const { Cell::new(0) };
-    pub static IGNORED_BY_PACKET_FILTER_BYTE: Cell<u64> = const { Cell::new(0) };
-    pub static DROPPED_MIDDLE_OF_CONNECTION_TCP_PKT: Cell<u64> = const { Cell::new(0) };
-    pub static DROPPED_MIDDLE_OF_CONNECTION_TCP_BYTE: Cell<u64> = const { Cell::new(0) };
-    pub static TOTAL_PKT: Cell<u64> = const { Cell::new(0) };
-    pub static TOTAL_BYTE: Cell<u64> = const { Cell::new(0) };
-    pub static TCP_PKT: Cell<u64> = const { Cell::new(0) };
-    pub static TCP_BYTE: Cell<u64> = const { Cell::new(0) };
-    pub static UDP_PKT: Cell<u64> = const { Cell::new(0) };
-    pub static UDP_BYTE: Cell<u64> = const { Cell::new(0) };
-    pub static TCP_NEW_CONNECTIONS: Cell<u64> = const { Cell::new(0) };
-    pub static UDP_NEW_CONNECTIONS: Cell<u64> = const { Cell::new(0) };
-    pub static IDLE_CYCLES: Cell<u64> = const { Cell::new(0) };
-    pub static TOTAL_CYCLES: Cell<u64> = const { Cell::new(0) };
-    pub static PROMETHEUS: OnceCell<PerCorePrometheusStats> = const { OnceCell::new() };
+    pub(crate) static IGNORED_BY_PACKET_FILTER_PKT: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static IGNORED_BY_PACKET_FILTER_BYTE: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static DROPPED_MIDDLE_OF_CONNECTION_TCP_PKT: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static DROPPED_MIDDLE_OF_CONNECTION_TCP_BYTE: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static TOTAL_PKT: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static TOTAL_BYTE: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static TCP_PKT: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static TCP_BYTE: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static UDP_PKT: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static UDP_BYTE: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static TCP_NEW_CONNECTIONS: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static UDP_NEW_CONNECTIONS: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static IDLE_CYCLES: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static TOTAL_CYCLES: Cell<u64> = const { Cell::new(0) };
+    pub(crate) static PROMETHEUS: OnceCell<PerCorePrometheusStats> = const { OnceCell::new() };
 }
 
-pub trait StatExt: Sized {
+pub(crate) trait StatExt: Sized {
     fn inc(&'static self) {
         self.inc_by(1);
     }
@@ -285,7 +307,7 @@ impl StatExt for std::thread::LocalKey<Cell<u64>> {
     }
 }
 
-pub fn update_thread_local_stats(core: CoreId) {
+pub(crate) fn update_thread_local_stats(core: CoreId) {
     PROMETHEUS.with(|pr| {
         let pr = pr.get_or_init(|| PerCorePrometheusStats {
             ignored_by_packet_filter_pkt: FAMILIES
@@ -350,7 +372,7 @@ pub fn update_thread_local_stats(core: CoreId) {
     });
 }
 
-pub async fn serve_req(_req: Request<impl Body>) -> Result<Response<Full<Bytes>>, hyper::Error> {
+pub(crate) async fn serve_req(_req: Request<impl Body>) -> Result<Response<Full<Bytes>>, hyper::Error> {
     let mut buffer = String::new();
     prometheus_client::encoding::text::encode(&mut buffer, &STAT_REGISTRY).unwrap();
 
