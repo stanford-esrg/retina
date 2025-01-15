@@ -82,7 +82,7 @@ pub mod memory;
 mod port;
 pub mod protocols;
 mod runtime;
-mod stats;
+pub mod stats;
 #[doc(hidden)]
 pub mod subscription;
 pub mod utils;
