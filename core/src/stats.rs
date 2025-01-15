@@ -1,3 +1,31 @@
+//! Prometheus statistics.
+//!
+//! Retina uses the Prometheus time series database to record and report metrics useful for monitoring and
+//! analysing retina usage over time. You can use Prometheus with other services like Grafana to use the
+//! reported data.
+//!
+//! Retina runs a http server on 127.0.0.1:9898 by default, so you
+//! can [install Prometheus](https://prometheus.io/docs/prometheus/latest/installation/) and
+//! use this config to scrape metrics from Retina:
+//!
+//! ```yaml
+//! global:
+//!     scrape_interval: 1s
+//!     evaluation_interval: 1s
+//! scrape_configs:
+//!     - job_name: retina
+//!       static_configs:
+//!           - targets: ['127.0.0.1:9898']
+//! ```
+//!
+//! After running prometheus, you can see simple graph of a prometheus query using its
+//! web gui, for example:
+//! ```txt
+//! rate(retina_worker_received_pkts[10s])
+//! ```
+//! shows the number of received packets per second. For more complex usages, see
+//! [Prometheus docs](https://prometheus.io/docs/introduction/overview/).
+
 use http_body_util::Full;
 use hyper::{
     body::{Body, Bytes},
