@@ -4,7 +4,12 @@
 //! analysing retina usage over time. You can use Prometheus with other services like Grafana to use the
 //! reported data.
 //!
-//! Retina runs a http server on 127.0.0.1:9898 by default, so you
+//! You can enable a exporter http server from `online.prometheus` config:
+//! ```toml
+//! [online.prometheus]
+//!     port = 9898
+//! ```
+//! Then you
 //! can [install Prometheus](https://prometheus.io/docs/prometheus/latest/installation/) and
 //! use this config to scrape metrics from Retina:
 //!
@@ -25,7 +30,7 @@
 //! ```
 //! shows the number of received packets per second. For more complex usages, see
 //! [Prometheus docs](https://prometheus.io/docs/introduction/overview/).
-//! 
+//!
 //! You can also use the [`register_base_prometheus_registry`] function
 //! to add your own metrics to the prometheus registry.
 
@@ -66,10 +71,8 @@ impl EncodeLabelSet for CoreId {
 struct Families {
     ignored_by_packet_filter_pkt: Family<CoreId, Counter>,
     ignored_by_packet_filter_byte: Family<CoreId, Counter>,
-    dropped_middle_of_connection_tcp_pkt:
-        Family<CoreId, Counter>,
-    dropped_middle_of_connection_tcp_byte:
-        Family<CoreId, Counter>,
+    dropped_middle_of_connection_tcp_pkt: Family<CoreId, Counter>,
+    dropped_middle_of_connection_tcp_byte: Family<CoreId, Counter>,
     total_pkt: Family<CoreId, Counter>,
     total_byte: Family<CoreId, Counter>,
     tcp_pkt: Family<CoreId, Counter>,
@@ -372,7 +375,9 @@ pub(crate) fn update_thread_local_stats(core: CoreId) {
     });
 }
 
-pub(crate) async fn serve_req(_req: Request<impl Body>) -> Result<Response<Full<Bytes>>, hyper::Error> {
+pub(crate) async fn serve_req(
+    _req: Request<impl Body>,
+) -> Result<Response<Full<Bytes>>, hyper::Error> {
     let mut buffer = String::new();
     prometheus_client::encoding::text::encode(&mut buffer, &STAT_REGISTRY).unwrap();
 
