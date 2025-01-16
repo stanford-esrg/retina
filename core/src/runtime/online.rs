@@ -89,6 +89,7 @@ where
                 core_id,
                 rxqueues,
                 options.conntrack.clone(),
+                options.online.prometheus.is_some(),
                 Arc::clone(&subscription),
                 Arc::clone(&is_running),
             );
@@ -148,26 +149,28 @@ where
             let jh1 = tokio::spawn(async move {
                 monitor.run().await;
             });
-            tokio::spawn(async move {
-                let listener = TcpListener::bind("127.0.0.1:9898")
-                    .await
-                    .expect("failed to run prometheus server");
-                loop {
-                    let Ok((socket, _)) = listener.accept().await else {
-                        eprintln!("Prometheus server accept failed");
-                        break;
-                    };
-                    let socket = TokioIo::new(socket);
-                    tokio::spawn(async move {
-                        if let Err(e) = hyper::server::conn::http1::Builder::new()
-                            .serve_connection(socket, service_fn(serve_req))
-                            .await
-                        {
-                            eprintln!("Prometheus server error: {}", e);
-                        }
-                    });
-                }
-            });
+            if let Some(prometheus) = self.options.online.prometheus {
+                tokio::spawn(async move {
+                    let listener = TcpListener::bind((prometheus.ip, prometheus.port))
+                        .await
+                        .expect("failed to run prometheus server");
+                    loop {
+                        let Ok((socket, _)) = listener.accept().await else {
+                            eprintln!("Prometheus server accept failed");
+                            break;
+                        };
+                        let socket = TokioIo::new(socket);
+                        tokio::spawn(async move {
+                            if let Err(e) = hyper::server::conn::http1::Builder::new()
+                                .serve_connection(socket, service_fn(serve_req))
+                                .await
+                            {
+                                eprintln!("Prometheus server error: {}", e);
+                            }
+                        });
+                    }
+                });
+            }
             jh1.await.unwrap();
         });
         println!("Main done. Ran for {:?}", start.elapsed());

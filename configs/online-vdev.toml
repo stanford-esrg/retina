@@ -21,6 +21,9 @@ nb_memory_channels = 6
     hardware_assist = false
     dpdk_supl_args = ["--no-huge","--no-pci","-m 512M","--vdev=net_pcap0,iface=ens0"]
 
+    [online.prometheus]
+        port = 9898
+
     [online.monitor.display]
         throughput = true
         mempool_usage = true
