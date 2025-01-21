@@ -41,9 +41,9 @@ str_lit = _{ "\'" ~ text ~ "\'" }
 text = { (!("\'") ~ ANY)+ }
 
 // Bytes
-// TODO: make more flexible later by allowing chars before and after the operator
-byte_op = { "|" }
-byte_lit = @{ "\'" ~ byte_op ~ text ~ byte_op "\'" }
+// TODO (nice to have): make more flexible by allowing ASCII chars before and after the |
+byte_lit = @{ "|" ~ byte ~ "|" }
+byte = { (!("|") ~ ASCII_HEX_DIGIT{2} ~ " "?)+ }
 
 // Logical operators
 // ----------------------------------------------------------------------

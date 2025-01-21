@@ -303,13 +303,13 @@ impl Predicate {
                     return false;
                 }
 
-                // Bytes
-                if let Value::Byte(b) = val {
-                    if let Value::Byte(peer_v) = peer_val {
-                        return is_excl_byte(b, op, peer_s, peer_op); // TODO
-                    }
-                    return false;
-                }
+                // // TODO (nice to have): Bytes
+                // if let Value::Byte(b) = val {
+                //     if let Value::Byte(peer_v) = peer_val {
+                //         return is_excl_byte(b, op, peer_s, peer_op); // TODO (nice to have)
+                //     }
+                //     return false;
+                // }
             }
         }
         false
@@ -436,13 +436,13 @@ impl Predicate {
                         return false;
                     }
 
-                    // Bytes
-                    if let Value::Byte(b) = val {
-                        if let Value::Byte(peer_v) = peer_val {
-                            return is_parent_byte(b, op, peer_s, peer_op); // TODO
-                        }
-                        return false;
-                    }
+                    // // TODO (nice to have): Bytes
+                    // if let Value::Byte(b) = val {
+                    //     if let Value::Byte(peer_v) = peer_val {
+                    //         return is_parent_byte(b, op, peer_s, peer_op); // TODO (nice to have)
+                    //     }
+                    //     return false;
+                    // }
                 }
             }
         }
@@ -603,14 +603,14 @@ pub(super) fn is_parent_text(
     parent.is_match(child_text)
 }
 
-pub(super) fn is_parent_byte( // TODO
-    child_text: &u8,
-    child_op: &BinOp,
-    parent_text: &u8,
-    parent_op: &BinOp,
-) -> bool {
+// pub(super) fn is_parent_byte( // TODO (nice to have)
+//     child_text: &u8,
+//     child_op: &BinOp,
+//     parent_text: &u8,
+//     parent_op: &BinOp,
+// ) -> bool {
      
-}
+// }
 
 pub(super) fn is_excl_int(
     from: u64,

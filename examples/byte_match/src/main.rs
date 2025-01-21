@@ -2,7 +2,7 @@ use retina_core::{config::default_config, Runtime};
 use retina_datatypes::TlsHandshake;
 use retina_filtergen::{filter, retina_main};
 
-#[filter("tls.sni ~ '|ffab0304|'")]
+#[filter("tls.sni == |00 01 02 03|")]
 fn tls_cb(tls: &TlsHandshake) {
     println!("Tls SNI: {}", tls.sni());
 }

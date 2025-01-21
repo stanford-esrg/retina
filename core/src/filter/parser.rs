@@ -219,6 +219,8 @@ impl FilterParser {
             }
             Rule::byte_lit => { // TODO
                 // let b = ;
+                // check if there's a built-in function to convert an entire byte slice to ASCII
+                // if no function, need to split the byte slice on white space, then iterate through each byte and convert
             }
             _ => bail!(FilterError::InvalidRhsType(pair_str)),
         }
