@@ -42,8 +42,8 @@ text = { (!("\'") ~ ANY)+ }
 
 // Bytes
 // TODO (nice to have): make more flexible by allowing ASCII chars before and after the |
-byte_lit = @{ "|" ~ byte ~ "|" }
-byte = { (!("|") ~ ASCII_HEX_DIGIT{2} ~ " "?)+ }
+byte_lit = @{ "|" ~ (byte)+ ~ "|" }
+byte = { !("|") ~ ASCII_HEX_DIGIT{2} ~ " "? }
 
 // Logical operators
 // ----------------------------------------------------------------------
