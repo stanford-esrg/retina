@@ -155,6 +155,9 @@ pub(crate) fn binary_to_tokens(
                 _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
             }
         }
+        Value::Byte(b) => { // TODO
+            
+        }
     }
 }
 

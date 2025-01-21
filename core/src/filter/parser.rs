@@ -102,8 +102,11 @@ impl FilterParser {
     }
 
     fn parse_predicate(pair: Pair<Rule>) -> Result<Vec<Node>> {
+        println!("pair: {:?}", pair);
         let mut inner = pair.into_inner();
         let protocol = inner.next().unwrap();
+        println!("inner: {:?}", inner);
+        println!("protocol: {:?}", protocol);
         match inner.next() {
             Some(field) => {
                 let op = inner.next().unwrap();
@@ -213,6 +216,9 @@ impl FilterParser {
                     from: *range.start(),
                     to: *range.end(),
                 })
+            }
+            Rule::byte_lit => { // TODO
+                // let b = ;
             }
             _ => bail!(FilterError::InvalidRhsType(pair_str)),
         }

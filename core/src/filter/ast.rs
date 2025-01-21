@@ -302,6 +302,14 @@ impl Predicate {
                     }
                     return false;
                 }
+
+                // Bytes
+                if let Value::Byte(b) = val {
+                    if let Value::Byte(peer_v) = peer_val {
+                        return is_excl_byte(b, op, peer_s, peer_op); // TODO
+                    }
+                    return false;
+                }
             }
         }
         false
@@ -427,6 +435,14 @@ impl Predicate {
                         }
                         return false;
                     }
+
+                    // Bytes
+                    if let Value::Byte(b) = val {
+                        if let Value::Byte(peer_v) = peer_val {
+                            return is_parent_byte(b, op, peer_s, peer_op); // TODO
+                        }
+                        return false;
+                    }
                 }
             }
         }
@@ -525,6 +541,8 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
     !regex.is_match(txt)
 }
 
+
+
 pub(super) fn is_parent_ipv4(
     child_ipv4: &Ipv4Net,
     child_op: &BinOp,
@@ -583,6 +601,15 @@ pub(super) fn is_parent_text(
     let parent = Regex::new(parent_text)
         .unwrap_or_else(|err| panic!("Invalid Regex string {}: {:?}", parent_text, err));
     parent.is_match(child_text)
+}
+
+pub(super) fn is_parent_byte( // TODO
+    child_text: &u8,
+    child_op: &BinOp,
+    parent_text: &u8,
+    parent_op: &BinOp,
+) -> bool {
+     
 }
 
 pub(super) fn is_excl_int(
@@ -827,6 +854,7 @@ pub enum Value {
     Ipv4(Ipv4Net),
     Ipv6(Ipv6Net),
     Text(String),
+    Byte(u8), // TODO
 }
 
 impl fmt::Display for Value {
@@ -837,6 +865,7 @@ impl fmt::Display for Value {
             Value::Ipv4(net) => write!(f, "{}", net),
             Value::Ipv6(net) => write!(f, "{}", net),
             Value::Text(val) => write!(f, "{}", val),
+            Value::Byte(val) => write!(f, "{}", val), // TODO
         }
     }
 }

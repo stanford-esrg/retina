@@ -256,6 +256,8 @@ fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
 
     let packet_ptree = filter_subtree(&config, FilterLayer::Packet);
     let packet_filter = gen_packet_filter(&packet_ptree, &mut statics, FilterLayer::Packet);
+    println!("packet_ptree: {:?}", packet_ptree);
+    println!("packet_filter: {:?}", packet_filter);
 
     let conn_ptree = filter_subtree(&config, FilterLayer::Protocol);
     let proto_filter = gen_proto_filter(&conn_ptree, &mut statics);
