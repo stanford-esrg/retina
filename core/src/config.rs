@@ -11,9 +11,10 @@
 
 use crate::lcore::{CoreId, SocketId};
 
-use std::net::Ipv4Addr;
+use std::fs;
+#[cfg(feature = "prometheus")]
+use std::net::{IpAddr, Ipv4Addr};
 use std::path::Path;
-use std::{fs, net::IpAddr};
 
 use serde::{Deserialize, Serialize};
 
@@ -338,6 +339,7 @@ pub struct OnlineConfig {
 
     /// Prometheus metrics exporter server. Defaults to `None`.
     #[serde(default = "default_prometheus")]
+    #[cfg(feature = "prometheus")]
     pub prometheus: Option<PrometheusConfig>,
 
     /// List of network interfaces to read from.
@@ -372,6 +374,7 @@ fn default_monitor() -> Option<MonitorConfig> {
     None
 }
 
+#[cfg(feature = "prometheus")]
 fn default_prometheus() -> Option<PrometheusConfig> {
     None
 }
@@ -494,6 +497,7 @@ fn default_log() -> Option<LogConfig> {
 ///     interval = 1000
 /// ```
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[cfg(feature = "prometheus")]
 pub struct PrometheusConfig {
     /// Listen port for Prometheus metrics.
     pub port: u16,
@@ -503,6 +507,7 @@ pub struct PrometheusConfig {
     pub ip: IpAddr,
 }
 
+#[cfg(feature = "prometheus")]
 fn default_prometheus_ip() -> IpAddr {
     IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))
 }

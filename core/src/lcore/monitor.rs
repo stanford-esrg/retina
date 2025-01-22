@@ -1,7 +1,6 @@
 use crate::config::RuntimeConfig;
 use crate::dpdk;
 use crate::port::{statistics::PortStats, Port, PortId, RxQueue, RxQueueType};
-use crate::stats::DPDK_STATS;
 
 use std::collections::{BTreeMap, HashMap};
 use std::ffi::CString;
@@ -136,6 +135,7 @@ impl Monitor {
                 let delta = curr_ts - prev_ts;
                 match AggRxStats::collect(&self.ports, &display.keywords) {
                     Ok(curr_rx) => {
+                        #[cfg(feature = "prometheus")]
                         curr_rx.update_prometheus_stats();
                         let nms = delta.as_millis() as f64;
                         if init {
@@ -477,7 +477,9 @@ impl AggRxStats {
         self.hw_dropped_pkts + self.sw_dropped_pkts
     }
 
+    #[cfg(feature = "prometheus")]
     fn update_prometheus_stats(&self) {
+        use crate::stats::DPDK_STATS;
         DPDK_STATS
             .ingress_pkts
             .inc_by(self.ingress_pkts - DPDK_STATS.ingress_pkts.get());

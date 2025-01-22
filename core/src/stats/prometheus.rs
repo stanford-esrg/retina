@@ -46,11 +46,11 @@ use prometheus_client::{
     registry::{Registry, Unit},
 };
 use std::{
-    cell::{Cell, OnceCell},
     fmt::Write,
     sync::{LazyLock, Mutex, OnceLock},
 };
 
+use super::*;
 use crate::CoreId;
 
 impl EncodeLabelSet for CoreId {
@@ -262,7 +262,7 @@ pub(crate) static DPDK_STATS: LazyLock<DpdkPrometheusStats> =
         sw_dropped_pkts: Counter::default(),
     });
 
-struct PerCorePrometheusStats {
+pub(crate) struct PerCorePrometheusStats {
     ignored_by_packet_filter_pkt: Counter,
     ignored_by_packet_filter_byte: Counter,
     dropped_middle_of_connection_tcp_pkt: Counter,
@@ -277,37 +277,6 @@ struct PerCorePrometheusStats {
     udp_new_connections: Counter,
     idle_cycles: Counter,
     total_cycles: Counter,
-}
-
-thread_local! {
-    pub(crate) static IGNORED_BY_PACKET_FILTER_PKT: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static IGNORED_BY_PACKET_FILTER_BYTE: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static DROPPED_MIDDLE_OF_CONNECTION_TCP_PKT: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static DROPPED_MIDDLE_OF_CONNECTION_TCP_BYTE: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static TOTAL_PKT: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static TOTAL_BYTE: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static TCP_PKT: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static TCP_BYTE: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static UDP_PKT: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static UDP_BYTE: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static TCP_NEW_CONNECTIONS: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static UDP_NEW_CONNECTIONS: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static IDLE_CYCLES: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static TOTAL_CYCLES: Cell<u64> = const { Cell::new(0) };
-    pub(crate) static PROMETHEUS: OnceCell<PerCorePrometheusStats> = const { OnceCell::new() };
-}
-
-pub(crate) trait StatExt: Sized {
-    fn inc(&'static self) {
-        self.inc_by(1);
-    }
-    fn inc_by(&'static self, val: u64);
-}
-
-impl StatExt for std::thread::LocalKey<Cell<u64>> {
-    fn inc_by(&'static self, val: u64) {
-        self.set(self.get() + val);
-    }
 }
 
 pub(crate) fn update_thread_local_stats(core: CoreId) {
