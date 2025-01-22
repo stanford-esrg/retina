@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "3.2.23", features = ["derive"] }
 env_logger = "0.8.4"
-retina-core = { path = "../../core" }
+retina-core = { path = "../../core", features = ["prometheus"] }
 retina-filtergen = { path = "../../filtergen" }
 retina-datatypes = { path = "../../datatypes" }
 prometheus-client = "0.22.3"

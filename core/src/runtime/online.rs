@@ -1,7 +1,3 @@
-use hyper::service::service_fn;
-use hyper_util::rt::TokioIo;
-use tokio::net::TcpListener;
-
 use crate::config::{ConnTrackConfig, OnlineConfig, RuntimeConfig};
 use crate::dpdk;
 use crate::filter::Filter;
@@ -10,7 +6,6 @@ use crate::lcore::rx_core::RxCore;
 use crate::lcore::{CoreId, SocketId};
 use crate::memory::mempool::Mempool;
 use crate::port::*;
-use crate::stats::serve_req;
 use crate::subscription::*;
 
 use std::collections::BTreeMap;
@@ -89,6 +84,7 @@ where
                 core_id,
                 rxqueues,
                 options.conntrack.clone(),
+                #[cfg(feature = "prometheus")]
                 options.online.prometheus.is_some(),
                 Arc::clone(&subscription),
                 Arc::clone(&is_running),
@@ -149,7 +145,11 @@ where
             let jh1 = tokio::spawn(async move {
                 monitor.run().await;
             });
+            #[cfg(feature = "prometheus")]
             if let Some(prometheus) = self.options.online.prometheus {
+                use hyper::service::service_fn;
+                use hyper_util::rt::TokioIo;
+                use tokio::net::TcpListener;
                 tokio::spawn(async move {
                     let listener = TcpListener::bind((prometheus.ip, prometheus.port))
                         .await
@@ -162,7 +162,7 @@ where
                         let socket = TokioIo::new(socket);
                         tokio::spawn(async move {
                             if let Err(e) = hyper::server::conn::http1::Builder::new()
-                                .serve_connection(socket, service_fn(serve_req))
+                                .serve_connection(socket, service_fn(crate::stats::serve_req))
                                 .await
                             {
                                 eprintln!("Prometheus server error: {}", e);

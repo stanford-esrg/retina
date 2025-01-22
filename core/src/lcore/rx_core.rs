@@ -5,8 +5,8 @@ use crate::dpdk;
 use crate::memory::mbuf::Mbuf;
 use crate::port::{RxQueue, RxQueueType};
 use crate::stats::{
-    update_thread_local_stats, StatExt, IDLE_CYCLES, IGNORED_BY_PACKET_FILTER_BYTE,
-    IGNORED_BY_PACKET_FILTER_PKT, TOTAL_BYTE, TOTAL_CYCLES, TOTAL_PKT,
+    StatExt, IDLE_CYCLES, IGNORED_BY_PACKET_FILTER_BYTE, IGNORED_BY_PACKET_FILTER_PKT, TOTAL_BYTE,
+    TOTAL_CYCLES, TOTAL_PKT,
 };
 use crate::subscription::*;
 
@@ -24,6 +24,7 @@ where
     pub(crate) id: CoreId,
     pub(crate) rxqueues: Vec<RxQueue>,
     pub(crate) conntrack: ConnTrackConfig,
+    #[cfg(feature = "prometheus")]
     pub(crate) is_prometheus_enabled: bool,
     pub(crate) subscription: Arc<Subscription<S>>,
     pub(crate) is_running: Arc<AtomicBool>,
@@ -37,7 +38,7 @@ where
         core_id: CoreId,
         rxqueues: Vec<RxQueue>,
         conntrack: ConnTrackConfig,
-        is_prometheus_enabled: bool,
+        #[cfg(feature = "prometheus")] is_prometheus_enabled: bool,
         subscription: Arc<Subscription<S>>,
         is_running: Arc<AtomicBool>,
     ) -> Self {
@@ -45,6 +46,7 @@ where
             id: core_id,
             rxqueues,
             conntrack,
+            #[cfg(feature = "prometheus")]
             is_prometheus_enabled,
             subscription,
             is_running,
@@ -98,8 +100,10 @@ where
                 let mbufs: Vec<Mbuf> = self.rx_burst(rxqueue, 32);
                 if mbufs.is_empty() {
                     IDLE_CYCLES.inc();
+
+                    #[cfg(feature = "prometheus")]
                     if IDLE_CYCLES.get() & 1023 == 0 && self.is_prometheus_enabled {
-                        update_thread_local_stats(self.id);
+                        crate::stats::update_thread_local_stats(self.id);
                     }
                 }
                 TOTAL_CYCLES.inc();
