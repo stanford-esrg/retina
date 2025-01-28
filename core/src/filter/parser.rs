@@ -22,7 +22,9 @@ impl FilterParser {
     }
 
     fn parse_as_ast(filter_raw: &str) -> Result<Node> {
+        // println!("filter_raw: {}", filter_raw);
         let pairs = FilterParser::parse(Rule::filter, filter_raw);
+        // println!("pairs: {:#?}", pairs);
         match pairs {
             Ok(mut pairs) => {
                 let pair = pairs.next().unwrap();
@@ -76,7 +78,7 @@ impl FilterParser {
     }
 
     fn parse_disjunct(pair: Pair<Rule>) -> Result<Node> {
-        //println!("building from expr: {:#?}", pair);
+        // println!("building from expr: {:#?}", pair);
         let inner = pair.into_inner();
         let mut terms = vec![];
         for pair in inner {
