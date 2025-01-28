@@ -41,7 +41,7 @@ str_lit = _{ "\'" ~ text ~ "\'" }
 text = { (!("\'") ~ ANY)+ }
 
 // Bytes
-// TODO (nice to have): make more flexible by allowing ASCII chars before and after the |
+// TODO (nice to have): make more flexible by allowing ASCII chars before and after the pipes
 byte_lit = @{ "|" ~ (byte)+ ~ "|" }
 byte = { !("|") ~ ASCII_HEX_DIGIT{2} ~ " "? }
 

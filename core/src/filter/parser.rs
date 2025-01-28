@@ -218,9 +218,11 @@ impl FilterParser {
                 })
             }
             Rule::byte_lit => { // TODO
-                // let b = ;
                 // check if there's a built-in function to convert an entire byte slice to ASCII
                 // if no function, need to split the byte slice on white space, then iterate through each byte and convert
+                // let byte_vec = FilterParser::parse_bytes(rhs.into_inner());
+                let byte_vec = rhs.into_inner().next().unwrap().as_str().split_whitespace().map(|s| u8::from_str_radix(s, 16).expect("Not a valid hex byte")).collect();
+                Ok(Value::Byte(byte_vec))
             }
             _ => bail!(FilterError::InvalidRhsType(pair_str)),
         }
@@ -259,6 +261,11 @@ impl FilterParser {
             Ok(RangeInclusive::<u64>::new(start, end))
         }
     }
+
+    // fn parse_bytes(mut byte_lit: Pairs<Rule>) -> Result<Vec<u8>> {
+    //     let byte_vec = byte_lit.next().unwrap().as_str().split_whitespace().map(|s| u8::from_str_radix(s, 16).expect("Not a valid hex byte")).collect();
+        
+    // }
 
     // helper function to combine conj1 and conj2, returns new vector of Predicates
     fn combine(conj1: &[Predicate], conj2: &[Predicate]) -> Vec<Predicate> {

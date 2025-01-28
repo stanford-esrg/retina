@@ -854,7 +854,7 @@ pub enum Value {
     Ipv4(Ipv4Net),
     Ipv6(Ipv6Net),
     Text(String),
-    Byte(u8), // TODO
+    Byte(Vec<u8>), // TODO
 }
 
 impl fmt::Display for Value {
