@@ -147,7 +147,6 @@ where
     }
 
     /// Delivery functions, including delivery to the correct callback
-
     pub fn deliver_packet(&self, mbuf: &Mbuf, conn_data: &ConnData, tracked: &S::Tracked) {
         (self.packet_deliver)(mbuf, conn_data, tracked)
     }

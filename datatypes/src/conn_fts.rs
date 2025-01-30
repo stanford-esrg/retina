@@ -187,7 +187,7 @@ impl Tracked for InterArrivals {
 }
 
 struct DurationVec<'a>(&'a Vec<Duration>);
-impl<'a> Serialize for DurationVec<'a> {
+impl Serialize for DurationVec<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
