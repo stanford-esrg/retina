@@ -29,7 +29,7 @@ pub struct Ethernet<'a> {
     mbuf: &'a Mbuf,
 }
 
-impl<'a> Ethernet<'a> {
+impl Ethernet<'_> {
     /// Returns the destination MAC address.
     #[inline]
     pub fn dst(&self) -> MacAddr {

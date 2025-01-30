@@ -89,7 +89,7 @@ impl fmt::Debug for Mempool {
 
 /// Rounds `n` up to the nearest multiple of `s`
 fn round_up(n: u32, s: u32) -> u32 {
-    ((n + s - 1) / s) * s
+    n.div_ceil(s) * s
 }
 
 #[derive(Error, Debug)]
