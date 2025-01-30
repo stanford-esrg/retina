@@ -7,7 +7,6 @@ use std::process::Command;
 fn main() {
     // modified from https://github.com/deeptir18/cornflakes/blob/master/cornflakes-libos/build.rs
 
-    println!("cargo:rerun-if-env-changed=DPDK_PATH");
     println!("cargo:rerun-if-env-changed=DPDK_VERSION");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/dpdk/inlined.c");
@@ -18,9 +17,10 @@ fn main() {
     println!("cargo:rustc-check-cfg=cfg(dpdk_ge_2108)");
     println!("cargo:rustc-check-cfg=cfg(dpdk_ge_2111)");
     println!("cargo:rustc-check-cfg=cfg(dpdk_ge_2311)");
+    println!("cargo:rustc-check-cfg=cfg(dpdk_ge_2411)");
     let dpdk_version = env::var("DPDK_VERSION").expect("Set DPDK_VERSION env variable");
 
-    if !["20.11", "21.08", "23.11"].contains(&dpdk_version.as_str()) {
+    if !["20.11", "21.08", "23.11", "24.11"].contains(&dpdk_version.as_str()) {
         println!("Unsupported dpdk version");
         exit(1);
     }
@@ -32,6 +32,9 @@ fn main() {
             println!("cargo:rustc-cfg=dpdk_ge_2111");
             if dpdk_version != "21.11" {
                 println!("cargo:rustc-cfg=dpdk_ge_2311");
+                if dpdk_version != "23.11" {
+                    println!("cargo:rustc-cfg=dpdk_ge_2411");
+                }
             }
         }
     }
@@ -66,7 +69,7 @@ fn main() {
         .stdout;
 
     if ldflags_bytes.is_empty() {
-        println!("Could not get DPDK's LDFLAGS. Are DPDK_PATH, LD_LIBRARY_PATH set correctly?");
+        println!("Could not get DPDK's LDFLAGS. Is LD_LIBRARY_PATH set correctly?");
         exit(1);
     };
 

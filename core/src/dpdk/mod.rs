@@ -33,6 +33,132 @@ impl rte_ipv4_hdr {
     }
 }
 
+#[cfg(not(dpdk_ge_2411))]
+impl rte_ipv6_hdr {
+    pub fn set_vtc_flow(&mut self, vtc_flow: u32) {
+        self.vtc_flow = vtc_flow;
+    }
+
+    pub fn set_src_addr(&mut self, src_addr: [u8; 16]) {
+        self.src_addr = src_addr;
+    }
+
+    pub fn set_dst_addr(&mut self, dst_addr: [u8; 16]) {
+        self.dst_addr = dst_addr;
+    }
+}
+
+#[cfg(dpdk_ge_2411)]
+impl rte_ipv6_hdr {
+    pub fn set_vtc_flow(&mut self, vtc_flow: u32) {
+        self.__bindgen_anon_1.vtc_flow = vtc_flow;
+    }
+
+    pub fn set_src_addr(&mut self, src_addr: [u8; 16]) {
+        self.src_addr = rte_ipv6_addr { a: src_addr };
+    }
+
+    pub fn set_dst_addr(&mut self, dst_addr: [u8; 16]) {
+        self.dst_addr = rte_ipv6_addr { a: dst_addr };
+    }
+}
+
+#[cfg(not(dpdk_ge_2411))]
+impl rte_mbuf {
+    pub fn get_buf_len(&self) -> usize {
+        unsafe { self.buf_len }.into()
+    }
+
+    pub fn get_data_len(&self) -> u16 {
+        unsafe { self.data_len }
+    }
+
+    pub fn get_pkt_len(&self) -> u32 {
+        unsafe { self.pkt_len }
+    }
+
+    pub fn get_data_off(&self) -> u16 {
+        unsafe { self.data_off }
+    }
+
+    pub fn get_rss_hash(&self) -> u32 {
+        unsafe { self.__bindgen_anon_2.hash.rss }
+    }
+
+    pub fn get_mark(&self) -> u32 {
+        unsafe { self.__bindgen_anon_2.hash.fdir.hi }
+    }
+
+    pub fn set_data_len(&mut self, data_len: u16) {
+        self.data_len = data_len
+    }
+
+    pub fn set_pkt_len(&mut self, pkt_len: u32) {
+        self.pkt_len = pkt_len
+    }
+
+    pub fn set_mark(&mut self, mark: u32) {
+        self.__bindgen_anon_2.hash.fdir.hi = mark
+    }
+}
+
+#[cfg(dpdk_ge_2411)]
+impl rte_mbuf {
+    pub fn get_buf_len(&self) -> usize {
+        unsafe { self.__bindgen_anon_2.__bindgen_anon_1.buf_len }.into()
+    }
+
+    pub fn get_data_len(&self) -> u16 {
+        unsafe { self.__bindgen_anon_2.__bindgen_anon_1.data_len }
+    }
+
+    pub fn get_pkt_len(&self) -> u32 {
+        unsafe { self.__bindgen_anon_2.__bindgen_anon_1.pkt_len }
+    }
+
+    pub fn get_data_off(&self) -> u16 {
+        unsafe { self.__bindgen_anon_1.__bindgen_anon_1.data_off }
+    }
+
+    pub fn get_rss_hash(&self) -> u32 {
+        unsafe {
+            self.__bindgen_anon_2
+                .__bindgen_anon_1
+                .__bindgen_anon_2
+                .hash
+                .rss
+        }
+    }
+
+    pub fn get_mark(&self) -> u32 {
+        unsafe {
+            self.__bindgen_anon_2
+                .__bindgen_anon_1
+                .__bindgen_anon_2
+                .hash
+                .fdir
+                .hi
+        }
+    }
+
+    pub fn set_data_len(&mut self, data_len: u16) {
+        self.__bindgen_anon_2.__bindgen_anon_1.data_len = data_len
+    }
+
+    pub fn set_pkt_len(&mut self, pkt_len: u32) {
+        self.__bindgen_anon_2.__bindgen_anon_1.pkt_len = pkt_len
+    }
+
+    pub fn set_mark(&mut self, mark: u32) {
+        self.__bindgen_anon_2
+            .__bindgen_anon_1
+            .__bindgen_anon_2
+            .hash
+            .fdir
+            .hi = mark
+    }
+}
+
 /*
  * DPDK v23.11 uses RTE_BIT64(x) macro to define RSS values, so we use
  * bindgen clang_macro_fallback to access them.
