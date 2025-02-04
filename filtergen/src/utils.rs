@@ -157,7 +157,7 @@ pub(crate) fn binary_to_tokens(
         }
         Value::Byte(b) => match *op {
             BinOp::Eq => {
-                let bytes_lit = syn::LitByteStr::new(&b, Span::call_site());
+                let bytes_lit = syn::LitByteStr::new(b, Span::call_site());
                 quote! {
                     #proto.#field().as_bytes() == #bytes_lit
                 }
