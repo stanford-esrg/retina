@@ -28,8 +28,8 @@ struct Args {
     outfile: PathBuf,
 }
 
-// www.google.com
-#[filter("tls.sni = |77 77 77 2E 67 6F 6F 67 6C 65 2E 63 6F 6D|")]
+// www.google.com or calendar.google.com
+#[filter("tls.sni = |77 77 77 2E 67 6F 6F 67 6C 65 2E 63 6F 6D| or tls.sni = |63 61 6c 65 6e 64 61 72 2e 67 6f 6f 67 6c 65 2e 63 6f 6d|")]
 fn tls_cb(tls: &TlsHandshake) {
     if let Ok(serialized) = serde_json::to_string(&tls) {
         let mut wtr = file.lock().unwrap();
