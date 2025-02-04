@@ -155,7 +155,7 @@ pub(crate) fn binary_to_tokens(
                 _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
             }
         }
-        Value::Byte(b) => { // TODO
+        Value::Byte(b) => {
             match *op {
                 BinOp::Eq => {
                     let bytes_lit = syn::LitByteStr::new(&b, Span::call_site());

@@ -525,8 +525,6 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
     !regex.is_match(txt)
 }
 
-
-
 pub(super) fn is_parent_ipv4(
     child_ipv4: &Ipv4Net,
     child_op: &BinOp,
