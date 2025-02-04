@@ -829,7 +829,7 @@ pub enum Value {
     Ipv4(Ipv4Net),
     Ipv6(Ipv6Net),
     Text(String),
-    Byte(Vec<u8>), // TODO
+    Byte(Vec<u8>),
 }
 
 impl fmt::Display for Value {
@@ -840,7 +840,7 @@ impl fmt::Display for Value {
             Value::Ipv4(net) => write!(f, "{}", net),
             Value::Ipv6(net) => write!(f, "{}", net),
             Value::Text(val) => write!(f, "{}", val),
-            Value::Byte(val) => write!(f, "{:?}", val), // TODO
+            Value::Byte(val) => write!(f, "{:?}", val),
         }
     }
 }

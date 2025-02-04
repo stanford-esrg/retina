@@ -22,9 +22,7 @@ impl FilterParser {
     }
 
     fn parse_as_ast(filter_raw: &str) -> Result<Node> {
-        // println!("filter_raw: {}", filter_raw);
         let pairs = FilterParser::parse(Rule::filter, filter_raw);
-        // println!("pairs: {:#?}", pairs);
         match pairs {
             Ok(mut pairs) => {
                 let pair = pairs.next().unwrap();
@@ -104,18 +102,12 @@ impl FilterParser {
     }
 
     fn parse_predicate(pair: Pair<Rule>) -> Result<Vec<Node>> {
-        // println!("pair: {:?}", pair);
         let mut inner = pair.into_inner();
         let protocol = inner.next().unwrap();
-        // println!("inner: {:?}", inner);
-        // println!("protocol: {:?}", protocol);
         match inner.next() {
             Some(field) => {
                 let op = inner.next().unwrap();
                 let value = inner.next().unwrap();
-
-                // println!("op: {:?}", op);
-                // println!("value: {:?}", value);
 
                 match field.as_rule() {
                     Rule::field => Ok(vec![Node::Predicate(Predicate::Binary {
@@ -222,9 +214,9 @@ impl FilterParser {
                     to: *range.end(),
                 })
             }
-            Rule::byte_lit => { // TODO
-                let bytes = rhs.as_str();
-                let bytes_vec = bytes.replace("|", "").split_whitespace().map(|s| u8::from_str_radix(s, 16).expect("Not a valid hex byte")).collect();
+            Rule::byte_lit => {
+                let bytes_as_str = rhs.as_str();
+                let bytes_vec = bytes_as_str.replace("|", "").split_whitespace().map(|s| u8::from_str_radix(s, 16).expect("Not a valid hex byte")).collect();
                 Ok(Value::Byte(bytes_vec))
             }
             _ => bail!(FilterError::InvalidRhsType(pair_str)),
