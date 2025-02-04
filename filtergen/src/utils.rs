@@ -155,17 +155,15 @@ pub(crate) fn binary_to_tokens(
                 _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
             }
         }
-        Value::Byte(b) => {
-            match *op {
-                BinOp::Eq => {
-                    let bytes_lit = syn::LitByteStr::new(&b, Span::call_site());
-                    quote! { 
-                        #proto.#field().as_bytes() == #bytes_lit 
-                    }
+        Value::Byte(b) => match *op {
+            BinOp::Eq => {
+                let bytes_lit = syn::LitByteStr::new(&b, Span::call_site());
+                quote! {
+                    #proto.#field().as_bytes() == #bytes_lit
                 }
-                _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
             }
-        }
+            _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
+        },
     }
 }
 

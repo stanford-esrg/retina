@@ -10,8 +10,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 lazy_static! {
-    static ref file: Mutex<BufWriter<File>> =
-        Mutex::new(BufWriter::new(File::create("tls_sni_byte_match.jsonl").unwrap()));
+    static ref file: Mutex<BufWriter<File>> = Mutex::new(BufWriter::new(
+        File::create("tls_sni_byte_match.jsonl").unwrap()
+    ));
 }
 
 #[derive(Parser, Debug)]
