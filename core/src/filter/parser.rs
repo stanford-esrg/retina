@@ -104,15 +104,18 @@ impl FilterParser {
     }
 
     fn parse_predicate(pair: Pair<Rule>) -> Result<Vec<Node>> {
-        println!("pair: {:?}", pair);
+        // println!("pair: {:?}", pair);
         let mut inner = pair.into_inner();
         let protocol = inner.next().unwrap();
-        println!("inner: {:?}", inner);
-        println!("protocol: {:?}", protocol);
+        // println!("inner: {:?}", inner);
+        // println!("protocol: {:?}", protocol);
         match inner.next() {
             Some(field) => {
                 let op = inner.next().unwrap();
                 let value = inner.next().unwrap();
+
+                // println!("op: {:?}", op);
+                // println!("value: {:?}", value);
 
                 match field.as_rule() {
                     Rule::field => Ok(vec![Node::Predicate(Predicate::Binary {
@@ -220,11 +223,7 @@ impl FilterParser {
                 })
             }
             Rule::byte_lit => { // TODO
-                // check if there's a built-in function to convert an entire byte slice to ASCII
-                // if no function, need to split the byte slice on white space, then iterate through each byte and convert
-
-                // don't convert raw bytes to chars
-                let bytes = rhs.into_inner().next().unwrap().as_str();
+                let bytes = rhs.as_str();
                 let bytes_vec = bytes.replace("|", "").split_whitespace().map(|s| u8::from_str_radix(s, 16).expect("Not a valid hex byte")).collect();
                 Ok(Value::Byte(bytes_vec))
             }
