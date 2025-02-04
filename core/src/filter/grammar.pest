@@ -41,7 +41,7 @@ str_lit = _{ "\'" ~ text ~ "\'" }
 text = { (!("\'") ~ ANY)+ }
 
 // Bytes
-byte_lit = @{ "|" ~ (byte)+ ~ "|" }
+byte_lit = _{ "|" ~ (byte)+ ~ "|" }
 byte = { !("|") ~ ASCII_HEX_DIGIT{2} ~ " "? }
 
 // Logical operators
