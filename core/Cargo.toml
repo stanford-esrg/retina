@@ -16,7 +16,6 @@ byteorder = "1.4.3"
 chrono = "0.4"
 colored = "2"
 cpu-time = "1.0.0"
-crossbeam-channel = "0.5.8"
 csv = "1.2.1"
 ctrlc = { version = "3.2.5", features = ["termination"] }
 dns-parser = { git = "https://github.com/stanford-esrg/dns-parser" }

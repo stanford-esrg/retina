@@ -177,9 +177,13 @@ where
     }
 
     /// Checks for and removes inactive connections.
-    pub(crate) fn check_inactive(&mut self, subscription: &Subscription<T::Subscribed>) {
+    pub(crate) fn check_inactive(
+        &mut self,
+        subscription: &Subscription<T::Subscribed>,
+        now: Instant,
+    ) {
         self.timerwheel
-            .check_inactive(&mut self.table, subscription);
+            .check_inactive(&mut self.table, subscription, now);
     }
 }
 
