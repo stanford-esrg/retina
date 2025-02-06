@@ -14,7 +14,6 @@ use std::time::{Duration, Instant};
 
 use anyhow::{bail, Result};
 use chrono::Local;
-use crossbeam_channel::{tick, Receiver};
 use csv::Writer;
 use serde::Serialize;
 
@@ -81,7 +80,7 @@ impl Monitor {
                         port_wtrs.insert(*port_id, wtr);
                     }
                     return Some(Logger {
-                        ticker: tick(Duration::from_millis(log_cfg.interval)),
+                        interval: Duration::from_millis(log_cfg.interval),
                         path,
                         port_wtrs,
                         keywords: log_cfg.port_stats.clone(),
@@ -119,7 +118,12 @@ impl Monitor {
         let mut prev_rx = init_rx;
         let mut prev_ts = init_ts;
         let mut init = true;
-        let mut ticker = tokio::time::interval(Duration::from_millis(1000));
+        let mut display_ticker = tokio::time::interval(Duration::from_millis(1000));
+
+        let mut logger_ticker = self
+            .logger
+            .as_ref()
+            .map(|logger| tokio::time::interval(logger.interval));
         // Add a small delay to allow workers to start polling for packets
         tokio::time::sleep(Duration::from_millis(1000)).await;
         while self.is_running.load(Ordering::Relaxed) {
@@ -130,7 +134,7 @@ impl Monitor {
             }
 
             if let Some(display) = &self.display {
-                ticker.tick().await;
+                display_ticker.tick().await;
                 let curr_ts = Instant::now();
                 let delta = curr_ts - prev_ts;
                 match AggRxStats::collect(&self.ports, &display.keywords) {
@@ -160,11 +164,10 @@ impl Monitor {
             }
 
             if let Some(logger) = &mut self.logger {
-                if logger.ticker.try_recv().is_ok() {
-                    match logger.log_stats(init_ts.elapsed()) {
-                        Ok(_) => (),
-                        Err(error) => log::error!("Monitor log error: {}", error),
-                    }
+                logger_ticker.as_mut().unwrap().tick().await;
+                match logger.log_stats(init_ts.elapsed()) {
+                    Ok(_) => (),
+                    Err(error) => log::error!("Monitor log error: {}", error),
                 }
             }
         }
@@ -209,7 +212,7 @@ impl Display {
 
 #[derive(Debug)]
 struct Logger {
-    ticker: Receiver<Instant>,
+    interval: Duration,
     path: PathBuf,
     port_wtrs: HashMap<PortId, Writer<std::fs::File>>,
     keywords: Vec<String>,
