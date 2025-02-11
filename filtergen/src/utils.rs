@@ -164,9 +164,9 @@ pub(crate) fn binary_to_tokens(
             }
             BinOp::Contains => {
                 let bytes_lit = syn::LitByteStr::new(b, Span::call_site());
-                let num_bytes = bytes_lit.len();
+                let num_bytes = bytes_lit.value().len();
                 quote! {
-                    #proto.#field().as_bytes().windows(num_bytes).any(|w| w == #bytes_lit)
+                    #proto.#field().as_bytes().windows(#num_bytes).any(|w| w == #bytes_lit)
                 }
             }
             _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
