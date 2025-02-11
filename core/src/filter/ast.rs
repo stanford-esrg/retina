@@ -801,6 +801,7 @@ pub enum BinOp {
     In,
     Re,
     En,
+    Contains,
 }
 
 impl fmt::Display for BinOp {
@@ -815,6 +816,7 @@ impl fmt::Display for BinOp {
             BinOp::In => write!(f, "in"),
             BinOp::Re => write!(f, "matches"),
             BinOp::En => write!(f, "eq"),
+            BinOp::Contains => write!(f, "contains"),
         }
     }
 }

@@ -53,7 +53,7 @@ not_op = { "!" | "not" | "NOT" }  // not yet supported, temp placeholder
 // Binary operators
 // ----------------------------------------------------------------------
 bin_op = {
-    eq_op | ne_op | ge_op | le_op | gt_op | lt_op | in_op | re_op | en_op
+    eq_op | ne_op | ge_op | le_op | gt_op | lt_op | in_op | re_op | en_op | contains_op
 }
 
 eq_op = { "=" }
@@ -65,6 +65,7 @@ lt_op = { "<" | "lt" }
 in_op = { "in" }
 re_op = { "~" | "matches" }
 en_op = { "eq" }
+contains_op = { "contains" }
 
 // Miscellaneous
 // ----------------------------------------------------------------------
