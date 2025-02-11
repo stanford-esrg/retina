@@ -152,6 +152,12 @@ pub(crate) fn binary_to_tokens(
                     //     Regex::new(#val_lit).unwrap().is_match(#proto.#field())
                     // }
                 }
+                BinOp::Contains => {
+                    let val_lit = syn::LitStr::new(text, Span::call_site());
+                    quote! {
+                        #proto.#field().contains(#val_lit)
+                    }
+                }
                 _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
             }
         }
