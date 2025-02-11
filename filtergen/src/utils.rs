@@ -162,6 +162,9 @@ pub(crate) fn binary_to_tokens(
                     #proto.#field().as_bytes() == #bytes_lit
                 }
             }
+            BinOp::Re => {
+                
+            }
             _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
         },
     }
