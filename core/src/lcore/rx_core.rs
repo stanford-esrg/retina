@@ -103,17 +103,17 @@ where
                 let mbufs: Vec<Mbuf> = self.rx_burst(rxqueue, 32);
                 if mbufs.is_empty() {
                     IDLE_CYCLES.inc();
-
-                    if IDLE_CYCLES.get() & 1023 == 512 {
-                        now = Instant::now();
-                    }
-
-                    #[cfg(feature = "prometheus")]
-                    if IDLE_CYCLES.get() & 1023 == 0 && self.is_prometheus_enabled {
-                        crate::stats::update_thread_local_stats(self.id);
-                    }
                 }
+
                 TOTAL_CYCLES.inc();
+                if TOTAL_CYCLES.get() & 1023 == 512 {
+                    now = Instant::now();
+                }
+                #[cfg(feature = "prometheus")]
+                if TOTAL_CYCLES.get() & 1023 == 0 && self.is_prometheus_enabled {
+                    crate::stats::update_thread_local_stats(self.id);
+                }
+
                 for mbuf in mbufs.into_iter() {
                     // log::debug!("{:#?}", mbuf);
                     // log::debug!("Mark: {}", mbuf.mark());
