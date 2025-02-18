@@ -227,6 +227,11 @@ impl FilterParser {
                     .collect();
                 Ok(Value::Byte(bytes_vec))
             }
+            Rule::byte_regex => {
+                // let pattern = rhs.as_str().replace("|", "");
+                // Ok(Value::Text(pattern))
+                Ok(Value::Text(rhs.as_str().to_owned()))
+            }
             _ => bail!(FilterError::InvalidRhsType(pair_str)),
         }
     }

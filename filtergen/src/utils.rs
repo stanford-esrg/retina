@@ -7,6 +7,7 @@ use heck::CamelCase;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use regex::Regex;
+use regex::bytes::Regex;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -133,24 +134,43 @@ pub(crate) fn binary_to_tokens(
                     quote! { #proto.#field() == retina_core::protocols::stream::#proto::#field_ident::#variant_ident }
                 }
                 BinOp::Re => {
-                    let val_lit = syn::LitStr::new(text, Span::call_site());
-                    if Regex::new(text).is_err() {
-                        panic!("Invalid Regex string")
-                    }
+                    if text.begins_with("|") && text.ends_with("|") {
+                        let pattern = text.replace("|", "");
+                        let val_lit = syn::LitStr::new(&pattern, Span::call_site());
+                        if bytes::Regex::new(pattern).is_err() {
+                            panic!("Invalid Regex pattern")
+                        }
 
-                    let re_name = format!("RE{}", statics.len());
-                    let re_ident = Ident::new(&re_name, Span::call_site());
-                    let lazy_re = quote! {
-                        static ref #re_ident: regex::Regex = regex::Regex::new(#val_lit).unwrap();
-                    };
-                    // avoids compiling the Regex every time
-                    statics.push(lazy_re);
-                    quote! {
-                        #re_ident.is_match(&#proto.#field()[..])
+                        let re_name = format!("RE{}", statics.len());
+                        let re_ident = Ident::new(&re_name, Span::call_site());
+                        let lazy_re = quote! {
+                            static ref #re_ident: regex::bytes::Regex = regex::bytes::Regex::new(#val_lit).unwrap();
+                        };
+                        // avoids compiling the Regex every time
+                        statics.push(lazy_re);
+                        quote! {
+                            #re_ident.is_match(&#proto.#field().as_bytes()[..])
+                        }
+                    } else {
+                        let val_lit = syn::LitStr::new(text, Span::call_site());
+                        if Regex::new(text).is_err() {
+                            panic!("Invalid Regex string")
+                        }
+
+                        let re_name = format!("RE{}", statics.len());
+                        let re_ident = Ident::new(&re_name, Span::call_site());
+                        let lazy_re = quote! {
+                            static ref #re_ident: regex::Regex = regex::Regex::new(#val_lit).unwrap();
+                        };
+                        // avoids compiling the Regex every time
+                        statics.push(lazy_re);
+                        quote! {
+                            #re_ident.is_match(&#proto.#field()[..])
+                        }
+                        // quote! {
+                        //     Regex::new(#val_lit).unwrap().is_match(#proto.#field())
+                        // }
                     }
-                    // quote! {
-                    //     Regex::new(#val_lit).unwrap().is_match(#proto.#field())
-                    // }
                 }
                 _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
             }
@@ -161,9 +181,6 @@ pub(crate) fn binary_to_tokens(
                 quote! {
                     #proto.#field().as_bytes() == #bytes_lit
                 }
-            }
-            BinOp::Re => {
-                
             }
             _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
         },
