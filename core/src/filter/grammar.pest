@@ -43,6 +43,7 @@ text = { (!("\'") ~ ANY)+ }
 // Bytes
 byte_lit = { "|" ~ (byte)+ ~ "|" }
 byte = { !("|") ~ ASCII_HEX_DIGIT{2} ~ " "? }
+byte_regex = { "|" ~ (("\\x" ~ byte) | text)+ ~ "|" }
 
 // Logical operators
 // ----------------------------------------------------------------------
