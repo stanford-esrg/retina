@@ -18,7 +18,7 @@ field = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 combined_field = @{ "addr" | "port" }
 
 // order matters! Parser will try from left to right
-value = { ipv4_lit | ipv6_lit | int_range | int_lit | byte_lit | str_lit }
+value = { ipv4_lit | ipv6_lit | int_range | int_lit | byte_lit | byte_regex | str_lit }
 
 ipv4_addr = @{
     ASCII_DIGIT{1,3} ~ ("." ~ ASCII_DIGIT{1,3}){3}

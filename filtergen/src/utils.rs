@@ -6,8 +6,7 @@ use crate::data::{build_callback, build_packet_callback};
 use heck::CamelCase;
 use proc_macro2::{Ident, Span};
 use quote::quote;
-use regex::Regex;
-use regex::bytes::Regex;
+use regex::{Regex, bytes::Regex as BytesRegex};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -134,17 +133,17 @@ pub(crate) fn binary_to_tokens(
                     quote! { #proto.#field() == retina_core::protocols::stream::#proto::#field_ident::#variant_ident }
                 }
                 BinOp::Re => {
-                    if text.begins_with("|") && text.ends_with("|") {
+                    if text.starts_with("|") && text.ends_with("|") {
                         let pattern = text.replace("|", "");
                         let val_lit = syn::LitStr::new(&pattern, Span::call_site());
-                        if bytes::Regex::new(pattern).is_err() {
+                        if BytesRegex::new(&pattern).is_err() {
                             panic!("Invalid Regex pattern")
                         }
 
                         let re_name = format!("RE{}", statics.len());
                         let re_ident = Ident::new(&re_name, Span::call_site());
                         let lazy_re = quote! {
-                            static ref #re_ident: regex::bytes::Regex = regex::bytes::Regex::new(#val_lit).unwrap();
+                            static ref #re_ident: regex::BytesRegex = BytesRegex::new(#val_lit).unwrap();
                         };
                         // avoids compiling the Regex every time
                         statics.push(lazy_re);
