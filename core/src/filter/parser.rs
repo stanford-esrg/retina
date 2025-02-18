@@ -221,10 +221,7 @@ impl FilterParser {
                     .split_whitespace()
                     .map(|s| {
                         u8::from_str_radix(s, 16).unwrap_or_else(|err| {
-                            panic!(
-                                "Failed to convert {} in {} to a hex byte: {:?}",
-                                s, bytes_as_str, err
-                            )
+                            panic!("Failed to parse {} in {}: {:?}", s, bytes_as_str, err)
                         })
                     })
                     .collect();
