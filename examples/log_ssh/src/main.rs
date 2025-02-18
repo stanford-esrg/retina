@@ -28,14 +28,14 @@ struct Args {
     outfile: PathBuf,
 }
 
-#[filter("ssh.software_version_ctos ~ '^OpenSSH_[0-9]+\\.[0-9].*$'")]
-fn ssh_cb(ssh: &SshHandshake) {
-    if let Ok(serialized) = serde_json::to_string(&ssh) {
-        let mut wtr = file.lock().unwrap();
-        wtr.write_all(serialized.as_bytes()).unwrap();
-        wtr.write_all(b"\n").unwrap();
-    }
-}
+// #[filter("ssh.software_version_ctos ~ '^OpenSSH_[0-9]+\\.[0-9].*$'")]
+// fn ssh_cb(ssh: &SshHandshake) {
+//     if let Ok(serialized) = serde_json::to_string(&ssh) {
+//         let mut wtr = file.lock().unwrap();
+//         wtr.write_all(serialized.as_bytes()).unwrap();
+//         wtr.write_all(b"\n").unwrap();
+//     }
+// }
 
 #[filter("ssh.protocol_version_ctos = |32 2E 30|")]
 fn ssh_byte_match_cb(ssh: &SshHandshake) {
@@ -47,6 +47,16 @@ fn ssh_byte_match_cb(ssh: &SshHandshake) {
 }
 
 #[filter("ssh.software_version_ctos contains |4F 70 65 6E 53 53 48|")]
+fn ssh_contains_cb(ssh: &SshHandshake) {
+    println!("ssh.software_version_ctos: {}", ssh.software_version_ctos());
+    if let Ok(serialized) = serde_json::to_string(&ssh) {
+        let mut wtr = file.lock().unwrap();
+        wtr.write_all(serialized.as_bytes()).unwrap();
+        wtr.write_all(b"\n").unwrap();
+    }
+}
+
+#[filter("ssh.software_version_ctos contains 'OpenSSH'")]
 fn ssh_contains_cb(ssh: &SshHandshake) {
     println!("ssh.software_version_ctos: {}", ssh.software_version_ctos());
     if let Ok(serialized) = serde_json::to_string(&ssh) {

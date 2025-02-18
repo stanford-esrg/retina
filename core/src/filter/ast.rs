@@ -428,14 +428,6 @@ impl Predicate {
                         }
                         return false;
                     }
-
-                    // Bytes
-                    if let Value::Text(b) = val {
-                        if let Value::Text(parent_b) = parent_val {
-                            return is_parent_bytes(b, op, parent_b, parent_op);
-                        }
-                        return false;
-                    }
                 }
             }
         }
@@ -506,13 +498,11 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
     if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Eq) {
         return peer_text != text;
     }
-
     if (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Eq))
         || (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Ne))
     {
         return peer_text == text;
     }
-
     if matches!(op, BinOp::Ne) || matches!(peer_op, BinOp::Ne) {
         // Neq + Neq; Neq + Regex - don't make much sense
         return false;
@@ -591,7 +581,6 @@ pub(super) fn is_parent_text(
         // Regex overlap with != doesn't really make sense
         return false;
     }
-
     let parent = Regex::new(parent_text)
         .unwrap_or_else(|err| panic!("Invalid Regex string {}: {:?}", parent_text, err));
     parent.is_match(child_text)
@@ -678,8 +667,7 @@ pub(super) fn is_excl_int(
             BinOp::In => return peer_to < from || peer_from > to,
             _ => {}
         },
-        BinOp::Re | BinOp::En => {}
-        BinOp::Contains => {}
+        BinOp::Re | BinOp::En | BinOp::Contains => {}
     }
     false
 }
