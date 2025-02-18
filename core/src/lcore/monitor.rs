@@ -53,7 +53,6 @@ impl Monitor {
             if let Some(monitor_cfg) = &online_cfg.monitor {
                 if let Some(display_cfg) = &monitor_cfg.display {
                     return Some(Display {
-                        ticker: tick(Duration::from_millis(1000)),
                         throughput: display_cfg.throughput,
                         keywords: display_cfg.port_stats.clone(),
                     });
@@ -106,7 +105,7 @@ impl Monitor {
         }
     }
 
-    pub(crate) fn run(&mut self) {
+    pub(crate) async fn run(&mut self) {
         if let Some(logger) = &mut self.logger {
             logger.init_port_wtrs().expect("port logger init");
         }
@@ -120,8 +119,9 @@ impl Monitor {
         let mut prev_rx = init_rx;
         let mut prev_ts = init_ts;
         let mut init = true;
+        let mut ticker = tokio::time::interval(Duration::from_millis(1000));
         // Add a small delay to allow workers to start polling for packets
-        std::thread::sleep(Duration::from_millis(1000));
+        tokio::time::sleep(Duration::from_millis(1000)).await;
         while self.is_running.load(Ordering::Relaxed) {
             if let Some(duration) = self.duration {
                 if start_ts.elapsed() >= duration {
@@ -130,30 +130,31 @@ impl Monitor {
             }
 
             if let Some(display) = &self.display {
-                if display.ticker.try_recv().is_ok() {
-                    let curr_ts = Instant::now();
-                    let delta = curr_ts - prev_ts;
-                    match AggRxStats::collect(&self.ports, &display.keywords) {
-                        Ok(curr_rx) => {
-                            let nms = delta.as_millis() as f64;
-                            if init {
-                                init_rx = curr_rx;
-                                init_ts = curr_ts;
-                                init = false;
-                            }
-                            if display.throughput {
-                                println!("----------------------------------------------");
-                                println!("Current time: {}s", (curr_ts - start_ts).as_secs());
-                                display.mempool_usage(&self.ports);
-                                AggRxStats::display_rates(curr_rx, prev_rx, nms);
-                                AggRxStats::display_dropped(curr_rx, init_rx);
-                            }
-                            prev_rx = curr_rx;
-                            prev_ts = curr_ts;
+                ticker.tick().await;
+                let curr_ts = Instant::now();
+                let delta = curr_ts - prev_ts;
+                match AggRxStats::collect(&self.ports, &display.keywords) {
+                    Ok(curr_rx) => {
+                        #[cfg(feature = "prometheus")]
+                        curr_rx.update_prometheus_stats();
+                        let nms = delta.as_millis() as f64;
+                        if init {
+                            init_rx = curr_rx;
+                            init_ts = curr_ts;
+                            init = false;
                         }
-                        Err(error) => {
-                            log::error!("Monitor display error: {}", error);
+                        if display.throughput {
+                            println!("----------------------------------------------");
+                            println!("Current time: {}s", (curr_ts - start_ts).as_secs());
+                            display.mempool_usage(&self.ports);
+                            AggRxStats::display_rates(curr_rx, prev_rx, nms);
+                            AggRxStats::display_dropped(curr_rx, init_rx);
                         }
+                        prev_rx = curr_rx;
+                        prev_ts = curr_ts;
+                    }
+                    Err(error) => {
+                        log::error!("Monitor display error: {}", error);
                     }
                 }
             }
@@ -168,7 +169,7 @@ impl Monitor {
             }
         }
 
-        std::thread::sleep(Duration::from_millis(100));
+        tokio::time::sleep(Duration::from_millis(1000)).await;
         println!("----------------------------------------------");
         let tputs = Throughputs::new(prev_rx, init_rx, (prev_ts - init_ts).as_millis() as f64);
         println!("{}", tputs);
@@ -182,7 +183,6 @@ impl Monitor {
 
 #[derive(Debug)]
 struct Display {
-    ticker: Receiver<Instant>,
     throughput: bool,
     keywords: Vec<String>,
 }
@@ -475,6 +475,35 @@ impl AggRxStats {
 
     fn dropped_pkts(&self) -> u64 {
         self.hw_dropped_pkts + self.sw_dropped_pkts
+    }
+
+    #[cfg(feature = "prometheus")]
+    fn update_prometheus_stats(&self) {
+        use crate::stats::DPDK_STATS;
+        DPDK_STATS
+            .ingress_pkts
+            .inc_by(self.ingress_pkts - DPDK_STATS.ingress_pkts.get());
+        DPDK_STATS
+            .ingress_bits
+            .inc_by(self.ingress_bits - DPDK_STATS.ingress_bits.get());
+        DPDK_STATS
+            .good_pkts
+            .inc_by(self.good_pkts - DPDK_STATS.good_pkts.get());
+        DPDK_STATS
+            .good_bits
+            .inc_by(self.good_bits - DPDK_STATS.good_bits.get());
+        DPDK_STATS
+            .process_pkts
+            .inc_by(self.process_pkts - DPDK_STATS.process_pkts.get());
+        DPDK_STATS
+            .process_bits
+            .inc_by(self.process_bits - DPDK_STATS.process_bits.get());
+        DPDK_STATS
+            .hw_dropped_pkts
+            .inc_by(self.hw_dropped_pkts - DPDK_STATS.hw_dropped_pkts.get());
+        DPDK_STATS
+            .sw_dropped_pkts
+            .inc_by(self.sw_dropped_pkts - DPDK_STATS.sw_dropped_pkts.get());
     }
 }
 

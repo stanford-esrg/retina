@@ -15,6 +15,9 @@ use crate::conntrack::pdu::{L4Context, L4Pdu};
 use crate::lcore::CoreId;
 use crate::protocols::packet::tcp::{ACK, RST, SYN};
 use crate::protocols::stream::ParserRegistry;
+use crate::stats::{
+    StatExt, DROPPED_MIDDLE_OF_CONNECTION_TCP_BYTE, DROPPED_MIDDLE_OF_CONNECTION_TCP_PKT,
+};
 use crate::subscription::{Subscription, Trackable};
 
 use anyhow::{bail, Result};
@@ -63,6 +66,8 @@ where
         {
             TcpConn::new_on_syn(pdu.ctxt, max_ooo)
         } else {
+            DROPPED_MIDDLE_OF_CONNECTION_TCP_PKT.inc();
+            DROPPED_MIDDLE_OF_CONNECTION_TCP_BYTE.inc_by(pdu.mbuf.data_len() as u64);
             bail!("Not SYN")
         };
         Ok(Conn {
