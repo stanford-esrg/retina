@@ -8,6 +8,7 @@ use std::fmt;
 use crate::protocols::stream::ConnData;
 use bimap::BiMap;
 use ipnet::{Ipv4Net, Ipv6Net};
+use itertools::Itertools;
 use petgraph::algo;
 use petgraph::graph::Graph;
 use petgraph::graph::NodeIndex;
@@ -827,6 +828,7 @@ pub enum Value {
     Ipv4(Ipv4Net),
     Ipv6(Ipv6Net),
     Text(String),
+    Byte(Vec<u8>),
 }
 
 impl fmt::Display for Value {
@@ -837,6 +839,11 @@ impl fmt::Display for Value {
             Value::Ipv4(net) => write!(f, "{}", net),
             Value::Ipv6(net) => write!(f, "{}", net),
             Value::Text(val) => write!(f, "{}", val),
+            Value::Byte(val) => {
+                write!(f, "|")?;
+                write!(f, "{}", val.iter().map(|b| format!("{:02X}", b)).join(" "))?;
+                write!(f, "|")
+            }
         }
     }
 }
