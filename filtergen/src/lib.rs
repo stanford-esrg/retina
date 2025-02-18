@@ -151,6 +151,7 @@
 //! | `<`      | `lt`      | Less than                  | `ipv6.payload_length < 500`     |
 //! | `in`     |           | In a range, or in a subnet | `ipv4.src_addr in 1.2.3.4/16`   |
 //! | `~`      | `matches` | Regular expression match   | `tls.sni ~ 'netflix\\.com$'`    |
+//! | `contains` |          | Check if right appears in left     | `tls.sni contains |2E 63 6F 6D|` |
 //!
 //! **Possible pitfalls involving `!=`**
 //!
