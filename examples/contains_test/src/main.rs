@@ -10,9 +10,8 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 lazy_static! {
-    static ref file: Mutex<BufWriter<File>> = Mutex::new(BufWriter::new(
-        File::create("contains_test.jsonl").unwrap()
-    ));
+    static ref file: Mutex<BufWriter<File>> =
+        Mutex::new(BufWriter::new(File::create("contains_test.jsonl").unwrap()));
 }
 
 #[derive(Parser, Debug)]
@@ -44,11 +43,11 @@ fn tls_cb(tls: &TlsHandshake) {
 #[filter("tls.sni contains 'salesforce'")]
 fn tls_cb2(tls: &TlsHandshake) {
     println!("cb2: Tls.SNI: {}", tls.sni());
-   if let Ok(serialized) = serde_json::to_string(&tls) {
-       let mut wtr = file.lock().unwrap();
-       wtr.write_all(serialized.as_bytes()).unwrap();
-       wtr.write_all(b"\n").unwrap();
-   }
+    if let Ok(serialized) = serde_json::to_string(&tls) {
+        let mut wtr = file.lock().unwrap();
+        wtr.write_all(serialized.as_bytes()).unwrap();
+        wtr.write_all(b"\n").unwrap();
+    }
 }
 
 #[retina_main(2)]

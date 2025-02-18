@@ -595,8 +595,6 @@ pub(super) fn is_parent_text(
     let parent = Regex::new(parent_text)
         .unwrap_or_else(|err| panic!("Invalid Regex string {}: {:?}", parent_text, err));
     parent.is_match(child_text)
-
-    
 }
 
 pub(super) fn is_excl_int(
@@ -680,8 +678,8 @@ pub(super) fn is_excl_int(
             BinOp::In => return peer_to < from || peer_from > to,
             _ => {}
         },
-        BinOp::Re | BinOp::En => {},
-        BinOp::Contains => {},
+        BinOp::Re | BinOp::En => {}
+        BinOp::Contains => {}
     }
     false
 }
