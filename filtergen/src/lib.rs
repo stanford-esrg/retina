@@ -138,7 +138,8 @@
 //! | Integer       | `443`              |
 //! | String        | `'Safari'`         |
 //! | Integer range | `1024..5000`       |
-//!
+//! | Byte          | `|32 2E 30|`       |
+//! 
 //! ## Binary comparison operators
 //! | Operator |   Alias   |         Description        | Example                         |
 //! |----------|-----------|----------------------------|---------------------------------|
