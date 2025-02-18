@@ -510,19 +510,46 @@ pub(super) fn is_excl_ipv6(
 }
 
 pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_op: &BinOp) -> bool {
-    if (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Eq)) 
-        || (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains)) 
-        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq)) 
-        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Contains)) {
+    if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Eq) {
         return peer_text != text;
     }
+
+    // text="abcd", peer_text contains "abc" --> not MC
+    // text="abc", peer_text contains "abcd" --> MC
+    if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains) {
+        return !text.contains(peer_text);
+    }
+
+    // text contains "abcd", peer_text="abc" --> MC
+    // text contains "abc", peer_text="abcd" --> not MC
+    if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq) {
+        return !peer_text.contains(text);
+    }
+
+    // text contains "abc", peer_text contains "abcd" --> not MC
+    // text contains "abc", peer_text contains "bcd" --> MC
+    if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Contains) {
+        return !text.contains(peer_text) && !peer_text.contains(text);
+    }
+
     if (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Eq))
         || (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Ne))
-        || (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Contains))
-        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Ne))
     {
         return peer_text == text;
     }
+
+    // TODO: figure out logic between ne and contains
+    // as long as there's at least 1 char in common in text and peer_text --> MC
+    // text!="abc", peer_text contains "abcd" --> MC
+    // text!="abcd", peer_text contains "abc" --> MC
+    // text!="abc", peer_text contains "cd" --> MC
+    // if matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Contains) {
+
+    // }
+    // if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Ne) {
+
+    // }
+
     if matches!(op, BinOp::Ne) || matches!(peer_op, BinOp::Ne) {
         // Neq + Neq; Neq + Regex - don't make much sense
         return false;
@@ -547,19 +574,39 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
 }
 
 pub(super) fn is_excl_byte(b: &Vec<u8>, op: &BinOp, peer_b: &Vec<u8>, peer_op: &BinOp) -> bool {
-    if (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Eq)) 
-        || (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains)) 
-        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq)) 
-        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Contains)) {
+    if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Eq) {
         return peer_b != b;
     }
+
+    if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains) {
+        let num_bytes = peer_b.len();
+        return !b.windows(num_bytes).any(|w| w == peer_b);
+    }
+
+    if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq) {
+        let num_bytes = b.len();
+        return !peer_b.windows(num_bytes).any(|w| w == b);
+    }
+
+    if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Contains) {
+        return !b.windows(peer_b.len()).any(|w| w == peer_b)
+            && !peer_b.windows(b.len()).any(|w| w == b);
+    }
+
     if (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Eq))
         || (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Ne))
-        || (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Contains))
-        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Ne))
     {
         return peer_b == b;
     }
+
+    // TODO: figure out logic between ne and contains
+    // if matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Contains) {
+
+    // }
+    // if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Ne) {
+
+    // }
+
     if matches!(op, BinOp::Ne) || matches!(peer_op, BinOp::Ne) {
         // Neq + Neq; Neq + Regex - don't make much sense
         return false;
