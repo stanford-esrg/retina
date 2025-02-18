@@ -170,6 +170,7 @@ pub(crate) fn binary_to_tokens(
                         //     Regex::new(#val_lit).unwrap().is_match(#proto.#field())
                         // }
                     }
+                    // add operator logic for new byte regex op: ~b 
                 }
                 _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
             }
