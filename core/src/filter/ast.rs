@@ -514,6 +514,16 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
         return peer_text != text;
     }
 
+    // if pred and self have the same field and protocol
+    // pred is ==, self is contains 
+    // pred.value contains self.value --> not MC 
+    // return !(pred.value contains self.value)
+
+    // self is ==, pred is contains 
+
+    // TODO: FIX THIS LOGIC: as long as there's at least 1 char in common in text and peer_text --> not MC
+
+
     // text="abcd", peer_text contains "abc" --> not MC
     // text="abc", peer_text contains "abcd" --> MC
     if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains) {
@@ -578,6 +588,7 @@ pub(super) fn is_excl_byte(b: &Vec<u8>, op: &BinOp, peer_b: &Vec<u8>, peer_op: &
         return peer_b != b;
     }
 
+    // TODO: FIX THIS LOGIC
     if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains) {
         let num_bytes = peer_b.len();
         return !b.windows(num_bytes).any(|w| w == peer_b);
