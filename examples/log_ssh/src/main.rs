@@ -46,9 +46,10 @@ fn ssh_byte_match_cb(ssh: &SshHandshake) {
     }
 }
 
+// check if contains b"OpenSSH"
 #[filter("ssh.software_version_ctos contains |4F 70 65 6E 53 53 48|")]
-fn ssh_contains_cb(ssh: &SshHandshake) {
-    println!("ssh.software_version_ctos: {}", ssh.software_version_ctos());
+fn ssh_contains_bytes_cb(ssh: &SshHandshake) {
+    println!("contains bytes: ssh.software_version_ctos: {}", ssh.software_version_ctos());
     if let Ok(serialized) = serde_json::to_string(&ssh) {
         let mut wtr = file.lock().unwrap();
         wtr.write_all(serialized.as_bytes()).unwrap();
@@ -57,8 +58,8 @@ fn ssh_contains_cb(ssh: &SshHandshake) {
 }
 
 #[filter("ssh.software_version_ctos contains 'OpenSSH'")]
-fn ssh_contains_cb(ssh: &SshHandshake) {
-    println!("ssh.software_version_ctos: {}", ssh.software_version_ctos());
+fn ssh_contains_str_cb(ssh: &SshHandshake) {
+    println!("contains str: ssh.software_version_ctos: {}", ssh.software_version_ctos());
     if let Ok(serialized) = serde_json::to_string(&ssh) {
         let mut wtr = file.lock().unwrap();
         wtr.write_all(serialized.as_bytes()).unwrap();
