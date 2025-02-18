@@ -55,7 +55,21 @@ regex = "1.7.3"
 ring = "0.17.8"
 aes-gcm = "0.10.3"
 
+# Statistics
+tokio = { version = "1.42.0", features = ["full"] }
+array-init = "2.0"
+hyper = { version = "1", features = ["full"], optional = true }
+hyper-util = { version = "0.1", features = ["full"], optional = true }
+prometheus-client = { version = "0.22.3", optional = true }
+http-body-util = { version = "0.1.2", optional = true }
+
 [features]
 timing = []
+prometheus = [
+    "dep:hyper", 
+    "dep:hyper-util",
+    "dep:prometheus-client",
+    "dep:http-body-util",
+]
 mlx5 = []
 default = []

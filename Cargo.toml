@@ -3,6 +3,7 @@ members = [
     "core",
     "datatypes",
     "examples/websites",
+    "examples/websites-prometheus",
     "examples/port_count",
     # Exclude from compilation; many subscriptions takes a long time to compile
     # "examples/filter_stats",
