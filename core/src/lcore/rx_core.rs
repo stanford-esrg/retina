@@ -12,6 +12,7 @@ use crate::subscription::*;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Instant;
 
 use itertools::Itertools;
 
@@ -95,18 +96,24 @@ where
         log::debug!("{:#?}", registry);
         let mut conn_table = ConnTracker::<S::Tracked>::new(config, registry, self.id);
 
+        let mut now = Instant::now();
+
         while self.is_running.load(Ordering::Relaxed) {
             for rxqueue in self.rxqueues.iter() {
                 let mbufs: Vec<Mbuf> = self.rx_burst(rxqueue, 32);
                 if mbufs.is_empty() {
                     IDLE_CYCLES.inc();
-
-                    #[cfg(feature = "prometheus")]
-                    if IDLE_CYCLES.get() & 1023 == 0 && self.is_prometheus_enabled {
-                        crate::stats::update_thread_local_stats(self.id);
-                    }
                 }
+
                 TOTAL_CYCLES.inc();
+                if TOTAL_CYCLES.get() & 1023 == 512 {
+                    now = Instant::now();
+                }
+                #[cfg(feature = "prometheus")]
+                if TOTAL_CYCLES.get() & 1023 == 0 && self.is_prometheus_enabled {
+                    crate::stats::update_thread_local_stats(self.id);
+                }
+
                 for mbuf in mbufs.into_iter() {
                     // log::debug!("{:#?}", mbuf);
                     // log::debug!("Mark: {}", mbuf.mark());
@@ -133,7 +140,7 @@ where
                     }
                 }
             }
-            conn_table.check_inactive(&self.subscription);
+            conn_table.check_inactive(&self.subscription, now);
         }
 
         // // Deliver remaining data in table from unfinished connections

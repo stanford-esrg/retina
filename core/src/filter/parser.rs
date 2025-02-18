@@ -220,7 +220,11 @@ impl FilterParser {
                 let bytes_vec = bytes_as_str
                     .replace("|", "")
                     .split_whitespace()
-                    .map(|s| u8::from_str_radix(s, 16).expect("Not a valid hex byte"))
+                    .map(|s| {
+                        u8::from_str_radix(s, 16).unwrap_or_else(|err| {
+                            panic!("Failed to parse {} in {}: {:?}", s, bytes_as_str, err)
+                        })
+                    })
                     .collect();
                 Ok(Value::Byte(bytes_vec))
             }
