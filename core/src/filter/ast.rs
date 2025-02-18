@@ -628,7 +628,7 @@ pub(super) fn is_parent_text(
     // parent must be contains while child can be equals or contains
     if (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Eq))
         || (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Contains)) {
-        // if parent text (e.g. "abc") is equal to or a substring of child text (e.g. "abcd"), then parent-child relationship holds
+        // if parent text (e.g. "OpenSSH") is equal to or a substring of child text (e.g. "OpenSSH_6.7"), then parent-child relationship holds
         return child_text.contains(parent_text);
     }
 
@@ -654,7 +654,7 @@ pub(super) fn is_parent_bytes(
     // parent must be contains while child can be equals or contains
     if (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Eq))
         || (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Contains)) {
-        // if parent text (e.g. "2E 63 6F 6D") is equal to or a substring of child text (e.g. "67 6F 6F 67 6C 65 2E 63 6F 6D"), then parent-child relationship holds
+        // if parent text (e.g. b"OpenSSH") is equal to or a substring of child text (e.g. b"OpenSSH_6.7"), then parent-child relationship holds
         let num_bytes = parent_bytes.len();
         return child_bytes.windows(num_bytes).any(|w| w == parent_bytes);
     }
@@ -1116,6 +1116,38 @@ mod tests {
             value: Value::Text("[A-Z]{3}".to_owned()),
         };
         assert!(http_get.is_child(&http_get_re));
+
+        // test contains for strings
+        let ssh_contains_str = Predicate::Binary { 
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Contains,
+            value: Value::Text("OpenSSH".to_owned()),
+        };
+        let ssh_eq_str = Predicate::Binary { 
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Eq,
+            value: Value::Text("OpenSSH_6.7".to_owned()),
+        };
+        assert!(ssh_eq_str.is_child(&ssh_contains_str));
+        assert!(!ssh_contains_str.is_child(&ssh_eq_str));
+
+        // test contains for bytes
+        let ssh_contains_bytes = Predicate::Binary { 
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Contains,
+            value: Value::Byte(vec![0x4F, 0x70, 0x65, 0x6E, 0x53, 0x53, 0x48]),
+        };
+        let ssh_eq_bytes = Predicate::Binary { 
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Eq,
+            value: Value::Byte(vec![0x4F, 0x70, 0x65, 0x6E, 0x53, 0x53, 0x48, 0x5F, 0x36, 0x2E, 0x37]),
+        };
+        assert!(ssh_eq_bytes.is_child(&ssh_contains_bytes));
+        assert!(!ssh_contains_bytes.is_child(&ssh_eq_bytes));
     }
 
     #[test]
@@ -1195,5 +1227,37 @@ mod tests {
         };
         assert!(ipv4_b.is_excl(&ipv4_a));
         assert!(ipv4_a.is_excl(&ipv4_b));
+
+        // test contains for strings
+        let ssh_contains_str = Predicate::Binary { 
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Contains,
+            value: Value::Text("OpenSSH".to_owned()),
+        };
+        let ssh_eq_str = Predicate::Binary { 
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Eq,
+            value: Value::Text("OpenSSH_6.7".to_owned()),
+        };
+        assert!(!ssh_eq_str.is_excl(&ssh_contains_str));
+        assert!(!ssh_contains_str.is_excl(&ssh_eq_str));
+
+        // test contains for bytes
+        let ssh_contains_bytes = Predicate::Binary { 
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Contains,
+            value: Value::Byte(vec![0x4F, 0x70, 0x65, 0x6E, 0x53, 0x53, 0x48]),
+        };
+        let ssh_eq_bytes = Predicate::Binary { 
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Eq,
+            value: Value::Byte(vec![0x4F, 0x70, 0x65, 0x6E, 0x53, 0x53, 0x48, 0x5F, 0x36, 0x2E, 0x37]),
+        };
+        assert!(!ssh_eq_bytes.is_excl(&ssh_contains_bytes));
+        assert!(!ssh_contains_bytes.is_excl(&ssh_eq_bytes));
     }
 }
