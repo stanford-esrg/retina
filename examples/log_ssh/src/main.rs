@@ -46,7 +46,17 @@ fn ssh_byte_match_cb(ssh: &SshHandshake) {
     }
 }
 
-#[retina_main(2)]
+#[filter("ssh.software_version_ctos contains |4F 70 65 6E 53 53 48|")]
+fn ssh_contains_cb(ssh: &SshHandshake) {
+    println!("ssh.software_version_ctos: {}", ssh.software_version_ctos());
+    if let Ok(serialized) = serde_json::to_string(&ssh) {
+        let mut wtr = file.lock().unwrap();
+        wtr.write_all(serialized.as_bytes()).unwrap();
+        wtr.write_all(b"\n").unwrap();
+    }
+}
+
+#[retina_main(3)]
 fn main() {
     let args = Args::parse();
     let config = load_config(&args.config);
