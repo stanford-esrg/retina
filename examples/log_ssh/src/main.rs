@@ -37,18 +37,8 @@ fn ssh_cb(ssh: &SshHandshake) {
     }
 }
 
-// #[filter("ssh")]
-// fn log_ssh(ssh: &SshHandshake) {
-//     if let Ok(serialized) = serde_json::to_string(&ssh) {
-//         let mut wtr = file.lock().unwrap();
-//         wtr.write_all(serialized.as_bytes()).unwrap();
-//         wtr.write_all(b"\n").unwrap();
-//     }
-// }
-
 #[filter("ssh.protocol_version_ctos = |32 2E 30|")]
 fn ssh_byte_match_cb(ssh: &SshHandshake) {
-    println!("ssh.protocol_version_ctos: {}", ssh.protocol_version_ctos());
     if let Ok(serialized) = serde_json::to_string(&ssh) {
         let mut wtr = file.lock().unwrap();
         wtr.write_all(serialized.as_bytes()).unwrap();
