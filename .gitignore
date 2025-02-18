@@ -6,4 +6,4 @@ Cargo.lock
 *.csv
 *.json
 *.jsonl
-.DS_Store
+*.DS_Store
