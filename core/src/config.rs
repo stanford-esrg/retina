@@ -12,6 +12,8 @@
 use crate::lcore::{CoreId, SocketId};
 
 use std::fs;
+#[cfg(feature = "prometheus")]
+use std::net::{IpAddr, Ipv4Addr};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -335,6 +337,11 @@ pub struct OnlineConfig {
     #[serde(default = "default_monitor")]
     pub monitor: Option<MonitorConfig>,
 
+    /// Prometheus metrics exporter server. Defaults to `None`.
+    #[serde(default = "default_prometheus")]
+    #[cfg(feature = "prometheus")]
+    pub prometheus: Option<PrometheusConfig>,
+
     /// List of network interfaces to read from.
     pub ports: Vec<PortMap>,
 }
@@ -364,6 +371,11 @@ fn default_mtu() -> usize {
 }
 
 fn default_monitor() -> Option<MonitorConfig> {
+    None
+}
+
+#[cfg(feature = "prometheus")]
+fn default_prometheus() -> Option<PrometheusConfig> {
     None
 }
 
@@ -470,6 +482,34 @@ fn default_display() -> Option<DisplayConfig> {
 
 fn default_log() -> Option<LogConfig> {
     None
+}
+
+/// Statistics logging and live monitoring operations.
+///
+/// ## Example
+/// ```toml
+/// [online.monitor.display]
+///     throughput = true
+///     mempool_usage = true
+///
+/// [online.monitor.log]
+///     directory = "./log"
+///     interval = 1000
+/// ```
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[cfg(feature = "prometheus")]
+pub struct PrometheusConfig {
+    /// Listen port for Prometheus metrics.
+    pub port: u16,
+
+    /// Listen bind address for Prometheus metrics. Defaults to `127.0.0.1`.
+    #[serde(default = "default_prometheus_ip")]
+    pub ip: IpAddr,
+}
+
+#[cfg(feature = "prometheus")]
+fn default_prometheus_ip() -> IpAddr {
+    IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))
 }
 
 /* --------------------------------------------------------------------------------- */

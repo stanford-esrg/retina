@@ -4,6 +4,10 @@ use crate::conntrack::{ConnTracker, TrackerConfig};
 use crate::dpdk;
 use crate::memory::mbuf::Mbuf;
 use crate::port::{RxQueue, RxQueueType};
+use crate::stats::{
+    StatExt, IDLE_CYCLES, IGNORED_BY_PACKET_FILTER_BYTE, IGNORED_BY_PACKET_FILTER_PKT, TOTAL_BYTE,
+    TOTAL_CYCLES, TOTAL_PKT,
+};
 use crate::subscription::*;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,6 +24,8 @@ where
     pub(crate) id: CoreId,
     pub(crate) rxqueues: Vec<RxQueue>,
     pub(crate) conntrack: ConnTrackConfig,
+    #[cfg(feature = "prometheus")]
+    pub(crate) is_prometheus_enabled: bool,
     pub(crate) subscription: Arc<Subscription<S>>,
     pub(crate) is_running: Arc<AtomicBool>,
 }
@@ -32,6 +38,7 @@ where
         core_id: CoreId,
         rxqueues: Vec<RxQueue>,
         conntrack: ConnTrackConfig,
+        #[cfg(feature = "prometheus")] is_prometheus_enabled: bool,
         subscription: Arc<Subscription<S>>,
         is_running: Arc<AtomicBool>,
     ) -> Self {
@@ -39,6 +46,8 @@ where
             id: core_id,
             rxqueues,
             conntrack,
+            #[cfg(feature = "prometheus")]
+            is_prometheus_enabled,
             subscription,
             is_running,
         }
@@ -89,6 +98,15 @@ where
         while self.is_running.load(Ordering::Relaxed) {
             for rxqueue in self.rxqueues.iter() {
                 let mbufs: Vec<Mbuf> = self.rx_burst(rxqueue, 32);
+                if mbufs.is_empty() {
+                    IDLE_CYCLES.inc();
+
+                    #[cfg(feature = "prometheus")]
+                    if IDLE_CYCLES.get() & 1023 == 0 && self.is_prometheus_enabled {
+                        crate::stats::update_thread_local_stats(self.id);
+                    }
+                }
+                TOTAL_CYCLES.inc();
                 for mbuf in mbufs.into_iter() {
                     // log::debug!("{:#?}", mbuf);
                     // log::debug!("Mark: {}", mbuf.mark());
@@ -102,10 +120,16 @@ where
                     nb_pkts += 1;
                     nb_bytes += mbuf.data_len() as u64;
 
+                    TOTAL_PKT.inc();
+                    TOTAL_BYTE.inc_by(mbuf.data_len() as u64);
+
                     let actions = self.subscription.continue_packet(&mbuf, &self.id);
                     if !actions.drop() {
                         self.subscription
                             .process_packet(mbuf, &mut conn_table, actions);
+                    } else {
+                        IGNORED_BY_PACKET_FILTER_PKT.inc();
+                        IGNORED_BY_PACKET_FILTER_BYTE.inc_by(mbuf.data_len() as u64);
                     }
                 }
             }
