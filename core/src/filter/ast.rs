@@ -302,6 +302,14 @@ impl Predicate {
                     }
                     return false;
                 }
+
+                // Bytes
+                if let Value::Byte(b) = val {
+                    if let Value::Byte(peer_b) = peer_val {
+                        return is_excl_byte(b, op, peer_b, peer_op);
+                    }
+                    return false;
+                }
             }
         }
         false
@@ -427,6 +435,14 @@ impl Predicate {
                         }
                         return false;
                     }
+
+                    // Bytes
+                    if let Value::Text(b) = val {
+                        if let Value::Text(parent_b) = parent_val {
+                            return is_parent_bytes(b, op, parent_b, parent_op);
+                        }
+                        return false;
+                    }
                 }
             }
         }
@@ -494,11 +510,16 @@ pub(super) fn is_excl_ipv6(
 }
 
 pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_op: &BinOp) -> bool {
-    if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Eq) {
+    if (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Eq)) 
+        || (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains)) 
+        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq)) 
+        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Contains)) {
         return peer_text != text;
     }
     if (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Eq))
         || (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Ne))
+        || (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Contains))
+        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Ne))
     {
         return peer_text == text;
     }
@@ -523,6 +544,31 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
     let regex =
         Regex::new(re).unwrap_or_else(|err| panic!("Invalid Regex string {}: {:?}", re, err));
     !regex.is_match(txt)
+}
+
+pub(super) fn is_excl_byte(b: &Vec<u8>, op: &BinOp, peer_b: &Vec<u8>, peer_op: &BinOp) -> bool {
+    if (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Eq)) 
+        || (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains)) 
+        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq)) 
+        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Contains)) {
+        return peer_b != b;
+    }
+    if (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Eq))
+        || (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Ne))
+        || (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Contains))
+        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Ne))
+    {
+        return peer_b == b;
+    }
+    if matches!(op, BinOp::Ne) || matches!(peer_op, BinOp::Ne) {
+        // Neq + Neq; Neq + Regex - don't make much sense
+        return false;
+    }
+
+    if matches!(op, BinOp::Re) && matches!(peer_op, BinOp::Re) {
+        // Out of scope
+        return false;
+    }
 }
 
 pub(super) fn is_parent_ipv4(
@@ -575,14 +621,43 @@ pub(super) fn is_parent_text(
     parent_text: &str,
     parent_op: &BinOp,
 ) -> bool {
+    // parent: contains substring
+    // child: equals or contains string
+    // parent = "abc" (contains)
+    // child = "abcd" (equals or contains)
+    // parent must be contains while child can be equals or contains
+    if (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Eq))
+        || (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Contains)) {
+        // if parent text (e.g. "abc") is equal to or a substring of child text (e.g. "abcd"), then parent-child relationship holds
+        return child_text.contains(parent_text);
+    }
+
     if !matches!(parent_op, BinOp::Re) || !matches!(child_op, BinOp::Eq) {
         // Regex overlap is out of scope
         // Regex overlap with != doesn't really make sense
         return false;
     }
+
     let parent = Regex::new(parent_text)
         .unwrap_or_else(|err| panic!("Invalid Regex string {}: {:?}", parent_text, err));
     parent.is_match(child_text)
+
+    
+}
+
+pub(super) fn is_parent_bytes(
+    child_bytes: &Vec<u8>,
+    child_op: &BinOp,
+    parent_bytes: &Vec<u8>,
+    parent_op: &BinOp,
+) -> bool {
+    // parent must be contains while child can be equals or contains
+    if (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Eq))
+        || (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Contains)) {
+        // if parent text (e.g. "2E 63 6F 6D") is equal to or a substring of child text (e.g. "67 6F 6F 67 6C 65 2E 63 6F 6D"), then parent-child relationship holds
+        let num_bytes = parent_bytes.len();
+        return child_bytes.windows(num_bytes).any(|w| w == parent_bytes);
+    }
 }
 
 pub(super) fn is_excl_int(
