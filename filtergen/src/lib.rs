@@ -141,17 +141,17 @@
 //! | Byte          | `|32 2E 30|`       |
 //!
 //! ## Binary comparison operators
-//! | Operator |   Alias   |         Description        | Example                         |
-//! |----------|-----------|----------------------------|---------------------------------|
-//! | `=`      |           | Equals                     | `ipv4.addr = 127.0.0.1`         |
-//! | `!=`     | `ne`      | Not equals                 | `udp.dst_port != 53`            |
-//! | `>=`     | `ge`      | Greater than or equals     | `tcp.port >= 1024`              |
-//! | `<=`     | `le`      | Less than or equals        | `tls.version <= 771`            |
-//! | `>`      | `gt`      | Greater than               | `ipv4.time_to_live > 64`        |
-//! | `<`      | `lt`      | Less than                  | `ipv6.payload_length < 500`     |
-//! | `in`     |           | In a range, or in a subnet | `ipv4.src_addr in 1.2.3.4/16`   |
-//! | `~`      | `matches` | Regular expression match   | `tls.sni ~ 'netflix\\.com$'`    |
-//! | `contains` |          | Check if right appears in left     | `tls.sni contains |2E 63 6F 6D|` |
+//! | Operator   |   Alias   |         Description            | Example                            |
+//! |------------|-----------|--------------------------------|------------------------------------|
+//! | `=`        |           | Equals                         | `ipv4.addr = 127.0.0.1`            |
+//! | `!=`       | `ne`      | Not equals                     | `udp.dst_port != 53`               |
+//! | `>=`       | `ge`      | Greater than or equals         | `tcp.port >= 1024`                 |
+//! | `<=`       | `le`      | Less than or equals            | `tls.version <= 771`               |
+//! | `>`        | `gt`      | Greater than                   | `ipv4.time_to_live > 64`           |
+//! | `<`        | `lt`      | Less than                      | `ipv6.payload_length < 500`        |
+//! | `in`       |           | In a range, or in a subnet     | `ipv4.src_addr in 1.2.3.4/16`      |
+//! | `~`        | `matches` | Regular expression match       | `tls.sni ~ 'netflix\\.com$'`       |
+//! | `contains` |           | Check if right appears in left | `tls.sni contains \|2E 63 6F 6D\|` |
 //!
 //! **Possible pitfalls involving `!=`**
 //!
