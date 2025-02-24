@@ -186,6 +186,7 @@ impl FilterParser {
             Rule::in_op => Ok(BinOp::In),
             Rule::re_op => Ok(BinOp::Re),
             Rule::en_op => Ok(BinOp::En),
+            Rule::byte_re_op => Ok(BinOp::ByteRe),
             _ => bail!(FilterError::InvalidBinOp(op_str)),
         }
     }
@@ -230,11 +231,6 @@ impl FilterParser {
                     .collect();
                 Ok(Value::Byte(bytes_vec))
             }
-            // Rule::byte_regex => {
-            //     // let pattern = rhs.as_str().replace("|", "");
-            //     // Ok(Value::Text(pattern))
-            //     Ok(Value::Text(rhs.as_str().to_owned()))
-            // }
             _ => bail!(FilterError::InvalidRhsType(pair_str)),
         }
     }

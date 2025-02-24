@@ -133,44 +133,42 @@ pub(crate) fn binary_to_tokens(
                     quote! { #proto.#field() == retina_core::protocols::stream::#proto::#field_ident::#variant_ident }
                 }
                 BinOp::Re => {
-                    if text.starts_with("|") && text.ends_with("|") {
-                        let pattern = text.replace("|", "");
-                        let val_lit = syn::LitStr::new(&pattern, Span::call_site());
-                        if BytesRegex::new(&pattern).is_err() {
-                            panic!("Invalid Regex pattern")
-                        }
-
-                        let re_name = format!("RE{}", statics.len());
-                        let re_ident = Ident::new(&re_name, Span::call_site());
-                        let lazy_re = quote! {
-                            static ref #re_ident: regex::BytesRegex = BytesRegex::new(#val_lit).unwrap();
-                        };
-                        // avoids compiling the Regex every time
-                        statics.push(lazy_re);
-                        quote! {
-                            #re_ident.is_match(&#proto.#field().as_bytes()[..])
-                        }
-                    } else {
-                        let val_lit = syn::LitStr::new(text, Span::call_site());
-                        if Regex::new(text).is_err() {
-                            panic!("Invalid Regex string")
-                        }
-
-                        let re_name = format!("RE{}", statics.len());
-                        let re_ident = Ident::new(&re_name, Span::call_site());
-                        let lazy_re = quote! {
-                            static ref #re_ident: regex::Regex = regex::Regex::new(#val_lit).unwrap();
-                        };
-                        // avoids compiling the Regex every time
-                        statics.push(lazy_re);
-                        quote! {
-                            #re_ident.is_match(&#proto.#field()[..])
-                        }
-                        // quote! {
-                        //     Regex::new(#val_lit).unwrap().is_match(#proto.#field())
-                        // }
+                    let val_lit = syn::LitStr::new(text, Span::call_site());
+                    if Regex::new(text).is_err() {
+                        panic!("Invalid Regex string")
                     }
-                    // add operator logic for new byte regex op: ~b 
+
+                    let re_name = format!("RE{}", statics.len());
+                    let re_ident = Ident::new(&re_name, Span::call_site());
+                    let lazy_re = quote! {
+                        static ref #re_ident: regex::Regex = regex::Regex::new(#val_lit).unwrap();
+                    };
+                    // avoids compiling the Regex every time
+                    statics.push(lazy_re);
+                    quote! {
+                        #re_ident.is_match(&#proto.#field()[..])
+                    }
+                    // quote! {
+                    //     Regex::new(#val_lit).unwrap().is_match(#proto.#field())
+                    // }
+                }
+                BinOp::ByteRe => {
+                    let val_lit = syn::LitStr::new(text, Span::call_site());
+                    if BytesRegex::new(&text).is_err() {
+                        panic!("Invalid Regex string")
+                    }
+
+                    let re_name = format!("RE{}", statics.len());
+                    let re_ident = Ident::new(&re_name, Span::call_site());
+                    
+                    let lazy_re = quote! {
+                        static ref #re_ident: regex::BytesRegex = BytesRegex::new(#val_lit).unwrap();
+                    };
+                    // avoids compiling the Regex every time
+                    statics.push(lazy_re);
+                    quote! {
+                        #re_ident.is_match(&#proto.#field().as_bytes()[..])
+                    }
                 }
                 _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
             }

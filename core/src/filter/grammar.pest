@@ -18,7 +18,7 @@ field = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 combined_field = @{ "addr" | "port" }
 
 // order matters! Parser will try from left to right
-value = { ipv4_lit | ipv6_lit | int_range | int_lit | byte_lit | byte_regex | str_lit }
+value = { ipv4_lit | ipv6_lit | int_range | int_lit | byte_lit | str_lit }
 
 ipv4_addr = @{
     ASCII_DIGIT{1,3} ~ ("." ~ ASCII_DIGIT{1,3}){3}
@@ -43,7 +43,6 @@ text = { (!("\'") ~ ANY)+ }
 // Bytes
 byte_lit = { "|" ~ (byte)+ ~ "|" }
 byte = { !("|") ~ ASCII_HEX_DIGIT{2} ~ " "? }
-byte_regex = { "|" ~ (("\\x" ~ byte) | text)+ ~ "|" }
 
 // Logical operators
 // ----------------------------------------------------------------------
@@ -54,7 +53,7 @@ not_op = { "!" | "not" | "NOT" }  // not yet supported, temp placeholder
 // Binary operators
 // ----------------------------------------------------------------------
 bin_op = {
-    eq_op | ne_op | ge_op | le_op | gt_op | lt_op | in_op | re_op | en_op
+    eq_op | ne_op | ge_op | le_op | gt_op | lt_op | in_op | re_op | en_op | byte_re_op
 }
 
 eq_op = { "=" }
@@ -69,6 +68,7 @@ en_op = { "eq" }
 
 // new operator for byte regex: ~b 
 // byte regex: treat value as text, operator is ~b
+byte_re_op = { "~b" }
 
 // Miscellaneous
 // ----------------------------------------------------------------------
