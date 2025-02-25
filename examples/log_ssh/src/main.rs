@@ -28,28 +28,27 @@ struct Args {
     outfile: PathBuf,
 }
 
-// #[filter("ssh.software_version_ctos ~ '^OpenSSH_[0-9]+\\.[0-9].*$'")]
-// fn ssh_cb(ssh: &SshHandshake) {
-//    if let Ok(serialized) = serde_json::to_string(&ssh) {
-//        let mut wtr = file.lock().unwrap();
-//        wtr.write_all(serialized.as_bytes()).unwrap();
-//        wtr.write_all(b"\n").unwrap();
-//    }
-// }
+#[filter("ssh.software_version_ctos ~ '^OpenSSH_[0-9]+\\.[0-9].*$'")]
+fn ssh_cb(ssh: &SshHandshake) {
+   if let Ok(serialized) = serde_json::to_string(&ssh) {
+       let mut wtr = file.lock().unwrap();
+       wtr.write_all(serialized.as_bytes()).unwrap();
+       wtr.write_all(b"\n").unwrap();
+   }
+}
 
-// #[filter("ssh.protocol_version_ctos = |32 2E 30|")]
-// fn ssh_byte_match_cb(ssh: &SshHandshake) {
-//    if let Ok(serialized) = serde_json::to_string(&ssh) {
-//        let mut wtr = file.lock().unwrap();
-//        wtr.write_all(serialized.as_bytes()).unwrap();
-//        wtr.write_all(b"\n").unwrap();
-//    }
-// }
+#[filter("ssh.protocol_version_ctos = |32 2E 30|")]
+fn ssh_byte_match_cb(ssh: &SshHandshake) {
+   if let Ok(serialized) = serde_json::to_string(&ssh) {
+       let mut wtr = file.lock().unwrap();
+       wtr.write_all(serialized.as_bytes()).unwrap();
+       wtr.write_all(b"\n").unwrap();
+   }
+}
 
-//#[filter("ssh.software_version_ctos ~b '(?-u)^\x4F\x70\x65\x6E\x53\x53\x48\x5F[0-9]+\\.[0-9].*$'")]
-#[filter("ssh.key_exchange_cookie_stoc ~b '(?-u)^\x15\x1A.+\x78$'")]
-fn ssh_byte_regex_cb(ssh: &SshHandshake) {
-    println!("cb: {:?}", ssh.key_exchange_cookie_stoc());
+#[filter("ssh.software_version_ctos ~b '(?-u)^\x4F\x70\x65\x6E\x53\x53\x48\x5F[0-9]+\\.[0-9].*$'")]
+fn ssh_byte_regex_str_cb(ssh: &SshHandshake) {
+    println!("cb 1: {:?}", ssh.key_exchange_cookie_stoc());
     if let Ok(serialized) = serde_json::to_string(&ssh) {
         let mut wtr = file.lock().unwrap();
         wtr.write_all(serialized.as_bytes()).unwrap();
@@ -57,7 +56,17 @@ fn ssh_byte_regex_cb(ssh: &SshHandshake) {
     }
 }
 
-#[retina_main(1)]
+#[filter("ssh.key_exchange_cookie_stoc ~b '(?-u)^\x15\x1A.+\x78$'")]
+fn ssh_byte_regex_byte_cb(ssh: &SshHandshake) {
+    println!("cb 2: {:?}", ssh.key_exchange_cookie_stoc());
+    if let Ok(serialized) = serde_json::to_string(&ssh) {
+        let mut wtr = file.lock().unwrap();
+        wtr.write_all(serialized.as_bytes()).unwrap();
+        wtr.write_all(b"\n").unwrap();
+    }
+}
+
+#[retina_main(4)]
 fn main() {
     let args = Args::parse();
     let config = load_config(&args.config);
