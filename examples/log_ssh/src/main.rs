@@ -37,8 +37,7 @@ fn ssh_byte_match_cb(ssh: &SshHandshake) {
     }
 }
 
-// check if contains b"OpenSSH"
-#[filter("ssh.software_version_ctos contains |4F 70 65 6E 53 53 48|")]
+#[filter("ssh.key_exchange_cookie_stoc contains |15 1A|")]
 fn ssh_contains_bytes_cb(ssh: &SshHandshake) {
     if let Ok(serialized) = serde_json::to_string(&ssh) {
         let mut wtr = file.lock().unwrap();
