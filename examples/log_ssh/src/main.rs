@@ -28,8 +28,8 @@ struct Args {
     outfile: PathBuf,
 }
 
-#[filter("ssh.protocol_version_ctos = |32 2E 30|")]
-fn ssh_byte_match_cb(ssh: &SshHandshake) {
+#[filter("ssh.software_version_ctos ~b '(?-u)^\x4F\x70\x65\x6E\x53\x53\x48\x5F[0-9]+\\.[0-9].*$'")]
+fn ssh_byte_regex_str_cb(ssh: &SshHandshake) {
     if let Ok(serialized) = serde_json::to_string(&ssh) {
         let mut wtr = file.lock().unwrap();
         wtr.write_all(serialized.as_bytes()).unwrap();
@@ -37,8 +37,8 @@ fn ssh_byte_match_cb(ssh: &SshHandshake) {
     }
 }
 
-#[filter("ssh.software_version_ctos ~b '(?-u)^\x4F\x70\x65\x6E\x53\x53\x48\x5F[0-9]+\\.[0-9].*$'")]
-fn ssh_byte_regex_str_cb(ssh: &SshHandshake) {
+#[filter("ssh.protocol_version_ctos = |32 2E 30|")]
+fn ssh_byte_match_cb(ssh: &SshHandshake) {
     if let Ok(serialized) = serde_json::to_string(&ssh) {
         let mut wtr = file.lock().unwrap();
         wtr.write_all(serialized.as_bytes()).unwrap();
