@@ -65,9 +65,6 @@ lt_op = { "<" | "lt" }
 in_op = { "in" }
 re_op = { "~" | "matches" }
 en_op = { "eq" }
-
-// new operator for byte regex: ~b 
-// byte regex: treat value as text, operator is ~b
 byte_re_op = { "~b" }
 
 // Miscellaneous

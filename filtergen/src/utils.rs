@@ -7,7 +7,6 @@ use heck::CamelCase;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use regex::{Regex, bytes::Regex as BytesRegex};
-// use regex::bytes::Regex;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
