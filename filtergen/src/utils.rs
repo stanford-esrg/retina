@@ -166,7 +166,7 @@ pub(crate) fn binary_to_tokens(
                     };
                     // avoids compiling the Regex every time
                     statics.push(lazy_re);
-                    
+
                     quote! {
                         #re_ident.is_match((&#proto.#field()).as_ref())
                     }

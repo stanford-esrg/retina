@@ -151,7 +151,7 @@
 //! | `<`      | `lt`      | Less than                  | `ipv6.payload_length < 500`     |
 //! | `in`     |           | In a range, or in a subnet | `ipv4.src_addr in 1.2.3.4/16`   |
 //! | `~`      | `matches` | Regular expression match   | `tls.sni ~ 'netflix\\.com$'`    |
-//! | `~b`     |           | Byte regular expression match | `ssh.protocol_version_ctos ~b '^\x32\\.\x30$'` |
+//! | `~b`     |           | Byte regular expression match | `ssh.protocol_version_ctos ~b '(?-u)^\x32\\.\x30$'` |
 //!
 //! **Possible pitfalls involving `!=`**
 //!
