@@ -155,7 +155,7 @@ pub(crate) fn binary_to_tokens(
                 BinOp::Contains => {
                     let val_lit = syn::LitStr::new(text, Span::call_site());
                     quote! {
-                        #proto.#field().contains(#val_lit)
+                        memchr::memmem::Finder::new(#val_lit.as_bytes()).find(#proto.#field().as_bytes()).is_some()
                     }
                 }
                 _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
