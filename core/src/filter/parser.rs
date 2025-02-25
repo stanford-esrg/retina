@@ -102,6 +102,7 @@ impl FilterParser {
     }
 
     fn parse_predicate(pair: Pair<Rule>) -> Result<Vec<Node>> {
+        // println!("pair: {:?}", pair);
         let mut inner = pair.into_inner();
         let protocol = inner.next().unwrap();
         match inner.next() {
