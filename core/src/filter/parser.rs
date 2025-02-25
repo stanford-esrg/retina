@@ -76,6 +76,7 @@ impl FilterParser {
     }
 
     fn parse_disjunct(pair: Pair<Rule>) -> Result<Node> {
+        //println!("building from expr: {:#?}", pair);
         let inner = pair.into_inner();
         let mut terms = vec![];
         for pair in inner {
@@ -101,7 +102,6 @@ impl FilterParser {
     }
 
     fn parse_predicate(pair: Pair<Rule>) -> Result<Vec<Node>> {
-        // println!("pair: {:?}", pair);
         let mut inner = pair.into_inner();
         let protocol = inner.next().unwrap();
         match inner.next() {
