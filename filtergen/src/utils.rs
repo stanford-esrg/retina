@@ -7,6 +7,7 @@ use heck::CamelCase;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use regex::{Regex, bytes::Regex as BytesRegex};
+// use regex::bytes::Regex;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -162,7 +163,7 @@ pub(crate) fn binary_to_tokens(
                     let re_ident = Ident::new(&re_name, Span::call_site());
                     
                     let lazy_re = quote! {
-                        static ref #re_ident: regex::BytesRegex = BytesRegex::new(#val_lit).unwrap();
+                        static ref #re_ident: regex::bytes::Regex = regex::bytes::Regex::new(#val_lit).unwrap();
                     };
                     // avoids compiling the Regex every time
                     statics.push(lazy_re);

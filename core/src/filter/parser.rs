@@ -18,14 +18,14 @@ impl FilterParser {
     /// Parses filter string as a disjunct of `RawPattern`s
     pub(crate) fn parse_filter(filter_raw: &str) -> Result<Vec<RawPattern>> {
         let ast = FilterParser::parse_as_ast(filter_raw)?;
-        println!("ast: {:?}", ast);
+        // println!("ast: {:?}", ast);
         Ok(FilterParser::flatten_disjunct(ast))
     }
 
     fn parse_as_ast(filter_raw: &str) -> Result<Node> {
-        println!("filter_raw: {}", filter_raw);
+        // println!("filter_raw: {}", filter_raw);
         let pairs = FilterParser::parse(Rule::filter, filter_raw);
-        println!("pairs: {:?}", pairs);
+        // println!("pairs: {:?}", pairs);
         match pairs {
             Ok(mut pairs) => {
                 let pair = pairs.next().unwrap();
