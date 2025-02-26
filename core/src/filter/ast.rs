@@ -586,10 +586,10 @@ pub(super) fn is_excl_byte(b: &Vec<u8>, op: &BinOp, peer_b: &Vec<u8>, peer_op: &
     // pred.value contains self.value --> not mutually exclusive 
     // return !(pred.value contains self.value)
     if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq) {
-        return !peer_b.contains(b);
+        return !memchr::memmem::Finder::new(b).find(peer_b);
     }
     if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains) {
-        return !b.contains(peer_b);
+        return !memchr::memmem::Finder::new(peer_b).find(b);
     }
 
     // 2 contains are generally not mutually exclusive
