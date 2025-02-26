@@ -524,7 +524,10 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
         return false;
     }
 
-    if matches!(op, BinOp::Re) && matches!(peer_op, BinOp::Re) {
+    // NOTE: ByteRe appears in is_excl_text instead of is_excl_byte since the value
+    // to the right of a byte regex op is text, not a byte
+    if (matches!(op, BinOp::Re) && matches!(peer_op, BinOp::Re)) ||
+        (matches!(op, BinOp::ByteRe) && matches!(peer_op, BinOp::ByteRe)) {
         // Out of scope
         return false;
     }
@@ -552,8 +555,6 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
         return false;
     }
     
-    // NOTE: ByteRe appears in is_excl_text instead of is_excl_byte since the value
-    // to the right of a byte regex op is text, not a byte
     if (matches!(op, BinOp::Re) && matches!(peer_op, BinOp::Contains)) 
         || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Re))
         || (matches!(op, BinOp::ByteRe) && matches!(peer_op, BinOp::Contains))
@@ -602,11 +603,6 @@ pub(super) fn is_excl_byte(b: &Vec<u8>, op: &BinOp, peer_b: &Vec<u8>, peer_op: &
     }
     if matches!(op, BinOp::Ne) || matches!(peer_op, BinOp::Ne) {
         // Neq + Neq; Neq + Regex - don't make much sense
-        return false;
-    }
-
-    if matches!(op, BinOp::ByteRe) && matches!(peer_op, BinOp::ByteRe) {
-        // Out of scope
         return false;
     }
 
