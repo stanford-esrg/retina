@@ -525,8 +525,8 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
     }
 
     // if pred and self have the same field and protocol
-    // pred is ==, self is contains 
-    // pred.value contains self.value --> not mutually exclusive 
+    // pred is ==, self is contains
+    // pred.value contains self.value --> not mutually exclusive
     // return !(pred.value contains self.value)
     if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq) {
         return !peer_text.contains(text);
@@ -546,8 +546,8 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
     {
         return false;
     }
-    
-    if (matches!(op, BinOp::Re) && matches!(peer_op, BinOp::Contains)) 
+
+    if (matches!(op, BinOp::Re) && matches!(peer_op, BinOp::Contains))
         || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Re))
     {
         // out of scope since contains can be understood as a regex with wildcards on both sides
@@ -582,14 +582,14 @@ pub(super) fn is_excl_byte(b: &Vec<u8>, op: &BinOp, peer_b: &Vec<u8>, peer_op: &
     }
 
     // if pred and self have the same field and protocol
-    // pred is ==, self is contains 
-    // pred.value contains self.value --> not mutually exclusive 
+    // pred is ==, self is contains
+    // pred.value contains self.value --> not mutually exclusive
     // return !(pred.value contains self.value)
     if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq) {
-        return !memchr::memmem::Finder::new(b).find(peer_b).is_some();
+        return memchr::memmem::Finder::new(b).find(peer_b).is_none();
     }
     if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains) {
-        return !memchr::memmem::Finder::new(peer_b).find(b).is_some();
+        return memchr::memmem::Finder::new(peer_b).find(b).is_none();
     }
 
     // 2 contains are generally not mutually exclusive
@@ -603,9 +603,8 @@ pub(super) fn is_excl_byte(b: &Vec<u8>, op: &BinOp, peer_b: &Vec<u8>, peer_op: &
     {
         return false;
     }
-    return false;
+    false
 }
-
 
 pub(super) fn is_parent_ipv4(
     child_ipv4: &Ipv4Net,
@@ -662,8 +661,9 @@ pub(super) fn is_parent_text(
     // parent = "abc" (contains)
     // child = "abcd" (equals or contains)
     // parent must be contains while child can be equals or contains
-    if (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Eq))
-        || (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Contains)) {
+    if matches!(parent_op, BinOp::Contains)
+        && (matches!(child_op, BinOp::Eq) || matches!(child_op, BinOp::Contains))
+    {
         // if parent text (e.g. "abc") is equal to or a substring of child text (e.g. "abcd"), then parent-child relationship holds
         return child_text.contains(parent_text);
     }
@@ -680,18 +680,21 @@ pub(super) fn is_parent_text(
 }
 
 pub(super) fn is_parent_bytes(
-    child_bytes: &Vec<u8>,
+    child_bytes: &[u8],
     child_op: &BinOp,
-    parent_bytes: &Vec<u8>,
+    parent_bytes: &[u8],
     parent_op: &BinOp,
 ) -> bool {
     // parent must be contains while child can be equals or contains
-    if (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Eq))
-        || (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Contains)) {
+    if matches!(parent_op, BinOp::Contains)
+        && (matches!(child_op, BinOp::Eq) || matches!(child_op, BinOp::Contains))
+    {
         // if parent text (e.g. "2E 63 6F 6D") is equal to or a substring of child text (e.g. "67 6F 6F 67 6C 65 2E 63 6F 6D"), then parent-child relationship holds
-        return memchr::memmem::Finder::new(parent_bytes).find(child_bytes).is_some();
+        return memchr::memmem::Finder::new(parent_bytes)
+            .find(child_bytes)
+            .is_some();
     }
-    return false;
+    false
 }
 
 pub(super) fn is_excl_int(
@@ -1155,13 +1158,13 @@ mod tests {
         assert!(http_get.is_child(&http_get_re));
 
         // test contains for strings
-        let ssh_contains_str = Predicate::Binary { 
+        let ssh_contains_str = Predicate::Binary {
             protocol: protocol!("ssh"),
             field: field!("software_version_ctos"),
             op: BinOp::Contains,
             value: Value::Text("OpenSSH".to_owned()),
         };
-        let ssh_eq_str = Predicate::Binary { 
+        let ssh_eq_str = Predicate::Binary {
             protocol: protocol!("ssh"),
             field: field!("software_version_ctos"),
             op: BinOp::Eq,
@@ -1170,7 +1173,7 @@ mod tests {
         assert!(ssh_eq_str.is_child(&ssh_contains_str));
         assert!(!ssh_contains_str.is_child(&ssh_eq_str));
 
-        let ssh_contains_str2 = Predicate::Binary { 
+        let ssh_contains_str2 = Predicate::Binary {
             protocol: protocol!("ssh"),
             field: field!("software_version_ctos"),
             op: BinOp::Contains,
@@ -1180,13 +1183,13 @@ mod tests {
         assert!(ssh_contains_str2.is_child(&ssh_contains_str));
 
         // test contains for bytes
-        let ssh_contains_bytes = Predicate::Binary { 
+        let ssh_contains_bytes = Predicate::Binary {
             protocol: protocol!("ssh"),
             field: field!("key_exchange_cookie_stoc"),
             op: BinOp::Contains,
             value: Value::Byte(vec![0x70, 0x65]),
         };
-        let ssh_eq_bytes = Predicate::Binary { 
+        let ssh_eq_bytes = Predicate::Binary {
             protocol: protocol!("ssh"),
             field: field!("key_exchange_cookie_stoc"),
             op: BinOp::Eq,
@@ -1195,7 +1198,7 @@ mod tests {
         assert!(ssh_eq_bytes.is_child(&ssh_contains_bytes));
         assert!(!ssh_contains_bytes.is_child(&ssh_eq_bytes));
 
-        let ssh_contains_bytes2 = Predicate::Binary { 
+        let ssh_contains_bytes2 = Predicate::Binary {
             protocol: protocol!("ssh"),
             field: field!("key_exchange_cookie_stoc"),
             op: BinOp::Contains,
@@ -1284,13 +1287,13 @@ mod tests {
         assert!(ipv4_a.is_excl(&ipv4_b));
 
         // test contains for strings
-        let ssh_eq_str = Predicate::Binary { 
+        let ssh_eq_str = Predicate::Binary {
             protocol: protocol!("ssh"),
             field: field!("software_version_ctos"),
             op: BinOp::Eq,
             value: Value::Text("OpenSSH".to_owned()),
         };
-        let ssh_contains_str = Predicate::Binary { 
+        let ssh_contains_str = Predicate::Binary {
             protocol: protocol!("ssh"),
             field: field!("software_version_ctos"),
             op: BinOp::Contains,
@@ -1299,13 +1302,13 @@ mod tests {
         assert!(ssh_eq_str.is_excl(&ssh_contains_str));
         assert!(ssh_contains_str.is_excl(&ssh_eq_str));
 
-        let ssh_eq_str2 = Predicate::Binary { 
+        let ssh_eq_str2 = Predicate::Binary {
             protocol: protocol!("ssh"),
             field: field!("software_version_ctos"),
             op: BinOp::Eq,
             value: Value::Text("OpenSSH_6.7".to_owned()),
         };
-        let ssh_contains_str2 = Predicate::Binary { 
+        let ssh_contains_str2 = Predicate::Binary {
             protocol: protocol!("ssh"),
             field: field!("software_version_ctos"),
             op: BinOp::Contains,
