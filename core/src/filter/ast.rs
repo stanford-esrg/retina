@@ -657,12 +657,6 @@ pub(super) fn is_parent_text(
     parent_text: &str,
     parent_op: &BinOp,
 ) -> bool {
-    if !matches!(parent_op, BinOp::Re) || !matches!(child_op, BinOp::Eq) {
-        // Regex overlap is out of scope
-        // Regex overlap with != doesn't really make sense
-        return false;
-    }
-
     // parent: contains substring
     // child: equals or contains string
     // parent = "abc" (contains)
@@ -672,6 +666,12 @@ pub(super) fn is_parent_text(
         || (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Contains)) {
         // if parent text (e.g. "abc") is equal to or a substring of child text (e.g. "abcd"), then parent-child relationship holds
         return child_text.contains(parent_text);
+    }
+
+    if !matches!(parent_op, BinOp::Re) || !matches!(child_op, BinOp::Eq) {
+        // Regex overlap is out of scope
+        // Regex overlap with != doesn't really make sense
+        return false;
     }
 
     let parent = Regex::new(parent_text)
