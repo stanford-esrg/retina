@@ -12,7 +12,7 @@ use itertools::Itertools;
 use petgraph::algo;
 use petgraph::graph::Graph;
 use petgraph::graph::NodeIndex;
-use regex::{bytes::Regex as BytesRegex, Regex};
+use regex::Regex;
 
 use crate::port::Port;
 
@@ -524,14 +524,6 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
         return false;
     }
 
-    // NOTE: ByteRe appears in is_excl_text instead of is_excl_byte since the value
-    // to the right of a byte regex op is text, not a byte
-    if (matches!(op, BinOp::Re) && matches!(peer_op, BinOp::Re)) ||
-        (matches!(op, BinOp::ByteRe) && matches!(peer_op, BinOp::ByteRe)) {
-        // Out of scope
-        return false;
-    }
-
     // if pred and self have the same field and protocol
     // pred is ==, self is contains 
     // pred.value contains self.value --> not mutually exclusive 
@@ -557,26 +549,9 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
     
     if (matches!(op, BinOp::Re) && matches!(peer_op, BinOp::Contains)) 
         || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Re))
-        || (matches!(op, BinOp::ByteRe) && matches!(peer_op, BinOp::Contains))
-        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::ByteRe))
     {
         // out of scope since contains can be understood as a regex with wildcards on both sides
         return false;
-    }
-
-    // Byte regex + Eq
-    if (matches!(op, BinOp::ByteRe) && matches!(peer_op, BinOp::Eq)) 
-        || (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::ByteRe))
-    {
-        let (re, txt) = {
-            match matches!(op, BinOp::ByteRe) {
-                true => (text, peer_text),
-                false => (peer_text, text),
-            }
-        };
-        let regex =
-            BytesRegex::new(re).unwrap_or_else(|err| panic!("Invalid Regex string {}: {:?}", re, err));
-        return !regex.is_match(txt);
     }
 
     // Regex + Eq
@@ -1344,24 +1319,24 @@ mod tests {
             protocol: protocol!("ssh"),
             field: field!("key_exchange_cookie_stoc"),
             op: BinOp::Eq,
-            value: Value::Byte(vec![0x8C, 0x15, 0x6D, 0x78]),
+            value: Value::Byte(vec![0x4F, 0x70, 0x65, 0x6E]),
         };
-        let ssh_byte_re = Predicate::Binary {
-            protocol: protocol!("ssg"),
+        let ssh_contains_byte = Predicate::Binary {
+            protocol: protocol!("ssh"),
             field: field!("key_exchange_cookie_stoc"),
-            op: BinOp::ByteRe,
-            value: Value::Text("(?-u)\x15.+\x78".to_owned()),
+            op: BinOp::Contains,
+            value: Value::Byte(vec![0x70, 0x65, 0x6E]),
         };
-        assert!(ssh_eq_byte.is_excl(&ssh_byte_re));
-        assert!(ssh_byte_re.is_excl(&ssh_eq_byte));
+        assert!(!ssh_eq_byte.is_excl(&ssh_contains_byte));
+        assert!(!ssh_contains_byte.is_excl(&ssh_eq_byte));
 
         let ssh_eq_byte2 = Predicate::Binary {
             protocol: protocol!("ssh"),
             field: field!("key_exchange_cookie_stoc"),
             op: BinOp::Eq,
-            value: Value::Byte(vec![0x15, 0x8C, 0x6D, 0x78]),
+            value: Value::Byte(vec![0x65, 0x6E]),
         };
-        assert!(!ssh_eq_byte2.is_excl(&ssh_byte_re));
-        assert!(!ssh_byte_re.is_excl(&ssh_eq_byte2));
+        assert!(ssh_eq_byte2.is_excl(&ssh_contains_byte));
+        assert!(ssh_contains_byte.is_excl(&ssh_eq_byte2));
     }
 }
