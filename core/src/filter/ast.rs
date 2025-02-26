@@ -524,6 +524,11 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
         return false;
     }
 
+    if matches!(op, BinOp::Re) && matches!(peer_op, BinOp::Re) {
+        // Out of scope
+        return false;
+    }
+
     if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq) {
         return !peer_text.contains(text);
     }
