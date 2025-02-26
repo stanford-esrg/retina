@@ -586,10 +586,10 @@ pub(super) fn is_excl_byte(b: &Vec<u8>, op: &BinOp, peer_b: &Vec<u8>, peer_op: &
     // pred.value contains self.value --> not mutually exclusive 
     // return !(pred.value contains self.value)
     if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq) {
-        return !memchr::memmem::Finder::new(b).find(peer_b);
+        return !memchr::memmem::Finder::new(b).find(peer_b).is_some();
     }
     if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains) {
-        return !memchr::memmem::Finder::new(peer_b).find(b);
+        return !memchr::memmem::Finder::new(peer_b).find(b).is_some();
     }
 
     // 2 contains are generally not mutually exclusive
@@ -689,7 +689,7 @@ pub(super) fn is_parent_bytes(
     if (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Eq))
         || (matches!(parent_op, BinOp::Contains) && matches!(child_op, BinOp::Contains)) {
         // if parent text (e.g. "2E 63 6F 6D") is equal to or a substring of child text (e.g. "67 6F 6F 67 6C 65 2E 63 6F 6D"), then parent-child relationship holds
-        return memchr::memmem::Finder::new(parent_bytes).find(child_bytes);
+        return memchr::memmem::Finder::new(parent_bytes).find(child_bytes).is_some();
     }
     return false;
 }
@@ -1311,7 +1311,7 @@ mod tests {
             op: BinOp::Contains,
             value: Value::Text("OpenSSH".to_owned()),
         };
-        assert(!ssh_eq_str2.is_excl(&ssh_contains_str2));
+        assert!(!ssh_eq_str2.is_excl(&ssh_contains_str2));
         assert!(!ssh_contains_str2.is_excl(&ssh_eq_str2));
 
         // test bytes
