@@ -6,7 +6,7 @@ use crate::data::{build_callback, build_packet_callback};
 use heck::CamelCase;
 use proc_macro2::{Ident, Span};
 use quote::quote;
-use regex::Regex;
+use regex::{bytes::Regex as BytesRegex, Regex};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -151,6 +151,25 @@ pub(crate) fn binary_to_tokens(
                     // quote! {
                     //     Regex::new(#val_lit).unwrap().is_match(#proto.#field())
                     // }
+                }
+                BinOp::ByteRe => {
+                    let val_lit = syn::LitStr::new(text, Span::call_site());
+                    if BytesRegex::new(text).is_err() {
+                        panic!("Invalid Regex string")
+                    }
+
+                    let re_name = format!("RE{}", statics.len());
+                    let re_ident = Ident::new(&re_name, Span::call_site());
+
+                    let lazy_re = quote! {
+                        static ref #re_ident: regex::bytes::Regex = regex::bytes::Regex::new(#val_lit).unwrap();
+                    };
+                    // avoids compiling the Regex every time
+                    statics.push(lazy_re);
+
+                    quote! {
+                        #re_ident.is_match((&#proto.#field()).as_ref())
+                    }
                 }
                 BinOp::Contains => {
                     let val_lit = syn::LitStr::new(text, Span::call_site());
