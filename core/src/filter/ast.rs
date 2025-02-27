@@ -303,6 +303,14 @@ impl Predicate {
                     }
                     return false;
                 }
+
+                // Bytes
+                if let Value::Byte(b) = val {
+                    if let Value::Byte(peer_b) = peer_val {
+                        return is_excl_byte(b, op, peer_b, peer_op);
+                    }
+                    return false;
+                }
             }
         }
         false
@@ -428,6 +436,14 @@ impl Predicate {
                         }
                         return false;
                     }
+
+                    // Bytes
+                    if let Value::Byte(b) = val {
+                        if let Value::Byte(parent_b) = parent_val {
+                            return is_parent_bytes(b, op, parent_b, parent_op);
+                        }
+                        return false;
+                    }
                 }
             }
         }
@@ -513,6 +529,29 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
         return false;
     }
 
+    if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq) {
+        return !peer_text.contains(text);
+    }
+    if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains) {
+        return !text.contains(peer_text);
+    }
+
+    if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Contains) {
+        return false;
+    }
+
+    if (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Contains))
+        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Ne))
+    {
+        return false;
+    }
+
+    if (matches!(op, BinOp::Re) && matches!(peer_op, BinOp::Contains))
+        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Re))
+    {
+        return false;
+    }
+
     // Regex + Eq
 
     let (re, txt) = {
@@ -524,6 +563,39 @@ pub(super) fn is_excl_text(text: &String, op: &BinOp, peer_text: &String, peer_o
     let regex =
         Regex::new(re).unwrap_or_else(|err| panic!("Invalid Regex string {}: {:?}", re, err));
     !regex.is_match(txt)
+}
+
+pub(super) fn is_excl_byte(b: &Vec<u8>, op: &BinOp, peer_b: &Vec<u8>, peer_op: &BinOp) -> bool {
+    if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Eq) {
+        return peer_b != b;
+    }
+    if (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Eq))
+        || (matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Ne))
+    {
+        return peer_b == b;
+    }
+    if matches!(op, BinOp::Ne) || matches!(peer_op, BinOp::Ne) {
+        // Neq + Neq; Neq + Regex - don't make much sense
+        return false;
+    }
+
+    if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Eq) {
+        return memchr::memmem::Finder::new(b).find(peer_b).is_none();
+    }
+    if matches!(op, BinOp::Eq) && matches!(peer_op, BinOp::Contains) {
+        return memchr::memmem::Finder::new(peer_b).find(b).is_none();
+    }
+
+    if matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Contains) {
+        return false;
+    }
+
+    if (matches!(op, BinOp::Ne) && matches!(peer_op, BinOp::Contains))
+        || (matches!(op, BinOp::Contains) && matches!(peer_op, BinOp::Ne))
+    {
+        return false;
+    }
+    false
 }
 
 pub(super) fn is_parent_ipv4(
@@ -576,14 +648,37 @@ pub(super) fn is_parent_text(
     parent_text: &str,
     parent_op: &BinOp,
 ) -> bool {
+    if matches!(parent_op, BinOp::Contains)
+        && (matches!(child_op, BinOp::Eq) || matches!(child_op, BinOp::Contains))
+    {
+        return child_text.contains(parent_text);
+    }
+
     if !matches!(parent_op, BinOp::Re) || !matches!(child_op, BinOp::Eq) {
         // Regex overlap is out of scope
         // Regex overlap with != doesn't really make sense
         return false;
     }
+
     let parent = Regex::new(parent_text)
         .unwrap_or_else(|err| panic!("Invalid Regex string {}: {:?}", parent_text, err));
     parent.is_match(child_text)
+}
+
+pub(super) fn is_parent_bytes(
+    child_bytes: &[u8],
+    child_op: &BinOp,
+    parent_bytes: &[u8],
+    parent_op: &BinOp,
+) -> bool {
+    if matches!(parent_op, BinOp::Contains)
+        && (matches!(child_op, BinOp::Eq) || matches!(child_op, BinOp::Contains))
+    {
+        return memchr::memmem::Finder::new(parent_bytes)
+            .find(child_bytes)
+            .is_some();
+    }
+    false
 }
 
 pub(super) fn is_excl_int(
@@ -1047,6 +1142,54 @@ mod tests {
             value: Value::Text("[A-Z]{3}".to_owned()),
         };
         assert!(http_get.is_child(&http_get_re));
+
+        let ssh_contains_str = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Contains,
+            value: Value::Text("OpenSSH".to_owned()),
+        };
+        let ssh_eq_str = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Eq,
+            value: Value::Text("OpenSSH_6.7".to_owned()),
+        };
+        assert!(ssh_eq_str.is_child(&ssh_contains_str));
+        assert!(!ssh_contains_str.is_child(&ssh_eq_str));
+
+        let ssh_contains_str2 = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Contains,
+            value: Value::Text("OpenSSH_6.7".to_owned()),
+        };
+        assert!(!ssh_contains_str.is_child(&ssh_contains_str2));
+        assert!(ssh_contains_str2.is_child(&ssh_contains_str));
+
+        let ssh_contains_bytes = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("key_exchange_cookie_stoc"),
+            op: BinOp::Contains,
+            value: Value::Byte(vec![0x70, 0x65]),
+        };
+        let ssh_eq_bytes = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("key_exchange_cookie_stoc"),
+            op: BinOp::Eq,
+            value: Value::Byte(vec![0x4F, 0x70, 0x65, 0x6E]),
+        };
+        assert!(ssh_eq_bytes.is_child(&ssh_contains_bytes));
+        assert!(!ssh_contains_bytes.is_child(&ssh_eq_bytes));
+
+        let ssh_contains_bytes2 = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("key_exchange_cookie_stoc"),
+            op: BinOp::Contains,
+            value: Value::Byte(vec![0x4F, 0x70, 0x65, 0x6E]),
+        };
+        assert!(!ssh_contains_bytes.is_child(&ssh_contains_bytes2));
+        assert!(ssh_contains_bytes2.is_child(&ssh_contains_bytes));
     }
 
     #[test]
@@ -1126,5 +1269,59 @@ mod tests {
         };
         assert!(ipv4_b.is_excl(&ipv4_a));
         assert!(ipv4_a.is_excl(&ipv4_b));
+
+        let ssh_eq_str = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Eq,
+            value: Value::Text("OpenSSH".to_owned()),
+        };
+        let ssh_contains_str = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Contains,
+            value: Value::Text("OpenSSH_6.7".to_owned()),
+        };
+        assert!(ssh_eq_str.is_excl(&ssh_contains_str));
+        assert!(ssh_contains_str.is_excl(&ssh_eq_str));
+
+        let ssh_eq_str2 = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Eq,
+            value: Value::Text("OpenSSH_6.7".to_owned()),
+        };
+        let ssh_contains_str2 = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("software_version_ctos"),
+            op: BinOp::Contains,
+            value: Value::Text("OpenSSH".to_owned()),
+        };
+        assert!(!ssh_eq_str2.is_excl(&ssh_contains_str2));
+        assert!(!ssh_contains_str2.is_excl(&ssh_eq_str2));
+
+        let ssh_eq_byte = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("key_exchange_cookie_stoc"),
+            op: BinOp::Eq,
+            value: Value::Byte(vec![0x4F, 0x70, 0x65, 0x6E]),
+        };
+        let ssh_contains_byte = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("key_exchange_cookie_stoc"),
+            op: BinOp::Contains,
+            value: Value::Byte(vec![0x70, 0x65, 0x6E]),
+        };
+        assert!(!ssh_eq_byte.is_excl(&ssh_contains_byte));
+        assert!(!ssh_contains_byte.is_excl(&ssh_eq_byte));
+
+        let ssh_eq_byte2 = Predicate::Binary {
+            protocol: protocol!("ssh"),
+            field: field!("key_exchange_cookie_stoc"),
+            op: BinOp::Eq,
+            value: Value::Byte(vec![0x65, 0x6E]),
+        };
+        assert!(ssh_eq_byte2.is_excl(&ssh_contains_byte));
+        assert!(ssh_contains_byte.is_excl(&ssh_eq_byte2));
     }
 }
