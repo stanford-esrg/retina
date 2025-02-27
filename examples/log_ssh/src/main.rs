@@ -28,15 +28,6 @@ struct Args {
     outfile: PathBuf,
 }
 
-#[filter("ssh.software_version_ctos ~ '^OpenSSH_[0-9]+\\.[0-9].*$'")]
-fn ssh_cb(ssh: &SshHandshake) {
-    if let Ok(serialized) = serde_json::to_string(&ssh) {
-        let mut wtr = file.lock().unwrap();
-        wtr.write_all(serialized.as_bytes()).unwrap();
-        wtr.write_all(b"\n").unwrap();
-    }
-}
-
 #[filter("ssh.protocol_version_ctos = |32 2E 30|")]
 fn ssh_byte_match_cb(ssh: &SshHandshake) {
     if let Ok(serialized) = serde_json::to_string(&ssh) {
@@ -46,7 +37,25 @@ fn ssh_byte_match_cb(ssh: &SshHandshake) {
     }
 }
 
-#[retina_main(2)]
+#[filter("ssh.key_exchange_cookie_stoc contains |15 1A|")]
+fn ssh_contains_bytes_cb(ssh: &SshHandshake) {
+    if let Ok(serialized) = serde_json::to_string(&ssh) {
+        let mut wtr = file.lock().unwrap();
+        wtr.write_all(serialized.as_bytes()).unwrap();
+        wtr.write_all(b"\n").unwrap();
+    }
+}
+
+#[filter("ssh.software_version_ctos contains 'OpenSSH'")]
+fn ssh_contains_str_cb(ssh: &SshHandshake) {
+    if let Ok(serialized) = serde_json::to_string(&ssh) {
+        let mut wtr = file.lock().unwrap();
+        wtr.write_all(serialized.as_bytes()).unwrap();
+        wtr.write_all(b"\n").unwrap();
+    }
+}
+
+#[retina_main(3)]
 fn main() {
     let args = Args::parse();
     let config = load_config(&args.config);
