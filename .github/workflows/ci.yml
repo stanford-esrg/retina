@@ -17,6 +17,7 @@ jobs:
         dpdk_version:
           - "20.11"
           - "23.11"
+          - "24.11"
     env:
       DPDK_VERSION: ${{ matrix.dpdk_version }}
     runs-on: ubuntu-latest
@@ -43,18 +44,25 @@ jobs:
       run: |
           sudo apt-get update
           sudo apt-get install libpcap-dev libnuma-dev
-    - name: DPDK
+    - name: Cache DPDK
+      id: cache-dpdk
+      uses: actions/cache@v4
+      with:
+        path: dpdk-${{ matrix.dpdk_version }}
+        key: ${{ runner.os }}-dpdk-${{ matrix.dpdk_version }}
+    - name: Export enviroment variables
+      run: |
+          echo "PKG_CONFIG_PATH=$(pwd)/dpdk-$DPDK_VERSION/install/lib/x86_64-linux-gnu/pkgconfig/" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(pwd)/dpdk-$DPDK_VERSION/install/lib/x86_64-linux-gnu/" >> $GITHUB_ENV
+          echo "DPDK_PATH=$(pwd)/dpdk-$DPDK_VERSION/install/" >> $GITHUB_ENV
+    - name: Retrive or compile DPDK
+      if: steps.cache-dpdk.outputs.cache-hit != 'true'
       run: |
             echo "Compiling DPDK..." ;
-            export STABLE=
-            export VERSION=${{ matrix.dpdk_version }}
-            export PKG_CONFIG_PATH=$(pwd)/dpdk-$STABLE$VERSION/install/lib/x86_64-linux-gnu/pkgconfig/ ;
-            export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(pwd)/dpdk-$STABLE$VERSION/install/lib/x86_64-linux-gnu/ ;
-            export DPDK_PATH=$(pwd)/dpdk-$STABLE$VERSION/install/
-            if [ ! -e "dpdk-$STABLE$VERSION" ] || ! pkg-config --exists libdpdk ; then
-                wget http://fast.dpdk.org/rel/dpdk-$VERSION.tar.gz &&
-                tar -zxf dpdk-$VERSION.tar.gz &&
-                cd dpdk-$STABLE$VERSION &&
+            if [ ! -e "dpdk-$DPDK_VERSION" ] || ! pkg-config --exists libdpdk ; then
+                wget http://fast.dpdk.org/rel/dpdk-$DPDK_VERSION.tar.gz &&
+                tar -zxf dpdk-$DPDK_VERSION.tar.gz &&
+                cd dpdk-$DPDK_VERSION &&
                 pip3 install meson ninja &&
                 meson -Dprefix=$(pwd)/install/ build &&
                 cd build &&
@@ -63,9 +71,6 @@ jobs:
                 cd .. &&
                 cd .. ;
             fi
-            echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
-            echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $GITHUB_ENV
-            echo "DPDK_PATH=$DPDK_PATH" >> $GITHUB_ENV
     - name: Clippy retina-core (no mlx5)
       run: cargo clippy --manifest-path core/Cargo.toml --no-default-features -- --deny warnings
     - name: Unit test retina-core (no mlx5)
