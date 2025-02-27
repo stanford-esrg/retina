@@ -32,7 +32,7 @@ pub struct Tcp<'a> {
     mbuf: &'a Mbuf,
 }
 
-impl<'a> Tcp<'a> {
+impl Tcp<'_> {
     /// Returns the sending port.
     #[inline]
     pub fn src_port(&self) -> u16 {

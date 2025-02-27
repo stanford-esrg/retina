@@ -32,7 +32,7 @@ pub struct Ipv4<'a> {
     mbuf: &'a Mbuf,
 }
 
-impl<'a> Ipv4<'a> {
+impl Ipv4<'_> {
     /// Returns the IP protocol version.
     #[inline]
     pub fn version(&self) -> u8 {

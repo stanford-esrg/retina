@@ -117,7 +117,7 @@ pub type SessionList = Vec<Session>;
 /// The string literal representing a matched filter.
 pub type FilterStr<'a> = &'a str;
 
-impl<'a> FromSubscription for FilterStr<'a> {
+impl FromSubscription for FilterStr<'_> {
     fn from_subscription(spec: &SubscriptionSpec) -> proc_macro2::TokenStream {
         let str = syn::LitStr::new(&spec.filter, Span::call_site());
         quote! { &#str }
