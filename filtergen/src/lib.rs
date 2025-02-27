@@ -152,6 +152,7 @@
 //! | `in`     |           | In a range, or in a subnet | `ipv4.src_addr in 1.2.3.4/16`   |
 //! | `~`      | `matches` | Regular expression match   | `tls.sni ~ 'netflix\\.com$'`    |
 //! | `~b`     |           | Byte regular expression match | `ssh.protocol_version_ctos ~b '(?-u)^\x32\\.\x30$'` |
+//! | `contains` |           | Check if right appears in left | `ssh.key_exchange_cookie_stoc contains \|15 A1\|` |
 //!
 //! **Possible pitfalls involving `!=`**
 //!

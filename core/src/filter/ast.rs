@@ -667,7 +667,7 @@ pub(super) fn is_excl_int(
             BinOp::In => return peer_to < from || peer_from > to,
             _ => {}
         },
-        BinOp::Re | BinOp::En | BinOp::ByteRe => {}
+        BinOp::Re | BinOp::En | BinOp::Contains | BinOp::ByteRe => {}
     }
     false
 }
@@ -803,6 +803,7 @@ pub enum BinOp {
     Re,
     En,
     ByteRe,
+    Contains,
 }
 
 impl fmt::Display for BinOp {
@@ -818,6 +819,7 @@ impl fmt::Display for BinOp {
             BinOp::Re => write!(f, "matches"),
             BinOp::En => write!(f, "eq"),
             BinOp::ByteRe => write!(f, "~b"),
+            BinOp::Contains => write!(f, "contains"),
         }
     }
 }
