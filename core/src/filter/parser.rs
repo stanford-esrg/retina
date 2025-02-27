@@ -183,6 +183,7 @@ impl FilterParser {
             Rule::in_op => Ok(BinOp::In),
             Rule::re_op => Ok(BinOp::Re),
             Rule::en_op => Ok(BinOp::En),
+            Rule::byte_re_op => Ok(BinOp::ByteRe),
             Rule::contains_op => Ok(BinOp::Contains),
             _ => bail!(FilterError::InvalidBinOp(op_str)),
         }

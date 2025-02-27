@@ -55,7 +55,16 @@ fn ssh_contains_str_cb(ssh: &SshHandshake) {
     }
 }
 
-#[retina_main(3)]
+#[filter("ssh.key_exchange_cookie_stoc ~b '(?-u)^\x15\x1A.+\x78$'")]
+fn ssh_byte_regex_byte_cb(ssh: &SshHandshake) {
+    if let Ok(serialized) = serde_json::to_string(&ssh) {
+        let mut wtr = file.lock().unwrap();
+        wtr.write_all(serialized.as_bytes()).unwrap();
+        wtr.write_all(b"\n").unwrap();
+    }
+}
+
+#[retina_main(4)]
 fn main() {
     let args = Args::parse();
     let config = load_config(&args.config);
