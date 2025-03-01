@@ -55,9 +55,15 @@ impl Mbuf {
     /// Creates a new Mbuf from a byte slice.
     pub(crate) fn from_bytes(data: &[u8], mp: *mut dpdk::rte_mempool) -> Result<Mbuf> {
         let mut mbuf = unsafe { Mbuf::new(dpdk::rte_pktmbuf_alloc(mp))? };
-        if data.len() <= mbuf.raw().buf_len.into() {
-            mbuf.raw_mut().data_len += data.len() as u16;
-            mbuf.raw_mut().pkt_len += data.len() as u32;
+        if data.len() <= mbuf.raw().get_buf_len() {
+            let current_data_len = mbuf.raw().get_data_len();
+            mbuf.raw_mut()
+                .set_data_len(current_data_len + data.len() as u16);
+
+            let current_pkt_len = mbuf.raw().get_pkt_len();
+            mbuf.raw_mut()
+                .set_pkt_len(current_pkt_len + data.len() as u32);
+
             unsafe {
                 let src = data.as_ptr();
                 let dst = mbuf.get_data_address(0) as *mut u8;
@@ -87,7 +93,7 @@ impl Mbuf {
 
     /// Returns the length of the data in the Mbuf.
     pub fn data_len(&self) -> usize {
-        self.raw().data_len as usize
+        self.raw().get_data_len() as usize
     }
 
     /// Returns the contents of the Mbuf as a byte slice.
@@ -131,24 +137,24 @@ impl Mbuf {
     /// Returns the raw pointer from the offset.
     fn get_data_address(&self, offset: usize) -> *const u8 {
         let raw = self.raw();
-        unsafe { (raw.buf_addr as *const u8).offset(raw.data_off as isize + offset as isize) }
+        unsafe { (raw.buf_addr as *const u8).offset(raw.get_data_off() as isize + offset as isize) }
     }
 
     /// Returns the RSS hash of the Mbuf computed by the NIC.
     #[allow(dead_code)]
     pub(crate) fn rss_hash(&self) -> u32 {
-        unsafe { self.raw().__bindgen_anon_2.hash.rss }
+        self.raw().get_rss_hash()
     }
 
     /// Returns any MARKs tagged on the Mbuf by the NIC.
     #[allow(dead_code)]
     pub(crate) fn mark(&self) -> u32 {
-        unsafe { self.raw().__bindgen_anon_2.hash.fdir.hi }
+        self.raw().get_mark()
     }
 
     #[allow(dead_code)]
     pub(crate) fn add_mark(&mut self, mark: u32) {
-        self.raw_mut().__bindgen_anon_2.hash.fdir.hi = mark;
+        self.raw_mut().set_mark(mark);
     }
 
     // TODO
@@ -203,10 +209,10 @@ impl fmt::Debug for Mbuf {
         let raw = self.raw();
         f.debug_struct("Mbuf")
             .field("buf_addr", &raw.buf_addr)
-            .field("buf_len", &raw.buf_len)
-            .field("pkt_len", &raw.pkt_len)
-            .field("data_len", &raw.data_len)
-            .field("data_off", &raw.data_off)
+            .field("buf_len", &raw.get_buf_len())
+            .field("pkt_len", &raw.get_pkt_len())
+            .field("data_len", &raw.get_data_len())
+            .field("data_off", &raw.get_data_off())
             .finish()
     }
 }
@@ -214,7 +220,7 @@ impl fmt::Debug for Mbuf {
 // displays the actual packet data of the frame (first segment only)
 impl fmt::Display for Mbuf {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in 0..self.raw().data_len {
+        for byte in 0..self.raw().get_data_len() {
             write!(
                 f,
                 "{:02x} ",
