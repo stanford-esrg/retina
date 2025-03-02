@@ -173,6 +173,21 @@
 //! literals](https://doc.rust-lang.org/stable/reference/tokens.html#raw-string-literals). They are
 //! allowed to match anywhere in the text, unless start (`^`) and end (`$`) anchors are used.
 //!
+//! **Byte regular expressions**
+//!
+//! Using regular expressions with bytes works similarly as with strings, except we use the
+//! `regex::bytes::Regex` API from the [`bytes`](https://docs.rs/regex/latest/regex/bytes/index.html) module
+//! in the [`regex`](https://crates.io/crates/regex) crate instead of the `regex::Regex` API to
+//! match on bytes.
+//!
+//! **Contains operator**
+//!
+//! The `contains` operator uses the [`memchr`](https://crates.io/crates/memchr) crate to search in bytes and strings quickly.
+//! Specifically, [`Finder`](https://docs.rs/memchr/latest/memchr/memmem/struct.Finder.html) from the `memmem` module
+//! is used to search for the same needle in many different haystacks without the overhead from constructing the searcher.
+//! For a given needle, Retina uses the [`lazy_static`](https://crates.io/crates/lazy_static) crate
+//! to compile the `Finder` for this needle just once.
+//!
 //! ## Logical operators
 //! | Operator | Alias | Description | Example                                      |
 //! |----------|-------|-------------|----------------------------------------------|
