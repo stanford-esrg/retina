@@ -223,8 +223,8 @@ impl FlowPattern {
                     "version_to_flow_label" => match value {
                         Value::Int(i) => {
                             if let Ok(val) = u32::try_from(*i) {
-                                ipv6_spec.hdr.vtc_flow = val.to_be();
-                                ipv6_mask.hdr.vtc_flow = u32::MAX;
+                                ipv6_spec.hdr.set_vtc_flow(val.to_be());
+                                ipv6_mask.hdr.set_vtc_flow(u32::MAX);
                             } else {
                                 bail!(FilterError::InvalidRhsValue(value.to_string()))
                             }
@@ -266,15 +266,23 @@ impl FlowPattern {
                     },
                     "src_addr" => match value {
                         Value::Ipv6(ipv6net) => {
-                            ipv6_spec.hdr.src_addr = u128::from(ipv6net.addr()).to_be_bytes();
-                            ipv6_mask.hdr.src_addr = u128::from(ipv6net.netmask()).to_be_bytes();
+                            ipv6_spec
+                                .hdr
+                                .set_src_addr(u128::from(ipv6net.addr()).to_be_bytes());
+                            ipv6_mask
+                                .hdr
+                                .set_src_addr(u128::from(ipv6net.netmask()).to_be_bytes());
                         }
                         _ => bail!(FilterError::InvalidRhsType(value.to_string())),
                     },
                     "dst_addr" => match value {
                         Value::Ipv6(ipv6net) => {
-                            ipv6_spec.hdr.dst_addr = u128::from(ipv6net.addr()).to_be_bytes();
-                            ipv6_mask.hdr.dst_addr = u128::from(ipv6net.netmask()).to_be_bytes();
+                            ipv6_spec
+                                .hdr
+                                .set_dst_addr(u128::from(ipv6net.addr()).to_be_bytes());
+                            ipv6_mask
+                                .hdr
+                                .set_dst_addr(u128::from(ipv6net.netmask()).to_be_bytes());
                         }
                         _ => bail!(FilterError::InvalidRhsType(value.to_string())),
                     },

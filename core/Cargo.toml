@@ -53,6 +53,7 @@ syn = { version = "2.0.15" }
 regex = "1.7.3"
 ring = "0.17.8"
 aes-gcm = "0.10.3"
+memchr = "2.7.4"
 
 # Statistics
 tokio = { version = "1.42.0", features = ["full"] }

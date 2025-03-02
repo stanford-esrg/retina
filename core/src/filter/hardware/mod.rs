@@ -93,7 +93,7 @@ impl<'a> HardwareFilter<'a> {
     }
 }
 
-impl<'a> fmt::Display for HardwareFilter<'a> {
+impl fmt::Display for HardwareFilter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         writeln!(f, "[HardwareFilter]: ")?;
         for pattern in self.patterns.iter() {
