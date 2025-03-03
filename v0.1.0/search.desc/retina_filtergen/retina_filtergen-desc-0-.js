@@ -1,0 +1,1 @@
+searchState.loadedDescShard("retina_filtergen", 0, "A macro for defining filters in Retina.\nMacro for generating filters.")
