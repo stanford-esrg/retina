@@ -125,6 +125,10 @@ pub(crate) fn binary_to_tokens(
                     let val_lit = syn::LitStr::new(text, Span::call_site());
                     quote! { #proto.#field() == #val_lit }
                 }
+                BinOp::Ne => {
+                    let val_lit = syn::LitStr::new(text, Span::call_site());
+                    quote! { #proto.#field() != #val_lit }
+                }
                 BinOp::En => {
                     let field_ident =
                         Ident::new(&field.to_string().to_camel_case(), Span::call_site());
@@ -192,6 +196,12 @@ pub(crate) fn binary_to_tokens(
                 let bytes_lit = syn::LitByteStr::new(b, Span::call_site());
                 quote! {
                     #proto.#field().as_bytes() == #bytes_lit
+                }
+            }
+            BinOp::Ne => {
+                let bytes_lit = syn::LitByteStr::new(b, Span::call_site());
+                quote! {
+                    #proto.#field().as_ref() as &[u8] != #bytes_lit
                 }
             }
             BinOp::Contains => {
