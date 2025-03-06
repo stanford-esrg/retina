@@ -148,8 +148,9 @@ impl Monitor {
                             init = false;
                         }
                         if display.throughput {
+                            let elapsed_ts = curr_ts - start_ts;
                             println!("----------------------------------------------");
-                            println!("Current time: {}s", (curr_ts - start_ts).as_secs());
+                            println!("Current time: {}", pretty_print_duration(elapsed_ts));
                             display.mempool_usage(&self.ports);
                             AggRxStats::display_rates(curr_rx, prev_rx, nms);
                             AggRxStats::display_dropped(curr_rx, init_rx);
@@ -596,4 +597,26 @@ fn pretty_print_unit(mut value: f64, unit: &str) -> String {
         }
     }
     format!("{value:.4} {unit_prefix}{unit}")
+}
+
+fn pretty_print_duration(duration: Duration) -> String {
+    let total_seconds = duration.as_secs();
+    let days = total_seconds / 86_400;
+    let hours = (total_seconds % 86_400) / 3_600;
+    let minutes = (total_seconds % 3_600) / 60;
+    let seconds = total_seconds % 60;
+
+    if days == 0 {
+        if hours == 0 {
+            if minutes == 0 {
+                format!("{seconds}s")
+            } else {
+                format!("{minutes}m {seconds}s")
+            }
+        } else {
+            format!("{hours}h {minutes}m {seconds}s")
+        }
+    } else {
+        format!("{days}d {hours}h {minutes}m {seconds}s")
+    }
 }
