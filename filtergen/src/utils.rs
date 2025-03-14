@@ -188,6 +188,19 @@ pub(crate) fn binary_to_tokens(
                         #finder_ident.find(#proto.#field().as_bytes()).is_some()
                     }
                 }
+                BinOp::NotContains => {
+                    let val_lit = syn::LitStr::new(text, Span::call_site());
+
+                    let finder_name = format!("FINDER{}", statics.len());
+                    let finder_ident = Ident::new(&finder_name, Span::call_site());
+                    let lazy_finder = quote! {
+                        static ref #finder_ident: memchr::memmem::Finder<'static> = memchr::memmem::Finder::new(#val_lit.as_bytes());
+                    };
+                    statics.push(lazy_finder);
+                    quote! {
+                        #finder_ident.find(#proto.#field().as_bytes()).is_none()
+                    }
+                }
                 _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
             }
         }
@@ -215,6 +228,19 @@ pub(crate) fn binary_to_tokens(
                 statics.push(lazy_finder);
                 quote! {
                     #finder_ident.find(#proto.#field().as_ref()).is_some()
+                }
+            }
+            BinOp::NotContains => {
+                let bytes_lit = syn::LitByteStr::new(b, Span::call_site());
+
+                let finder_name = format!("FINDER{}", statics.len());
+                let finder_ident = Ident::new(&finder_name, Span::call_site());
+                let lazy_finder = quote! {
+                    static ref #finder_ident: memchr::memmem::Finder<'static> = memchr::memmem::Finder::new(#bytes_lit);
+                };
+                statics.push(lazy_finder);
+                quote! {
+                    #finder_ident.find(#proto.#field().as_ref()).is_none()
                 }
             }
             _ => panic!("Invalid binary operation `{}` for value: `{}`.", op, value),
