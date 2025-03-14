@@ -916,7 +916,7 @@ impl fmt::Display for BinOp {
             BinOp::En => write!(f, "eq"),
             BinOp::ByteRe => write!(f, "~b"),
             BinOp::Contains => write!(f, "contains"),
-            BinOp::NotContains => write!(f, "!contains"),
+            BinOp::NotContains => write!(f, "not contains"),
         }
     }
 }

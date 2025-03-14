@@ -67,7 +67,7 @@ re_op = { "~" | "matches" }
 en_op = { "eq" }
 byte_re_op = { "~b" }
 contains_op = { "contains" }
-not_contains_op = { "!contains" }
+not_contains_op = { "!contains" | "not contains" }
 
 // Miscellaneous
 // ----------------------------------------------------------------------
