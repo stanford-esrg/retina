@@ -46,7 +46,7 @@ fn ssh_contains_bytes_cb(ssh: &SshHandshake) {
     }
 }
 
-#[filter("ssh.software_version_ctos contains 'OpenSSH'")]
+#[filter("ssh.software_version_ctos not contains 'OpenSSH'")]
 fn ssh_contains_str_cb(ssh: &SshHandshake) {
     if let Ok(serialized) = serde_json::to_string(&ssh) {
         let mut wtr = file.lock().unwrap();
