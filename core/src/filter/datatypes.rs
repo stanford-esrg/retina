@@ -24,6 +24,9 @@ pub enum Level {
     /// Static-only subscriptions are delivered either on first packet
     /// (if possible) or at connection termination (otherwise).
     Static,
+    /// Applicable only to subscriptions. Indicates that the associated
+    /// callback is one for which data will be delivered in a streaming capacity.
+    Streaming(Streaming),
 }
 
 /// Associated data for streaming callbacks.
@@ -203,6 +206,7 @@ impl DataType {
                 // Since protocol/session filter could be >1x/connection, can't
                 // deliver in those filters.
             }
+            Level::Streaming(_) => panic!("Datatypes should not be streaming"),
         }
     }
 
@@ -225,6 +229,7 @@ impl DataType {
                 )
             }
             Level::Static => true,
+            Level::Streaming(_) => panic!("Datatypes should not be streaming"),
         }
     }
 
@@ -252,7 +257,7 @@ impl DataType {
         // SessionTrack should only be terminal if matched at packet layer
         // After parsing is complete, session will be tracked if it matched
         // at any layer. See "on_parse" in conntrack mod.
-        if matches!(sub_level, Level::Connection)
+        if (matches!(sub_level, Level::Connection) || matches!(sub_level, Level::Streaming(_)))
             && (matches!(self.level, Level::Session) || self.needs_parse)
         {
             actions.if_matched.data |= ActionData::SessionTrack;
@@ -279,7 +284,6 @@ impl DataType {
             // Matched packet-level subscription is delivered in filter
         }
 
-        // Connection- and session-level subscriptions depend on the actions required
         self.needs_update(&mut actions);
         self.conn_deliver(sub_level, &mut actions);
 
@@ -319,7 +323,6 @@ impl DataType {
             actions.if_matching.data |= ActionData::PacketCache;
         }
 
-        // Connection- and session-level subscriptions depend on the actions required
         self.needs_update(&mut actions);
         self.track_sessions(&mut actions, sub_level);
         self.conn_deliver(sub_level, &mut actions);
@@ -453,7 +456,9 @@ impl SubscriptionSpec {
 
     // Add a new datatype to the subscription
     pub fn add_datatype(&mut self, datatype: DataType) {
-        self.update_level(&datatype.level);
+        if !matches!(self.level, Level::Streaming(_) | Level::Connection) {
+            self.update_level(&datatype.level);
+        }
         self.datatypes.push(datatype);
     }
 
@@ -486,6 +491,14 @@ impl SubscriptionSpec {
         spec
     }
 
+    #[allow(dead_code)]
+    pub(crate) fn new_default_streaming() -> Self {
+        let mut spec = Self::new(String::from("fil"), String::from("cb"));
+        spec.level = Level::Streaming(Streaming::Seconds(10.0));
+        spec.datatypes.push(DataType::new_default_connection("Connection"));
+        spec
+    }
+
     // Format subscription as "callback(datatypes)"
     pub fn as_str(&self) -> String {
         let datatype_str: Vec<&'static str> = self.datatypes.iter().map(|d| d.as_str).collect();
@@ -495,13 +508,25 @@ impl SubscriptionSpec {
     // Should this subscription be delivered if the filter matched
     // This should return true for the first filter at which all datatypes can be delivered
     pub(crate) fn should_deliver(&self, filter_layer: FilterLayer, pred: &Predicate) -> bool {
-        self.datatypes
-            .iter()
-            .any(|d| d.should_deliver(&filter_layer, pred, &self.level))
+        !matches!(self.level, Level::Streaming(_))
+            && self
+                .datatypes
+                .iter()
+                .any(|d| d.should_deliver(&filter_layer, pred, &self.level))
             && self
                 .datatypes
                 .iter()
                 .all(|d| d.can_deliver(&filter_layer, pred))
+    }
+
+    // Whether this node should trigger the start of a streaming callback.
+    // Will be true if new information has been received (packet, proto,
+    // session filters) and the subscription is streaming.
+    pub(crate) fn should_stream(&self, filter_layer: FilterLayer) -> bool {
+        matches!(self.level, Level::Streaming(_)) &&
+            matches!(filter_layer, FilterLayer::Packet |
+                                   FilterLayer::Protocol |
+                                   FilterLayer::Session)
     }
 
     // Actions for the PacketContinue filter stage
@@ -534,6 +559,10 @@ impl SubscriptionSpec {
             actions.push(&datatype.packet_filter(&self.level));
         }
         actions.if_matching.data |= ActionData::ProtoFilter;
+        if matches!(self.level, Level::Streaming(_)) {
+            actions.if_matched.data |= ActionData::Stream;
+            actions.if_matched.terminal_actions |= ActionData::Stream;
+        }
         actions
     }
 
@@ -546,6 +575,10 @@ impl SubscriptionSpec {
         if matches!(self.level, Level::Static) {
             actions.if_matched.data |= ActionData::ConnDeliver;
             actions.if_matched.terminal_actions |= ActionData::ConnDeliver;
+        }
+        if matches!(self.level, Level::Streaming(_)) {
+            actions.if_matched.data |= ActionData::Stream;
+            actions.if_matched.terminal_actions |= ActionData::Stream;
         }
         actions.if_matching.data |= ActionData::SessionFilter;
         actions
@@ -560,6 +593,10 @@ impl SubscriptionSpec {
         if matches!(self.level, Level::Static) {
             actions.if_matched.data |= ActionData::ConnDeliver;
             actions.if_matched.terminal_actions |= ActionData::ConnDeliver;
+        }
+        if matches!(self.level, Level::Streaming(_)) {
+            actions.if_matched.data |= ActionData::Stream;
+            actions.if_matched.terminal_actions |= ActionData::Stream;
         }
         actions
     }
@@ -625,5 +662,10 @@ mod tests {
         spec.add_datatype(DataType::new_default_packet("Packet"));
         assert!(spec.proto_filter().if_matched.packet_deliver());
         assert!(spec.proto_filter().if_matching.cache_packet());
+
+        let mut spec = SubscriptionSpec::new_default_streaming();
+        spec.add_datatype(DataType::new_default_session("Session", vec![]));
+        assert!(matches!(spec.level, Level::Streaming(_)));
+        assert!(spec.proto_filter().if_matched.stream_deliver());
     }
 }
