@@ -49,6 +49,8 @@ where
         self.actions = pkt_actions;
     }
 
+    // TODO move this to precompiled TrackedWrapper; only include actions
+    // that have a chance of being invoked
     #[inline]
     pub(crate) fn update_sdata(
         &mut self,
@@ -71,6 +73,11 @@ where
         if !reassembled && self.actions.packet_deliver() {
             // Delivering all remaining packets in connection
             subscription.deliver_packet(pdu.mbuf_ref(), &self.cdata, &self.sdata);
+        }
+        // Streaming subscriptions
+        if self.actions.stream_deliver() {
+            // Pass actions to support "unsubscribing"
+            self.sdata.stream_deliver(&mut self.actions);
         }
     }
 

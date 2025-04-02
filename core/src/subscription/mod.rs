@@ -41,6 +41,9 @@ pub trait Trackable {
     /// Can help free mbufs for future use
     fn drain_tracked_packets(&mut self);
 
+    /// Check and potentially deliver to streaming callbacks
+    fn stream_deliver(&mut self, actions: &mut Actions);
+
     /// Drain data from packets cached for future potential delivery
     /// Used after these packets have been delivered or when associated
     /// subscription fails to match
