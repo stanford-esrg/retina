@@ -1,4 +1,4 @@
-use retina_core::filter::SubscriptionSpec;
+use retina_core::filter::{SubscriptionSpec, datatypes::Streaming};
 use retina_datatypes::DATATYPES;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -16,6 +16,7 @@ pub(crate) struct SubscriptionRaw {
     #[serde_as(as = "serde_with::OneOrMany<_>")]
     pub(crate) datatypes: Vec<String>,
     pub(crate) callback: String,
+    pub(crate) streaming: Option<Streaming>,
 }
 
 #[derive(Debug, Clone)]
@@ -24,6 +25,7 @@ pub(crate) struct SubscriptionConfig {
 }
 
 impl SubscriptionConfig {
+
     pub(crate) fn from_raw(config: &ConfigRaw) -> Self {
         let mut subscriptions = vec![];
         for s in &config.subscriptions {

@@ -3,6 +3,7 @@
 use super::ast::Predicate;
 use super::ptree::FilterLayer;
 use super::{ActionData, Actions};
+use serde::{Deserialize, Serialize};
 
 /// The abstraction levels for subscribable datatypes
 /// These essentially dictate at what point a datatype can/should be delivered
@@ -23,6 +24,25 @@ pub enum Level {
     /// Static-only subscriptions are delivered either on first packet
     /// (if possible) or at connection termination (otherwise).
     Static,
+}
+
+/// Associated data for streaming callbacks.
+#[derive(Clone, Debug, Copy, Serialize, Deserialize)]
+pub enum Streaming {
+    Seconds(f32),
+    Packets(u32),
+    Bytes(u32),
+}
+
+impl From<(&str, f32)> for Streaming {
+    fn from(inp: (&str, f32)) -> Self {
+        match inp.0.to_lowercase().as_str() {
+            "seconds" => Streaming::Seconds(inp.1),
+            "packets" => Streaming::Packets(inp.1 as u32),
+            "bytes" => Streaming::Bytes(inp.1 as u32),
+            _ => panic!("Unknown Streaming variant: {}", inp.0),
+        }
+    }
 }
 
 /// Specification for one complete subscription
