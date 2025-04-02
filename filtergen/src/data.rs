@@ -155,6 +155,11 @@ impl TrackedDataBuilder {
                     }
                 }
 
+                fn stream_deliver(&mut self, actions: &mut Actions) {
+                    // tmp - no-op
+                    assert!(actions.data.intersects(ActionData::Stream));
+                }
+
                 fn packets(&self) -> &Vec<retina_core::Mbuf> {
                     &self.mbufs
                 }
