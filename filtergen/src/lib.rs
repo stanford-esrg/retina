@@ -436,3 +436,17 @@ pub fn retina_main(args: TokenStream, input: TokenStream) -> TokenStream {
 
     generate(input, config)
 }
+
+/// Indicate that a callback is streaming
+#[proc_macro_attribute]
+pub fn streaming(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::ItemFn);
+    let as_str = parse_macro_input!(args as syn::LitStr).value();
+    let split: Vec<&str> = as_str.split("=").collect();
+    let key = *split.get(0).expect("Streaming data must be of the form key=value");
+    let key = key.to_lowercase();
+    let value = *split.get(1).expect("Streaming data must be of the form key=value");
+    let value = value.parse::<f32>().expect("Streaming value must be a float.");
+    println!("Key: {}; Vaue: {}", key, value);
+    quote!{ #input }.into()
+}
