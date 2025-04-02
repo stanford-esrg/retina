@@ -1,0 +1,16 @@
+[package]
+name = "streaming"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "3.2.23", features = ["derive"] }
+env_logger = "0.8.4"
+jsonl = "4.0.1"
+retina-core = { path = "../../core" }
+retina-filtergen = { path = "../../filtergen" }
+retina-datatypes = { path = "../../datatypes" }
+serde_json = "1.0.96"
+lazy_static = "1.4.0"
+array-init = "2.0"
+serde = { version = "1.0", features = ["derive"] }
