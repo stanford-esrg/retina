@@ -35,6 +35,9 @@ pub use static_type::*;
 pub mod packet_list;
 pub use packet_list::*;
 pub use typedefs::*;
+pub mod streaming;
+#[doc(hidden)]
+pub use streaming::CallbackTimer;
 
 use retina_core::conntrack::pdu::L4Pdu;
 use retina_core::filter::SubscriptionSpec;
