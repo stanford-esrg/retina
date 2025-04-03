@@ -35,6 +35,7 @@ pub enum Streaming {
     Seconds(f32),
     Packets(u32),
     Bytes(u32),
+    // TODO - PayloadBytes (in packets, L4, L6/L7), PayloadPackets, reassembled...
 }
 
 impl From<(&str, f32)> for Streaming {
