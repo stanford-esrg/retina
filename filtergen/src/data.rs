@@ -15,8 +15,10 @@ pub(crate) struct TrackedDataBuilder {
     new: Vec<proc_macro2::TokenStream>,
     clear: Vec<proc_macro2::TokenStream>,
     pkts_clear: Vec<proc_macro2::TokenStream>,
+    streaming_cbs: Vec<proc_macro2::TokenStream>,
     stream_protocols: HashSet<&'static str>,
     datatypes: HashSet<&'static str>,
+    num_streaming: usize,
 }
 
 impl TrackedDataBuilder {
@@ -28,8 +30,10 @@ impl TrackedDataBuilder {
             new: vec![],
             clear: vec![],
             pkts_clear: vec![],
+            streaming_cbs: vec![],
             stream_protocols: HashSet::new(),
             datatypes: HashSet::new(),
+            num_streaming: 0,
         };
         ret.build(subscribed_data);
         ret
@@ -73,6 +77,44 @@ impl TrackedDataBuilder {
                     self.pkts_clear.push(quote! { self.#field_name.clear(); });
                 }
             }
+            if matches!(spec.level, Level::Streaming(_)) {
+                let field_name = Ident::new(&format!("streaming_{}", self.num_streaming), Span::call_site());
+                self.num_streaming += 1;
+                assert!(spec.datatypes.len() == 1 &&
+                        matches!(spec.datatypes.last().unwrap().level, Level::Connection)); // TMP
+                let type_name = Ident::new(&spec.datatypes.last().unwrap().as_str, Span::call_site());
+                let stream_type = quote!{ retina_core::filter::datatypes::Streaming::Seconds(10.0 as f32) }; // spec.level.as_tokens();
+
+                self.struct_def.push(quote! {
+                    #field_name : retina_datatypes::CallbackTimer<#type_name>,
+                });
+                self.new.push( quote! {
+                    #field_name: retina_datatypes::CallbackTimer::<#type_name>::new(#stream_type, pdu),
+                });
+                self.update.push(quote! {
+                    self.#field_name.update(pdu, reassembled);
+                });
+                // Delivery params take the same form as delivering Connection-level data
+                let cb = build_callback(spec, FilterLayer::ConnectionDeliver, false);
+                self.streaming_cbs.push(
+                    quote! {
+                        if self.#field_name.invoke(pdu) {
+                            let unsubscribe = {
+                                let tracked = &self;
+                                let unsubscribe = #cb // inserts `;`
+                                unsubscribe
+                            };
+                            if unsubscribe {
+                                self.#field_name.unsubscribe();
+                            } else {
+                                subscribed = true;
+                            }
+                            self.#field_name.clear();
+                        }
+                    }
+                );
+                self.clear.push(quote! { self.#field_name.clear(); });
+            }
         }
         self.print();
     }
@@ -106,6 +148,7 @@ impl TrackedDataBuilder {
         let new = std::mem::take(&mut self.new);
         let clear = std::mem::take(&mut self.clear);
         let pkts_clear = std::mem::take(&mut self.pkts_clear);
+        let streaming_cbs = std::mem::take(&mut self.streaming_cbs);
 
         let mut conn_parsers: Vec<proc_macro2::TokenStream> = vec![];
         for datatype in &self.stream_protocols {
@@ -155,9 +198,16 @@ impl TrackedDataBuilder {
                     }
                 }
 
-                fn stream_deliver(&mut self, actions: &mut Actions) {
-                    // tmp - no-op
-                    assert!(actions.data.intersects(ActionData::Stream));
+                // Avoid "unreachable" warning if no streaming callbacks or if cbs always
+                // return true/false.
+                // #[allow(unreachable_code)]
+                fn stream_deliver(&mut self, actions: &mut Actions, pdu: &retina_core::L4Pdu) {
+                    let mut subscribed = false;
+                    #( #streaming_cbs )*
+                    // Note - could be cleaner to put action update core?
+                    if !subscribed {
+                        actions.clear_stream_cbs();
+                    }
                 }
 
                 fn packets(&self) -> &Vec<retina_core::Mbuf> {
@@ -320,6 +370,12 @@ pub(crate) fn build_callback(
         false => quote! {},
     };
 
+    if condition.is_empty() { // Avoid scoping CB with { } if not needed
+        return quote! {
+            #callback(#( #params ),*);
+            #break_early
+        }
+    }
     quote! {
         #condition {
             #callback(#( #params ),*);

@@ -24,6 +24,7 @@ where
     /// Can be set to 0 for time-based counters.
     count_remaining: Option<u32>,
     /// TMP - TODO move this into the TrackedWrapper to be shared
+    /// TODO - make sure it's possible to have multiple datatypes
     /// with reference counts of some kind
     data: T
 }
@@ -44,6 +45,8 @@ where
         }
     }
 
+    /// Clear internal data.
+    /// Should be invoked after delivery.
     #[inline]
     pub fn clear(&mut self) {
         self.data.clear();
@@ -51,7 +54,9 @@ where
 
     #[inline]
     pub fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
-        self.data.update(pdu, reassembled);
+        if !self.unsubscribed {
+            self.data.update(pdu, reassembled);
+        }
     }
 
     pub fn stream_protocols() -> Vec<&'static str> {
@@ -65,9 +70,12 @@ where
 
     #[inline]
     pub fn matched(&mut self) {
-        self.deliverable = true;
+        if !self.unsubscribed {
+            self.deliverable = true;
+        }
     }
 
+    /// Check if the callback should be invoked. Update counters.
     pub fn invoke(&mut self, pdu: &L4Pdu) -> bool {
         if self.unsubscribed || !self.deliverable {
             return false;

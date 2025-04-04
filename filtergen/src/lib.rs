@@ -238,22 +238,21 @@ fn get_hw_filter(packet_continue: &PTree) -> String {
 }
 
 // Returns a PTree from the given config
-fn filter_subtree(input: &SubscriptionConfig, filter_layer: FilterLayer) -> PTree {
+fn filter_subtree(filter_layer: FilterLayer) -> PTree {
     let mut ptree = PTree::new_empty(filter_layer);
+    let subs = DELIVER.lock().unwrap();
 
-    for i in 0..input.subscriptions.len() {
-        let spec = &input.subscriptions[i];
+    for (id, spec) in subs.iter() {
         let filter = Filter::new(&spec.filter)
             .unwrap_or_else(|err| panic!("Failed to parse filter {}: {:?}", spec.filter, err));
 
         let patterns = filter.get_patterns_flat();
         let deliver = Deliver {
-            id: i,
+            id: *id,
             as_str: spec.as_str(),
             must_deliver: spec.datatypes.iter().any(|d| d.as_str == "FilterStr"),
         };
         ptree.add_filter(&patterns, spec, &deliver);
-        DELIVER.lock().unwrap().insert(i, spec.clone());
     }
 
     ptree.collapse();
@@ -261,34 +260,44 @@ fn filter_subtree(input: &SubscriptionConfig, filter_layer: FilterLayer) -> PTre
     ptree
 }
 
+fn record_subscriptions(subscriptions: &[SubscriptionSpec]) {
+    let mut subs = DELIVER.lock().unwrap();
+    for i in 0..subscriptions.len() {
+        let spec = &subscriptions[i];
+        subs.insert(i, spec.clone());
+    }
+}
+
 // Generate code from the given config (all subscriptions)
 // Also includes the original input (typically a callback or main function)
 fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
 
-    let packet_cont_ptree = filter_subtree(&config, FilterLayer::PacketContinue);
+    record_subscriptions(&config.subscriptions);
+
+    let packet_cont_ptree = filter_subtree(FilterLayer::PacketContinue);
     let packet_continue = gen_packet_filter(
         &packet_cont_ptree,
         &mut statics,
         FilterLayer::PacketContinue,
     );
 
-    let packet_ptree = filter_subtree(&config, FilterLayer::Packet);
+    let packet_ptree = filter_subtree(FilterLayer::Packet);
     let packet_filter = gen_packet_filter(&packet_ptree, &mut statics, FilterLayer::Packet);
 
-    let conn_ptree = filter_subtree(&config, FilterLayer::Protocol);
+    let conn_ptree = filter_subtree(FilterLayer::Protocol);
     let proto_filter = gen_proto_filter(&conn_ptree, &mut statics);
 
-    let session_ptree = filter_subtree(&config, FilterLayer::Session);
+    let session_ptree = filter_subtree(FilterLayer::Session);
     let session_filter = gen_session_filter(&session_ptree, &mut statics);
 
-    let conn_deliver_ptree = filter_subtree(&config, FilterLayer::ConnectionDeliver);
+    let conn_deliver_ptree = filter_subtree(FilterLayer::ConnectionDeliver);
     let conn_deliver_filter = gen_deliver_filter(
         &conn_deliver_ptree,
         &mut statics,
         FilterLayer::ConnectionDeliver,
     );
-    let packet_deliver_ptree = filter_subtree(&config, FilterLayer::PacketDeliver);
+    let packet_deliver_ptree = filter_subtree(FilterLayer::PacketDeliver);
     let packet_deliver_filter = gen_deliver_filter(
         &packet_deliver_ptree,
         &mut statics,
@@ -330,18 +339,18 @@ fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
                 #packet_continue
             }
 
-            fn packet_filter(mbuf: &retina_core::Mbuf, tracked: &TrackedWrapper) -> Actions {
+            fn packet_filter(mbuf: &retina_core::Mbuf, tracked: &mut TrackedWrapper) -> Actions {
                 #packet_filter
             }
 
             fn protocol_filter(conn: &retina_core::protocols::ConnData,
-                               tracked: &TrackedWrapper) -> Actions {
+                               tracked: &mut TrackedWrapper) -> Actions {
                 #proto_filter
             }
 
             fn session_filter(session: &retina_core::protocols::Session,
                               conn: &retina_core::protocols::ConnData,
-                              tracked: &TrackedWrapper) -> Actions
+                              tracked: &mut TrackedWrapper) -> Actions
             {
                 #session_filter
             }
@@ -447,6 +456,18 @@ pub fn streaming(args: TokenStream, input: TokenStream) -> TokenStream {
     let key = *split.get(0).expect("Streaming data must be of the form key=value");
     let value = *split.get(1).expect("Streaming data must be of the form key=value");
     let value = value.parse::<f32>().expect("Streaming value must be a float.");
+
+    let ret_type = &input.sig.output;
+    match ret_type {
+        syn::ReturnType::Default => {}
+        syn::ReturnType::Type(_, ty) => {
+            if let syn::Type::Path(type_path) = ty.as_ref() {
+                if type_path.qself.is_some() || !type_path.path.is_ident("bool") {
+                    panic!("Streaming callback must return a boolean value");
+                }
+            }
+        }
+    }
 
     let callback = &input.sig
                          .ident

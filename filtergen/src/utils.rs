@@ -275,6 +275,13 @@ pub(crate) fn update_body(
             }
         }
     }
+    if !node.stream.is_empty() {
+        for s in &node.stream {
+            let id = format!("streaming_{}", s.id);
+            let field_name = Ident::new(&id, Span::call_site());
+            body.push(quote! { tracked.#field_name.matched(); });
+        }
+    }
 }
 
 pub(crate) type BuildChildNodesFn = dyn Fn(

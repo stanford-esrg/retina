@@ -48,16 +48,16 @@ use thiserror::Error;
 /// the framework will additionally attempt to install the filter in the NICs.
 pub type PacketContFn = fn(&Mbuf, &CoreId) -> Actions;
 /// Filter applied to the first packet of a connection to initialize actions.
-pub type PacketFilterFn<T> = fn(&Mbuf, &T) -> Actions;
+pub type PacketFilterFn<T> = fn(&Mbuf, &mut T) -> Actions;
 /// Filter applied when the application-layer protocol is identified.
 /// This may drop connections or update actions.
 /// It may also drain buffered packets to packet-level subscriptions that match
 /// at the protocol stage.
-pub type ProtoFilterFn<T> = fn(&ConnData, &T) -> Actions;
+pub type ProtoFilterFn<T> = fn(&ConnData, &mut T) -> Actions;
 /// Filter applied when the application-layer session is parsed.
 /// This may drop connections, drop sessions, or update actions.
 /// It may also deliver session-level subscriptions.
-pub type SessionFilterFn<T> = fn(&Session, &ConnData, &T) -> Actions;
+pub type SessionFilterFn<T> = fn(&Session, &ConnData, &mut T) -> Actions;
 /// Filter applied to disambiguate and deliver matched packet-level subscriptions
 /// that required stateful filtering (i.e., could not be delivered at the packet stage).
 pub type PacketDeliverFn<T> = fn(&Mbuf, &ConnData, &T);
