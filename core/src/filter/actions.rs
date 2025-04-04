@@ -137,6 +137,11 @@ impl Actions {
         self.data.intersects(ActionData::Stream)
     }
 
+    pub fn clear_stream_cbs(&mut self) {
+        self.data &= ActionData::Stream.not();
+        self.terminal_actions &= ActionData::Stream.not();
+    }
+
     /// True if the framework should buffer mbufs for this connection,
     /// either for future delivery (Cache) or for a datatype that requires
     /// tracking packets.

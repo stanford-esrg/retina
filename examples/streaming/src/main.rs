@@ -4,8 +4,9 @@ use retina_filtergen::{filter, retina_main, streaming};
 
 #[filter("tls")]
 #[streaming("seconds=10")]
-fn tls_cb(conn_record: &ConnRecord) {
+fn tls_cb(conn_record: &ConnRecord) -> bool {
     println!("Conn. metrics: {:?}", conn_record);
+    true
 }
 
 #[retina_main(1)]

@@ -42,7 +42,7 @@ pub trait Trackable {
     fn drain_tracked_packets(&mut self);
 
     /// Check and potentially deliver to streaming callbacks
-    fn stream_deliver(&mut self, actions: &mut Actions);
+    fn stream_deliver(&mut self, actions: &mut Actions, pdu: &L4Pdu);
 
     /// Drain data from packets cached for future potential delivery
     /// Used after these packets have been delivered or when associated
@@ -128,13 +128,13 @@ where
 
     /// Invokes the five-tuple filter.
     /// Applied to the first packet in the connection.
-    pub fn filter_packet(&self, mbuf: &Mbuf, tracked: &S::Tracked) -> Actions {
+    pub fn filter_packet(&self, mbuf: &Mbuf, tracked: &mut S::Tracked) -> Actions {
         (self.packet_filter)(mbuf, tracked)
     }
 
     /// Invokes the end-to-end protocol filter.
     /// Applied once a parser identifies the application-layer protocol.
-    pub fn filter_protocol(&self, conn: &ConnData, tracked: &S::Tracked) -> Actions {
+    pub fn filter_protocol(&self, conn: &ConnData, tracked: &mut S::Tracked) -> Actions {
         (self.proto_filter)(conn, tracked)
     }
 
@@ -144,7 +144,7 @@ where
         &self,
         session: &Session,
         conn: &ConnData,
-        tracked: &S::Tracked,
+        tracked: &mut S::Tracked,
     ) -> Actions {
         (self.session_filter)(session, conn, tracked)
     }
