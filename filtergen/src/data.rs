@@ -77,13 +77,13 @@ impl TrackedDataBuilder {
                     self.pkts_clear.push(quote! { self.#field_name.clear(); });
                 }
             }
-            if matches!(spec.level, Level::Streaming(_)) {
+            if let Level::Streaming(streamtype) = spec.level {
                 let field_name = Ident::new(&format!("streaming_{}", self.num_streaming), Span::call_site());
                 self.num_streaming += 1;
                 assert!(spec.datatypes.len() == 1 &&
                         matches!(spec.datatypes.last().unwrap().level, Level::Connection)); // TMP
                 let type_name = Ident::new(&spec.datatypes.last().unwrap().as_str, Span::call_site());
-                let stream_type = quote!{ retina_core::filter::datatypes::Streaming::Seconds(10.0 as f32) }; // spec.level.as_tokens();
+                let stream_type = quote!{ #streamtype };
 
                 self.struct_def.push(quote! {
                     #field_name : retina_datatypes::CallbackTimer<#type_name>,
