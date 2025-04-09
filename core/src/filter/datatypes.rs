@@ -49,6 +49,30 @@ impl From<(&str, f32)> for Streaming {
     }
 }
 
+use quote::{quote, ToTokens};
+use proc_macro2::Span;
+
+impl ToTokens for Streaming {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        tokens.extend(
+                match self {
+                Streaming::Seconds(val) => {
+                    let val = syn::LitFloat::new(&val.to_string(), Span::call_site());
+                    quote! { Streaming::Seconds(#val as f32) }
+                }
+                Streaming::Packets(val) => {
+                    let val = syn::LitInt::new(&val.to_string(), Span::call_site());
+                    quote! { Streaming::Packets(#val) }
+                }
+                Streaming::Bytes(val) => {
+                    let val = syn::LitInt::new(&val.to_string(), Span::call_site());
+                    quote! { Streaming::Bytes(#val) }
+                }
+            }
+        )
+    }
+}
+
 /// Specification for one complete subscription
 /// A subscription is defined as a filter, callback, and one or more datatypes
 /// This is public to be accessible by the filtergen crate.
