@@ -99,15 +99,17 @@ impl TrackedDataBuilder {
                 self.streaming_cbs.push(
                     quote! {
                         if self.#field_name.invoke(pdu) {
-                            let unsubscribe = {
+                            let cont = {
                                 let tracked = &self;
-                                let unsubscribe = #cb // inserts `;`
-                                unsubscribe
+                                // CB returns `true` if user wants to continue
+                                // receiving data
+                                let cont = #cb // inserts `;`
+                                cont
                             };
-                            if unsubscribe {
-                                self.#field_name.unsubscribe();
+                            if cont {
+                                cont_streaming = true;
                             } else {
-                                subscribed = true;
+                                self.#field_name.unsubscribe();
                             }
                             self.#field_name.clear();
                         }
@@ -202,10 +204,10 @@ impl TrackedDataBuilder {
                 // return true/false.
                 // #[allow(unreachable_code)]
                 fn stream_deliver(&mut self, actions: &mut Actions, pdu: &retina_core::L4Pdu) {
-                    let mut subscribed = false;
+                    let mut cont_streaming = false;
                     #( #streaming_cbs )*
                     // Note - could be cleaner to put action update core?
-                    if !subscribed {
+                    if !cont_streaming {
                         actions.clear_stream_cbs();
                     }
                 }
