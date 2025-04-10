@@ -98,6 +98,7 @@ impl TrackedDataBuilder {
                 let cb = build_callback(spec, FilterLayer::ConnectionDeliver, false);
                 self.streaming_cbs.push(
                     quote! {
+                        // TODO clean up
                         if self.#field_name.invoke(pdu) {
                             let cont = {
                                 let tracked = &self;
@@ -112,6 +113,9 @@ impl TrackedDataBuilder {
                                 self.#field_name.unsubscribe();
                             }
                             self.#field_name.clear();
+                        } else {
+                            // Try again
+                            cont_streaming = true;
                         }
                     }
                 );
