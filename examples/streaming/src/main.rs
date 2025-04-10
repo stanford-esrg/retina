@@ -1,10 +1,10 @@
 use retina_core::{config::default_config, Runtime};
-use retina_datatypes::ConnRecord;
+use retina_datatypes::{ConnRecord, TlsHandshake};
 use retina_filtergen::{filter, retina_main, streaming};
 
 #[filter("tls")]
 #[streaming("seconds=10")]
-fn tls_cb(conn_record: &ConnRecord) -> bool {
+fn tls_cb(conn_record: &ConnRecord, tls: &TlsHandshake) -> bool {
     println!("Conn. metrics: {:?}", conn_record);
     true
 }
