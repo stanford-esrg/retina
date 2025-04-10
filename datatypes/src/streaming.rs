@@ -24,8 +24,7 @@ where
     /// Can be set to 0 for time-based counters.
     count_remaining: Option<u32>,
     /// TMP - TODO move this into the TrackedWrapper to be shared
-    /// TODO - make sure it's possible to have multiple datatypes
-    /// with reference counts of some kind
+    /// TODO - ideally could have multiple tracked datatypes
     data: T
 }
 

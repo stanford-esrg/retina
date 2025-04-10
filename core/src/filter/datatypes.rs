@@ -29,6 +29,17 @@ pub enum Level {
     Streaming(Streaming),
 }
 
+impl Level {
+    /// Whether a datatype at this Level can be delivered
+    /// in a streaming callback.
+    pub fn can_stream(&self) -> bool {
+        match self {
+            Level::Connection => true,
+            _ => false,
+        }
+    }
+}
+
 /// Associated data for streaming callbacks.
 #[derive(Clone, Debug, Copy, Serialize, Deserialize)]
 pub enum Streaming {
@@ -327,8 +338,8 @@ impl DataType {
             // due to Protocol Filter being applied.
         }
 
-        // Session-level datatype can be delivered when session is parsed
-        if matches!(self.level, Level::Session) {
+        // Session-level subscription can be delivered when session is parsed
+        if matches!(self.level, Level::Session) && matches!(sub_level, Level::Session | Level::Streaming(_)) {
             actions.if_matched.data |= ActionData::SessionDeliver;
             actions.if_matched.terminal_actions |= ActionData::SessionDeliver;
         }
@@ -352,7 +363,8 @@ impl DataType {
         self.track_sessions(&mut actions, sub_level);
         self.conn_deliver(sub_level, &mut actions);
 
-        if matches!(sub_level, Level::Session) {
+        if matches!(self.level, Level::Session) &&
+           matches!(sub_level, Level::Session | Level::Streaming(_)) {
             // Deliver session when parsed (done in session filter)
             actions.if_matched.data |= ActionData::SessionDeliver;
         }
@@ -468,6 +480,14 @@ impl SubscriptionSpec {
             );
         }
 
+        if matches!(self.level, Level::Streaming(_)) {
+            assert!(self.datatypes.iter().filter(|d|
+                d.level.can_stream()).count() == 1,
+                "Must have one streamable datatype in streaming subscription: {:?}",
+                self
+            ) // TODO should be able to have multiple streaming datatypes.
+        }
+
         assert!(
             self.datatypes
                 .iter()
@@ -544,14 +564,33 @@ impl SubscriptionSpec {
                 .all(|d| d.can_deliver(&filter_layer, pred))
     }
 
-    // Whether this node should trigger the start of a streaming callback.
-    // Will be true if new information has been received (packet, proto,
-    // session filters) and the subscription is streaming.
-    pub(crate) fn should_stream(&self, filter_layer: FilterLayer) -> bool {
-        matches!(self.level, Level::Streaming(_)) &&
-            matches!(filter_layer, FilterLayer::Packet |
-                                   FilterLayer::Protocol |
-                                   FilterLayer::Session)
+    // Helpers
+    pub(crate) fn deliver_on_session(&self) -> bool {
+        matches!(self.level, Level::Session) ||
+            (matches!(self.level, Level::Streaming(_)) &&
+                self.datatypes.iter().any(|d| matches!(d.level, Level::Session)))
+    }
+
+    pub(crate) fn should_stream(&self, filter_layer: FilterLayer, pred: &Predicate) -> bool {
+        if !matches!(self.level, Level::Streaming(_)) {
+            return false;
+        }
+        // Eliminate if some datatype isn't ready to be delivered
+        if self.datatypes.iter().any(|d|
+            !d.can_deliver(&filter_layer, pred) && !d.level.can_stream()
+        ) {
+            return false;
+        }
+        // Case 1: streaming datatypes only
+        // Deliver as soon as predicates match
+        if self.datatypes.iter().all(|d| d.level.can_stream() || matches!(d.level, Level::Static)) {
+            return !pred.is_prev_layer(filter_layer, self);
+        }
+        // Case 2: some non-streaming datatype
+        // Deliver as soon as it's ready
+        self.datatypes.iter().any( |d|
+                d.should_deliver(&filter_layer, pred, &self.level)
+        )
     }
 
     // Actions for the PacketContinue filter stage

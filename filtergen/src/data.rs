@@ -80,9 +80,8 @@ impl TrackedDataBuilder {
             if let Level::Streaming(streamtype) = spec.level {
                 let field_name = Ident::new(&format!("streaming_{}", self.num_streaming), Span::call_site());
                 self.num_streaming += 1;
-                assert!(spec.datatypes.len() == 1 &&
-                        matches!(spec.datatypes.last().unwrap().level, Level::Connection)); // TMP
-                let type_name = Ident::new(&spec.datatypes.last().unwrap().as_str, Span::call_site());
+                let datatype = spec.datatypes.iter().find(|d| d.level.can_stream() ).unwrap();
+                let type_name = Ident::new(&datatype.as_str, Span::call_site());
                 let stream_type = quote!{ #streamtype };
 
                 self.struct_def.push(quote! {
@@ -95,17 +94,18 @@ impl TrackedDataBuilder {
                     self.#field_name.update(pdu, reassembled);
                 });
                 // Delivery params take the same form as delivering Connection-level data
-                let cb = build_callback(spec, FilterLayer::ConnectionDeliver, false);
+                let cb = build_callback(spec, FilterLayer::ConnectionDeliver, false, true);
                 self.streaming_cbs.push(
                     quote! {
                         // TODO clean up
                         if self.#field_name.invoke(pdu) {
                             let cont = {
                                 let tracked = &self;
-                                // CB returns `true` if user wants to continue
-                                // receiving data
-                                let cont = #cb // inserts `;`
-                                cont
+                                let mut ret = true;
+                                // CB returns `true` if user wants to continue receiving data on this subscription.
+                                // By default, continue streaming.
+                                #cb // inserts `;`, returns value to `ret`
+                                ret
                             };
                             if cont {
                                 cont_streaming = true;
@@ -329,6 +329,7 @@ pub(crate) fn build_callback(
     spec: &SubscriptionSpec,
     filter_layer: FilterLayer,
     session_loop: bool,
+    returns: bool,
 ) -> proc_macro2::TokenStream {
     let callback = Ident::new(&spec.callback, Span::call_site());
     let mut params = vec![];
@@ -375,16 +376,14 @@ pub(crate) fn build_callback(
         true => quote! { break; },
         false => quote! {},
     };
+    let returns = match returns {
+        true => quote! { ret = },
+        false => quote! {}
+    };
 
-    if condition.is_empty() { // Avoid scoping CB with { } if not needed
-        return quote! {
-            #callback(#( #params ),*);
-            #break_early
-        }
-    }
     quote! {
         #condition {
-            #callback(#( #params ),*);
+            #returns #callback(#( #params ),*);
             #break_early
         }
     }
