@@ -88,7 +88,7 @@ impl TrackedDataBuilder {
                     .iter()
                     .find(|d| d.level.can_stream())
                     .unwrap();
-                let type_name = Ident::new(&datatype.as_str, Span::call_site());
+                let type_name = Ident::new(datatype.as_str, Span::call_site());
                 let stream_type = quote! { #streamtype };
 
                 self.struct_def.push(quote! {

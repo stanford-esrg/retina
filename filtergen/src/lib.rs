@@ -262,8 +262,7 @@ fn filter_subtree(filter_layer: FilterLayer) -> PTree {
 
 fn record_subscriptions(subscriptions: &[SubscriptionSpec]) {
     let mut subs = DELIVER.lock().unwrap();
-    for i in 0..subscriptions.len() {
-        let spec = &subscriptions[i];
+    for (i, spec) in subscriptions.iter().enumerate() {
         subs.insert(i, spec.clone());
     }
 }
@@ -491,7 +490,7 @@ pub fn streaming(args: TokenStream, input: TokenStream) -> TokenStream {
     let as_str = parse_macro_input!(args as syn::LitStr).value();
     let split: Vec<&str> = as_str.split("=").collect();
     let key = *split
-        .get(0)
+        .first()
         .expect("Streaming data must be of the form key=value");
     let value = *split
         .get(1)
