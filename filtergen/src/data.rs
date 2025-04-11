@@ -73,7 +73,7 @@ impl TrackedDataBuilder {
 
                 if datatype.needs_packet_track {
                     self.track_packet
-                        .push(quote! { self.#field_name.track_packet(pdu, reassembled); });
+                        .push(quote! { self.#field_name.update(pdu, reassembled); });
                     self.pkts_clear.push(quote! { self.#field_name.clear(); });
                 }
             }

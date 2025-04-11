@@ -108,7 +108,7 @@ pub struct DataType {
     pub track_sessions: bool,
     /// True if the datatype requires invoking `update` method before reassembly
     pub needs_update: bool,
-    /// True if the datatype requires reassembly (for `track_packets` or `update`)
+    /// True if the datatype requires reassembly (for `update`)
     pub needs_reassembly: bool,
     /// True if the datatype requires tracking packets
     pub needs_packet_track: bool,
