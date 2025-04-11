@@ -446,8 +446,45 @@ pub fn retina_main(args: TokenStream, input: TokenStream) -> TokenStream {
     generate(input, config)
 }
 
-/// Indicate that a callback should, if matched, be invoked in a
-/// streaming capacity.
+/// The "streaming" macro indicates that a callback should, if matched, be delivered
+/// for a connection in a streaming fashion: after every N packets, bytes, or seconds
+/// within the L4 connection.
+///
+/// Streaming callbacks should return a boolean value. The callback can return false
+/// to "unsubscribe" at any time -- i.e., to stop receiving data for a connection.
+///
+/// After every invocation of the callback, the datatype's `clear()` method will be called.
+///
+/// Streaming callbacks must take exactly one Connection-Level datatype that implements
+/// the Tracked trait.
+///     (TODO - working to change this)
+/// They can additionally take in one or more Session- and/or Static-Level datatypes.
+///
+/// Streaming callbacks must also specify a filter.
+///
+/// Streaming callbacks are currently not compatible with the #[subscription("file.toml")]
+/// macro.
+///
+/// Packets are counted from the beginning of the L4 connection and are bidirectional.
+/// Bytes include all headers. (We are working to make this more flexible.)
+///
+/// The streaming macro should be formatted as "packets=X", "bytes=X", or "seconds=X".
+/// X must be a positive integer (packets, bytes, seconds) or float (seconds).
+///
+/// The "counter" for streaming callbacks begins after the filter is matched. That is,
+/// a "packets=10" streaming callback will first be delivered 10 packets after the
+/// filter has completely matched. (We are working to change this.)
+///
+/// Streaming callbacks must be triggered by an incoming packet or connection timeout.
+/// That is, if a callback should be triggered every 2 seconds but no packets are received
+/// for 4 seconds, the callback will not be triggered until the next packet is received
+/// (after these 4 seconds).
+///
+/// ## Performance
+///
+/// Streaming callbacks require per-subscription state, so they are typically less efficient
+/// than static callbacks. However, streaming callbacks do clear out state after every invocation;
+/// for memory-intensive datatypes, it can be more efficient to stream, rather than buffer, data.
 #[proc_macro_attribute]
 pub fn streaming(args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemFn);
