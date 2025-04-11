@@ -33,10 +33,7 @@ impl Level {
     /// Whether a datatype at this Level can be delivered
     /// in a streaming callback.
     pub fn can_stream(&self) -> bool {
-        match self {
-            Level::Connection => true,
-            _ => false,
-        }
+        matches!(self, Level::Connection)
     }
 }
 

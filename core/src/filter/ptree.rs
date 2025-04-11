@@ -350,7 +350,7 @@ impl PTree {
         // add each pattern to tree
         let mut added = false;
         for (i, pattern) in patterns.iter().enumerate() {
-            if pattern.is_prev_layer(self.filter_layer, &subscription) {
+            if pattern.is_prev_layer(self.filter_layer, subscription) {
                 continue;
             }
             added = added || !pattern.predicates.is_empty();
@@ -361,7 +361,7 @@ impl PTree {
             && self
                 .root
                 .pred
-                .is_prev_layer(self.filter_layer, &subscription)
+                .is_prev_layer(self.filter_layer, subscription)
             && !subscription.should_stream(self.filter_layer, &self.root.pred)
         {
             // Filter would have fully matched and, if applicable, data would have
