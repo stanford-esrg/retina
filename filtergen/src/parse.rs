@@ -1,4 +1,4 @@
-use retina_core::filter::SubscriptionSpec;
+use retina_core::filter::{datatypes::Streaming, Level, SubscriptionSpec};
 use retina_datatypes::DATATYPES;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -16,6 +16,7 @@ pub(crate) struct SubscriptionRaw {
     #[serde_as(as = "serde_with::OneOrMany<_>")]
     pub(crate) datatypes: Vec<String>,
     pub(crate) callback: String,
+    pub(crate) streaming: Option<Streaming>,
 }
 
 #[derive(Debug, Clone)]
@@ -29,6 +30,9 @@ impl SubscriptionConfig {
         for s in &config.subscriptions {
             assert!(!s.datatypes.is_empty());
             let mut spec = SubscriptionSpec::new(s.filter.clone(), s.callback.clone());
+            if let Some(streaming) = s.streaming {
+                spec.level = Level::Streaming(streaming);
+            }
             for datatype_str in &s.datatypes {
                 Self::validate_datatype(datatype_str.as_str());
                 let datatype = DATATYPES.get(datatype_str.as_str()).unwrap().clone();

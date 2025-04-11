@@ -270,9 +270,16 @@ pub(crate) fn update_body(
                 if matches!(spec.level, Level::Packet) {
                     body.push(build_packet_callback(spec, filter_layer));
                 } else {
-                    body.push(build_callback(spec, filter_layer, session_loop));
+                    body.push(build_callback(spec, filter_layer, session_loop, false));
                 }
             }
+        }
+    }
+    if !node.stream.is_empty() {
+        for s in &node.stream {
+            let id = format!("streaming_{}", s.id);
+            let field_name = Ident::new(&id, Span::call_site());
+            body.push(quote! { tracked.#field_name.matched(); });
         }
     }
 }

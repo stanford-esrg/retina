@@ -238,22 +238,21 @@ fn get_hw_filter(packet_continue: &PTree) -> String {
 }
 
 // Returns a PTree from the given config
-fn filter_subtree(input: &SubscriptionConfig, filter_layer: FilterLayer) -> PTree {
+fn filter_subtree(filter_layer: FilterLayer) -> PTree {
     let mut ptree = PTree::new_empty(filter_layer);
+    let subs = DELIVER.lock().unwrap();
 
-    for i in 0..input.subscriptions.len() {
-        let spec = &input.subscriptions[i];
+    for (id, spec) in subs.iter() {
         let filter = Filter::new(&spec.filter)
             .unwrap_or_else(|err| panic!("Failed to parse filter {}: {:?}", spec.filter, err));
 
         let patterns = filter.get_patterns_flat();
         let deliver = Deliver {
-            id: i,
+            id: *id,
             as_str: spec.as_str(),
             must_deliver: spec.datatypes.iter().any(|d| d.as_str == "FilterStr"),
         };
         ptree.add_filter(&patterns, spec, &deliver);
-        DELIVER.lock().unwrap().insert(i, spec.clone());
     }
 
     ptree.collapse();
@@ -261,34 +260,43 @@ fn filter_subtree(input: &SubscriptionConfig, filter_layer: FilterLayer) -> PTre
     ptree
 }
 
+fn record_subscriptions(subscriptions: &[SubscriptionSpec]) {
+    let mut subs = DELIVER.lock().unwrap();
+    for (i, spec) in subscriptions.iter().enumerate() {
+        subs.insert(i, spec.clone());
+    }
+}
+
 // Generate code from the given config (all subscriptions)
 // Also includes the original input (typically a callback or main function)
 fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
     let mut statics: Vec<proc_macro2::TokenStream> = vec![];
 
-    let packet_cont_ptree = filter_subtree(&config, FilterLayer::PacketContinue);
+    record_subscriptions(&config.subscriptions);
+
+    let packet_cont_ptree = filter_subtree(FilterLayer::PacketContinue);
     let packet_continue = gen_packet_filter(
         &packet_cont_ptree,
         &mut statics,
         FilterLayer::PacketContinue,
     );
 
-    let packet_ptree = filter_subtree(&config, FilterLayer::Packet);
+    let packet_ptree = filter_subtree(FilterLayer::Packet);
     let packet_filter = gen_packet_filter(&packet_ptree, &mut statics, FilterLayer::Packet);
 
-    let conn_ptree = filter_subtree(&config, FilterLayer::Protocol);
+    let conn_ptree = filter_subtree(FilterLayer::Protocol);
     let proto_filter = gen_proto_filter(&conn_ptree, &mut statics);
 
-    let session_ptree = filter_subtree(&config, FilterLayer::Session);
+    let session_ptree = filter_subtree(FilterLayer::Session);
     let session_filter = gen_session_filter(&session_ptree, &mut statics);
 
-    let conn_deliver_ptree = filter_subtree(&config, FilterLayer::ConnectionDeliver);
+    let conn_deliver_ptree = filter_subtree(FilterLayer::ConnectionDeliver);
     let conn_deliver_filter = gen_deliver_filter(
         &conn_deliver_ptree,
         &mut statics,
         FilterLayer::ConnectionDeliver,
     );
-    let packet_deliver_ptree = filter_subtree(&config, FilterLayer::PacketDeliver);
+    let packet_deliver_ptree = filter_subtree(FilterLayer::PacketDeliver);
     let packet_deliver_filter = gen_deliver_filter(
         &packet_deliver_ptree,
         &mut statics,
@@ -312,7 +320,7 @@ fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
     };
 
     quote! {
-        use retina_core::filter::actions::*;
+        use retina_core::filter::{actions::*, datatypes::Streaming};
         // Import potentially-needed traits
         use retina_core::subscription::{Trackable, Subscribable};
         use retina_datatypes::{FromSession, Tracked, FromMbuf, StaticData, PacketList};
@@ -330,18 +338,18 @@ fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
                 #packet_continue
             }
 
-            fn packet_filter(mbuf: &retina_core::Mbuf, tracked: &TrackedWrapper) -> Actions {
+            fn packet_filter(mbuf: &retina_core::Mbuf, tracked: &mut TrackedWrapper) -> Actions {
                 #packet_filter
             }
 
             fn protocol_filter(conn: &retina_core::protocols::ConnData,
-                               tracked: &TrackedWrapper) -> Actions {
+                               tracked: &mut TrackedWrapper) -> Actions {
                 #proto_filter
             }
 
             fn session_filter(session: &retina_core::protocols::Session,
                               conn: &retina_core::protocols::ConnData,
-                              tracked: &TrackedWrapper) -> Actions
+                              tracked: &mut TrackedWrapper) -> Actions
             {
                 #session_filter
             }
@@ -435,4 +443,77 @@ pub fn retina_main(args: TokenStream, input: TokenStream) -> TokenStream {
     let config = SubscriptionConfig::from_raw(&CACHED_SUBSCRIPTIONS.lock().unwrap());
 
     generate(input, config)
+}
+
+/// The "streaming" macro indicates that a callback should, if matched, be delivered
+/// for a connection in a streaming fashion: after every N packets, bytes, or seconds
+/// within the L4 connection.
+///
+/// Streaming callbacks should return a boolean value. The callback can return false
+/// to "unsubscribe" at any time -- i.e., to stop receiving data for a connection.
+///
+/// After every invocation of the callback, the datatype's `clear()` method will be called.
+///
+/// Streaming callbacks must take exactly one Connection-Level datatype that implements
+/// the Tracked trait.
+///     (TODO - working to change this)
+/// They can additionally take in one or more Session- and/or Static-Level datatypes.
+///
+/// Streaming callbacks must also specify a filter.
+///
+/// Streaming callbacks are currently not compatible with the #[subscription("file.toml")]
+/// macro.
+///
+/// Packets are counted from the beginning of the L4 connection and are bidirectional.
+/// Bytes include all headers. (We are working to make this more flexible.)
+///
+/// The streaming macro should be formatted as "packets=X", "bytes=X", or "seconds=X".
+/// X must be a positive integer (packets, bytes, seconds) or float (seconds).
+///
+/// The "counter" for streaming callbacks begins after the filter is matched. That is,
+/// a "packets=10" streaming callback will first be delivered 10 packets after the
+/// filter has completely matched. (We are working to change this.)
+///
+/// Streaming callbacks must be triggered by an incoming packet or connection timeout.
+/// That is, if a callback should be triggered every 2 seconds but no packets are received
+/// for 4 seconds, the callback will not be triggered until the next packet is received
+/// (after these 4 seconds).
+///
+/// ## Performance
+///
+/// Streaming callbacks require per-subscription state, so they are typically less efficient
+/// than static callbacks. However, streaming callbacks do clear out state after every invocation;
+/// for memory-intensive datatypes, it can be more efficient to stream, rather than buffer, data.
+#[proc_macro_attribute]
+pub fn streaming(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::ItemFn);
+    let as_str = parse_macro_input!(args as syn::LitStr).value();
+    let split: Vec<&str> = as_str.split("=").collect();
+    let key = *split
+        .first()
+        .expect("Streaming data must be of the form key=value");
+    let value = *split
+        .get(1)
+        .expect("Streaming data must be of the form key=value");
+    let value = value
+        .parse::<f32>()
+        .expect("Streaming value must be a float.");
+
+    let ret_type = &input.sig.output;
+    match ret_type {
+        syn::ReturnType::Default => {}
+        syn::ReturnType::Type(_, ty) => {
+            if let syn::Type::Path(type_path) = ty.as_ref() {
+                if type_path.qself.is_some() || !type_path.path.is_ident("bool") {
+                    panic!("Streaming callback must return a boolean value");
+                }
+            }
+        }
+    }
+
+    let callback = &input.sig.ident.to_string();
+
+    add_streaming(callback.clone(), key, value);
+
+    quote! { #input }.into()
 }

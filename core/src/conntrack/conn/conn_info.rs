@@ -45,10 +45,12 @@ where
         subscription: &Subscription<T::Subscribed>,
     ) {
         assert!(self.actions.drop());
-        let pkt_actions = subscription.filter_packet(pdu.mbuf_ref(), &self.sdata);
+        let pkt_actions = subscription.filter_packet(pdu.mbuf_ref(), &mut self.sdata);
         self.actions = pkt_actions;
     }
 
+    // TODO move this to precompiled TrackedWrapper; only include actions
+    // that have a chance of being invoked
     #[inline]
     pub(crate) fn update_sdata(
         &mut self,
@@ -71,6 +73,11 @@ where
         if !reassembled && self.actions.packet_deliver() {
             // Delivering all remaining packets in connection
             subscription.deliver_packet(pdu.mbuf_ref(), &self.cdata, &self.sdata);
+        }
+        // Streaming subscriptions
+        if self.actions.stream_deliver() {
+            // Pass actions to support "unsubscribing"
+            self.sdata.stream_deliver(&mut self.actions, pdu);
         }
     }
 
@@ -138,7 +145,7 @@ where
             }
         }
         if self.actions.apply_proto_filter() {
-            let actions = subscription.filter_protocol(&self.cdata, &self.sdata);
+            let actions = subscription.filter_protocol(&self.cdata, &mut self.sdata);
             self.clear_stale_data(&actions);
             self.actions.update(&actions);
         }
@@ -159,7 +166,7 @@ where
             // (e.g., "tls" filter), but ensure tracking only happens once
             let session_track = self.actions.session_track();
             if self.actions.apply_session_filter() {
-                let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
+                let actions = subscription.filter_session(&session, &self.cdata, &mut self.sdata);
                 self.clear_stale_data(&actions);
                 self.actions.update(&actions);
             }
@@ -201,7 +208,8 @@ where
             for session in self.cdata.conn_parser.drain_sessions() {
                 let session_track = self.actions.session_track();
                 if self.actions.apply_session_filter() {
-                    let actions = subscription.filter_session(&session, &self.cdata, &self.sdata);
+                    let actions =
+                        subscription.filter_session(&session, &self.cdata, &mut self.sdata);
                     self.actions.update(&actions);
                 }
                 if session_track || self.actions.session_track() {

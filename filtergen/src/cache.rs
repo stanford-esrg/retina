@@ -1,5 +1,6 @@
 use super::parse::{ConfigRaw, SubscriptionRaw};
 use quote::ToTokens;
+use retina_core::filter::datatypes::Streaming;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Mutex,
@@ -10,6 +11,7 @@ lazy_static! {
     pub(crate) static ref CACHED_SUBSCRIPTIONS: Mutex<ConfigRaw> = Mutex::new(ConfigRaw {
         subscriptions: vec![]
     });
+    pub(crate) static ref STREAMING_SUBSCRIPTIONS: Mutex<Option<Streaming>> = Mutex::new(None);
 }
 
 pub(crate) fn parse_input(input: &syn::ItemFn) -> (Vec<String>, String) {
@@ -39,6 +41,13 @@ pub(crate) fn parse_input(input: &syn::ItemFn) -> (Vec<String>, String) {
 }
 
 pub(crate) fn add_subscription(callback: String, datatypes: Vec<String>, filter: String) {
+    let streaming = {
+        let mut lock = STREAMING_SUBSCRIPTIONS.lock().unwrap();
+        lock.take() // Move, replacing with None
+    };
+    if streaming.is_some() {
+        println!("Streaming callback: {}={:?}", callback, streaming.unwrap());
+    }
     CACHED_SUBSCRIPTIONS
         .lock()
         .unwrap()
@@ -47,7 +56,21 @@ pub(crate) fn add_subscription(callback: String, datatypes: Vec<String>, filter:
             filter,
             datatypes,
             callback,
+            streaming,
         });
+}
+
+pub(crate) fn add_streaming(callback: String, key: &str, value: f32) {
+    let mut lock = CACHED_SUBSCRIPTIONS.lock().unwrap();
+    if let Some(entry) = lock.subscriptions.last_mut() {
+        if entry.callback == callback {
+            entry.streaming = Some(Streaming::from((key, value)));
+            println!("Streaming callback: {}={:?}", callback, entry.streaming);
+            return;
+        }
+    }
+
+    *STREAMING_SUBSCRIPTIONS.lock().unwrap() = Some(Streaming::from((key, value)));
 }
 
 pub(crate) fn is_done() -> bool {

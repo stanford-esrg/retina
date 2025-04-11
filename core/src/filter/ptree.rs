@@ -66,6 +66,9 @@ pub struct PNode {
     // Empty for non-delivery filters.
     pub deliver: HashSet<Deliver>,
 
+    // Subscriptions to begin streaming, by index, at this node
+    pub stream: HashSet<Deliver>,
+
     // The patterns for which the predicate is a part of
     pub patterns: Vec<usize>,
 
@@ -83,6 +86,7 @@ impl PNode {
             pred,
             actions: Actions::new(),
             deliver: HashSet::new(),
+            stream: HashSet::new(),
             patterns: vec![],
             children: vec![],
             if_else: false,
@@ -260,6 +264,14 @@ impl fmt::Display for PNode {
             }
             write!(f, ")")?;
         }
+        if !self.stream.is_empty() {
+            write!(f, " Stream (start): ")?;
+            write!(f, "( ")?;
+            for s in &self.stream {
+                write!(f, "{}, ", s.as_str)?;
+            }
+            write!(f, ")")?;
+        }
         if self.if_else {
             write!(f, " x")?;
         }
@@ -338,7 +350,7 @@ impl PTree {
         // add each pattern to tree
         let mut added = false;
         for (i, pattern) in patterns.iter().enumerate() {
-            if pattern.is_prev_layer(self.filter_layer, &subscription.level) {
+            if pattern.is_prev_layer(self.filter_layer, subscription) {
                 continue;
             }
             added = added || !pattern.predicates.is_empty();
@@ -349,8 +361,11 @@ impl PTree {
             && self
                 .root
                 .pred
-                .is_prev_layer(self.filter_layer, &subscription.level)
+                .is_prev_layer(self.filter_layer, subscription)
+            && !subscription.should_stream(self.filter_layer, &self.root.pred)
         {
+            // Filter would have fully matched and, if applicable, data would have
+            // been delivered.
             return;
         }
 
@@ -359,6 +374,8 @@ impl PTree {
             let pred = Predicate::default_pred();
             if subscription.should_deliver(self.filter_layer, &pred) {
                 self.root.deliver.insert(deliver.clone());
+            } else if subscription.should_stream(self.filter_layer, &self.root.pred) {
+                self.root.stream.insert(deliver.clone());
             } else {
                 let actions = subscription.with_term_filter(self.filter_layer, &pred);
                 self.root.actions.push(&actions);
@@ -433,6 +450,8 @@ impl PTree {
         }
         if subscription.should_deliver(self.filter_layer, &node.pred) {
             node.deliver.insert(deliver.clone());
+        } else if subscription.should_stream(self.filter_layer, &node.pred) {
+            node.stream.insert(deliver.clone());
         }
         let actions = subscription.with_term_filter(self.filter_layer, &node.pred);
         if !actions.drop() {
@@ -549,7 +568,12 @@ impl PTree {
 
     // Removes some patterns that are covered by others
     fn prune_branches(&mut self) {
-        fn prune(node: &mut PNode, on_path_actions: &Actions, on_path_deliver: &HashSet<String>) {
+        fn prune(
+            node: &mut PNode,
+            on_path_actions: &Actions,
+            on_path_deliver: &HashSet<String>,
+            on_path_stream: &HashSet<String>,
+        ) {
             // 1. Remove callbacks that would have already been invoked on this path
             let mut my_deliver = on_path_deliver.clone();
             let mut new_ids = HashSet::new();
@@ -563,19 +587,32 @@ impl PTree {
             }
             node.deliver = new_ids;
 
-            // 2. Remove actions that would have already been invoked on this path
+            // 2. Remove streaming CBs that would have already been started on this path
+            let mut my_stream = on_path_stream.clone();
+            let mut new_ids = HashSet::new();
+            for i in &node.stream {
+                if !my_stream.contains(&i.as_str) {
+                    my_stream.insert(i.as_str.clone());
+                    new_ids.insert(i.clone());
+                } else if i.must_deliver {
+                    new_ids.insert(i.clone());
+                }
+            }
+            node.stream = new_ids;
+
+            // 3. Remove actions that would have already been invoked on this path
             let mut my_actions = on_path_actions.clone();
             if !node.actions.drop() {
                 node.actions.clear_intersection(&my_actions);
                 my_actions.push(&node.actions);
             }
 
-            // 3. Repeat for each child
+            // 4. Repeat for each child
             node.children
                 .iter_mut()
-                .for_each(|child| prune(child, &my_actions, &my_deliver));
+                .for_each(|child| prune(child, &my_actions, &my_deliver, &my_stream));
 
-            // 4. Remove empty children
+            // 5. Remove empty children
             let children = std::mem::take(&mut node.children);
             node.children = children
                 .into_iter()
@@ -587,7 +624,13 @@ impl PTree {
 
         let on_path_actions = Actions::new();
         let on_path_deliver = HashSet::new();
-        prune(&mut self.root, &on_path_actions, &on_path_deliver);
+        let on_path_stream = HashSet::new();
+        prune(
+            &mut self.root,
+            &on_path_actions,
+            &on_path_deliver,
+            &on_path_stream,
+        );
     }
 
     // Avoid re-checking packet-level conditions that, on the basis of previous
@@ -671,6 +714,7 @@ impl PTree {
             let (must_keep, could_drop): (Vec<PNode>, Vec<PNode>) =
                 node.children.iter().cloned().partition(|child| {
                     !child.actions.drop()
+                        || !child.stream.is_empty()
                         || !child.deliver.is_empty()
                         || !child.pred.is_prev_layer_pred(filter_layer)
                         || child.extracts_protocol(filter_layer)
@@ -1235,5 +1279,78 @@ mod tests {
             // || conditions
             ptree_2.get_subtree(3).unwrap().children.is_empty()
         );
+    }
+
+    #[test]
+    fn core_streaming() {
+        let mut expected_actions = Actions::new();
+
+        let filter = Filter::new("tcp.port != 80").unwrap();
+        let subscr_streaming = SubscriptionSpec::new_default_streaming();
+        let mut ptree = PTree::new_empty(FilterLayer::PacketContinue);
+        ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
+        assert!(ptree.size == 9);
+        let node = ptree.get_subtree(4).unwrap();
+        expected_actions.data |= ActionData::PacketContinue;
+        assert!(node.actions == expected_actions);
+
+        expected_actions.clear();
+
+        let mut ptree = PTree::new_empty(FilterLayer::Packet);
+        ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
+        let node = ptree.get_subtree(4).unwrap();
+        assert!(node.stream.len() == 1);
+
+        // Should be empty
+        let mut ptree = PTree::new_empty(FilterLayer::Session);
+        ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
+        println!("Ptree: {}", ptree);
+        assert!(
+            ptree.size == 1
+                && ptree.root.actions.drop()
+                && ptree.root.deliver.is_empty()
+                && ptree.root.stream.is_empty()
+        );
+
+        let filter = Filter::new("tls").unwrap();
+        let mut ptree = PTree::new_empty(FilterLayer::Protocol);
+        ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
+        let node = ptree.get_subtree(3).unwrap();
+        assert!(node.stream.len() == 1);
+        assert!(node
+            .actions
+            .data
+            .contains(ActionData::UpdatePDU | ActionData::Stream));
+        assert!(node
+            .actions
+            .terminal_actions
+            .contains(ActionData::UpdatePDU | ActionData::Stream));
+    }
+
+    #[test]
+    fn core_streaming_multi() {
+        let mut subscr_streaming = SubscriptionSpec::new_default_streaming();
+        subscr_streaming.add_datatype(DataType::new_default_session("TlsHandshake", vec!["tls"]));
+        let filter = Filter::new("tls").unwrap();
+        let mut ptree = PTree::new_empty(FilterLayer::Protocol);
+        ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
+        let node = ptree.get_subtree(3).unwrap(); // "tls" predicate
+        assert!(node.stream.len() == 0); // not ready for delivery yet b/c TLS Handshake hasn't been built
+
+        // Delivery should happen here -- when all datatypes are ready
+        let mut ptree = PTree::new_empty(FilterLayer::Session);
+        ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
+        assert!(ptree.size == 7);
+        let node = ptree.get_subtree(3).unwrap(); // "tls" predicate
+        assert!(node.stream.len() == 1);
+
+        ptree.collapse();
+        assert!(ptree.size == 2); // ethernet -> tls
+
+        let mut subscr_streaming = SubscriptionSpec::new_default_streaming();
+        subscr_streaming.add_datatype(DataType::new_default_static("FiveTuple"));
+        let mut ptree = PTree::new_empty(FilterLayer::Protocol);
+        ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
+        assert!(ptree.get_subtree(3).unwrap().stream.len() == 1);
     }
 }

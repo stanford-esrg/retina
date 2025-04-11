@@ -1,6 +1,5 @@
-use super::ast::*;
-use super::datatypes::Level;
 use super::ptree::FilterLayer;
+use super::{ast::*, SubscriptionSpec};
 
 use std::cmp::Ordering;
 use std::collections::HashSet;
@@ -54,11 +53,11 @@ impl FlatPattern {
     pub(super) fn is_prev_layer(
         &self,
         filter_layer: FilterLayer,
-        subscription_level: &Level,
+        subscription: &SubscriptionSpec,
     ) -> bool {
         self.predicates
             .iter()
-            .all(|p| p.is_prev_layer(filter_layer, subscription_level))
+            .all(|p| p.is_prev_layer(filter_layer, subscription))
     }
 
     // Returns a vector of fully qualified patterns from self

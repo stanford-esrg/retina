@@ -15,8 +15,10 @@ pub(crate) struct TrackedDataBuilder {
     new: Vec<proc_macro2::TokenStream>,
     clear: Vec<proc_macro2::TokenStream>,
     pkts_clear: Vec<proc_macro2::TokenStream>,
+    streaming_cbs: Vec<proc_macro2::TokenStream>,
     stream_protocols: HashSet<&'static str>,
     datatypes: HashSet<&'static str>,
+    num_streaming: usize,
 }
 
 impl TrackedDataBuilder {
@@ -28,8 +30,10 @@ impl TrackedDataBuilder {
             new: vec![],
             clear: vec![],
             pkts_clear: vec![],
+            streaming_cbs: vec![],
             stream_protocols: HashSet::new(),
             datatypes: HashSet::new(),
+            num_streaming: 0,
         };
         ret.build(subscribed_data);
         ret
@@ -73,6 +77,55 @@ impl TrackedDataBuilder {
                     self.pkts_clear.push(quote! { self.#field_name.clear(); });
                 }
             }
+            if let Level::Streaming(streamtype) = spec.level {
+                let field_name = Ident::new(
+                    &format!("streaming_{}", self.num_streaming),
+                    Span::call_site(),
+                );
+                self.num_streaming += 1;
+                let datatype = spec
+                    .datatypes
+                    .iter()
+                    .find(|d| d.level.can_stream())
+                    .unwrap();
+                let type_name = Ident::new(datatype.as_str, Span::call_site());
+                let stream_type = quote! { #streamtype };
+
+                self.struct_def.push(quote! {
+                    #field_name : retina_datatypes::CallbackTimer<#type_name>,
+                });
+                self.new.push( quote! {
+                    #field_name: retina_datatypes::CallbackTimer::<#type_name>::new(#stream_type, pdu),
+                });
+                self.update.push(quote! {
+                    self.#field_name.update(pdu, reassembled);
+                });
+                // Delivery params take the same form as delivering Connection-level data
+                let cb = build_callback(spec, FilterLayer::ConnectionDeliver, false, true);
+                self.streaming_cbs.push(quote! {
+                    // TODO clean up
+                    if self.#field_name.invoke(pdu) {
+                        let cont = {
+                            let tracked = &self;
+                            let mut ret = true;
+                            // CB returns `true` if user wants to continue receiving data on this subscription.
+                            // By default, continue streaming.
+                            #cb // inserts `;`, returns value to `ret`
+                            ret
+                        };
+                        if cont {
+                            cont_streaming = true;
+                        } else {
+                            self.#field_name.unsubscribe();
+                        }
+                        self.#field_name.clear();
+                    } else {
+                        // Try again
+                        cont_streaming = true;
+                    }
+                });
+                self.clear.push(quote! { self.#field_name.clear(); });
+            }
         }
         self.print();
     }
@@ -106,6 +159,7 @@ impl TrackedDataBuilder {
         let new = std::mem::take(&mut self.new);
         let clear = std::mem::take(&mut self.clear);
         let pkts_clear = std::mem::take(&mut self.pkts_clear);
+        let streaming_cbs = std::mem::take(&mut self.streaming_cbs);
 
         let mut conn_parsers: Vec<proc_macro2::TokenStream> = vec![];
         for datatype in &self.stream_protocols {
@@ -152,6 +206,18 @@ impl TrackedDataBuilder {
                     }
                     if actions.data.intersects(ActionData::PacketTrack) {
                         #( #track_packet )*
+                    }
+                }
+
+                // Avoid "unreachable" warning if no streaming callbacks or if cbs always
+                // return true/false.
+                // #[allow(unreachable_code)]
+                fn stream_deliver(&mut self, actions: &mut Actions, pdu: &retina_core::L4Pdu) {
+                    let mut cont_streaming = false;
+                    #( #streaming_cbs )*
+                    // Note - could be cleaner to put action update core?
+                    if !cont_streaming {
+                        actions.clear_stream_cbs();
                     }
                 }
 
@@ -268,6 +334,7 @@ pub(crate) fn build_callback(
     spec: &SubscriptionSpec,
     filter_layer: FilterLayer,
     session_loop: bool,
+    returns: bool,
 ) -> proc_macro2::TokenStream {
     let callback = Ident::new(&spec.callback, Span::call_site());
     let mut params = vec![];
@@ -314,10 +381,14 @@ pub(crate) fn build_callback(
         true => quote! { break; },
         false => quote! {},
     };
+    let returns = match returns {
+        true => quote! { ret = },
+        false => quote! {},
+    };
 
     quote! {
         #condition {
-            #callback(#( #params ),*);
+            #returns #callback(#( #params ),*);
             #break_early
         }
     }

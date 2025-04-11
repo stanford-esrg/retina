@@ -56,6 +56,9 @@ pub enum ActionData {
 
     /// Deliver connection data (via the ConnectionDelivery filter) when it terminates
     ConnDeliver,
+
+    /// Invoke any active streaming callbacks.
+    Stream,
 }
 
 /// Actions maintained per-connection
@@ -127,6 +130,16 @@ impl Actions {
     /// True if the connection needs to be reassembled
     pub(crate) fn reassemble(&self) -> bool {
         self.data.intersects(ActionData::Reassemble) || self.parse_any()
+    }
+
+    /// True if streaming callbacks are available to be invoked
+    pub(crate) fn stream_deliver(&self) -> bool {
+        self.data.intersects(ActionData::Stream)
+    }
+
+    pub fn clear_stream_cbs(&mut self) {
+        self.data &= ActionData::Stream.not();
+        self.terminal_actions &= ActionData::Stream.not();
     }
 
     /// True if the framework should buffer mbufs for this connection,
