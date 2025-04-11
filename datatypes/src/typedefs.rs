@@ -94,7 +94,7 @@ lazy_static! {
     ///
     /// For example: buffering packets may be required as a pre-match action for a
     /// packet-level datatype; it may also be required if one or more subscriptions request
-    /// a connection-level `PacketList`. Rather than maintaining these lists separately --
+    /// a connection-level `packet list`. Rather than maintaining these lists separately --
     /// one for filtering and one for delivery -- the tracked packets are stored once.
     ///
     /// Core ID is a special case, as it cannot be derived from connection,

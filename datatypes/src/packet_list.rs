@@ -22,7 +22,7 @@
 //! many UDP connections are short-lived, and UDP connections are not "closed" until
 //! a timeout period has passed.
 
-use crate::PacketList;
+use crate::Tracked;
 use retina_core::{protocols::packet::tcp::TCP_PROTOCOL, L4Pdu, Mbuf};
 
 /// Pasic raw packet bytes.
@@ -100,7 +100,7 @@ impl PktStream for BidirPktStream {
     }
 }
 
-impl PacketList for BidirPktStream {
+impl Tracked for BidirPktStream {
     fn new(_first_pkt: &L4Pdu) -> Self {
         Self {
             packets: Vec::new(),
@@ -108,7 +108,7 @@ impl PacketList for BidirPktStream {
         }
     }
 
-    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if !reassembled {
             self.push(pdu);
         }
@@ -117,6 +117,10 @@ impl PacketList for BidirPktStream {
     fn clear(&mut self) {
         self.packets.clear();
         self.mbufs.clear();
+    }
+
+    fn stream_protocols() -> Vec<&'static str> {
+        vec![]
     }
 }
 
@@ -146,7 +150,7 @@ impl PktStream for OrigPktStream {
     }
 }
 
-impl PacketList for OrigPktStream {
+impl Tracked for OrigPktStream {
     fn new(_first_pkt: &L4Pdu) -> Self {
         Self {
             packets: Vec::new(),
@@ -154,7 +158,7 @@ impl PacketList for OrigPktStream {
         }
     }
 
-    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if pdu.dir && !reassembled {
             self.push(pdu);
         }
@@ -163,6 +167,10 @@ impl PacketList for OrigPktStream {
     fn clear(&mut self) {
         self.packets.clear();
         self.mbufs.clear();
+    }
+
+    fn stream_protocols() -> Vec<&'static str> {
+        vec![]
     }
 }
 
@@ -193,7 +201,7 @@ impl PktStream for RespPktStream {
     }
 }
 
-impl PacketList for RespPktStream {
+impl Tracked for RespPktStream {
     fn new(_first_pkt: &L4Pdu) -> Self {
         Self {
             packets: Vec::new(),
@@ -201,7 +209,7 @@ impl PacketList for RespPktStream {
         }
     }
 
-    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if !pdu.dir && !reassembled {
             self.push(pdu);
         }
@@ -210,6 +218,10 @@ impl PacketList for RespPktStream {
     fn clear(&mut self) {
         self.packets.clear();
         self.mbufs.clear();
+    }
+
+    fn stream_protocols() -> Vec<&'static str> {
+        vec![]
     }
 }
 
@@ -237,7 +249,7 @@ impl PktStream for OrigPktsReassembled {
     }
 }
 
-impl PacketList for OrigPktsReassembled {
+impl Tracked for OrigPktsReassembled {
     fn new(_first_pkt: &L4Pdu) -> Self {
         Self {
             packets: Vec::new(),
@@ -245,7 +257,7 @@ impl PacketList for OrigPktsReassembled {
         }
     }
 
-    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if pdu.dir && reassembled {
             self.push(pdu);
         }
@@ -254,6 +266,10 @@ impl PacketList for OrigPktsReassembled {
     fn clear(&mut self) {
         self.packets.clear();
         self.mbufs.clear();
+    }
+
+    fn stream_protocols() -> Vec<&'static str> {
+        vec![]
     }
 }
 
@@ -281,7 +297,7 @@ impl PktStream for RespPktsReassembled {
     }
 }
 
-impl PacketList for RespPktsReassembled {
+impl Tracked for RespPktsReassembled {
     fn new(_first_pkt: &L4Pdu) -> Self {
         Self {
             packets: Vec::new(),
@@ -289,7 +305,7 @@ impl PacketList for RespPktsReassembled {
         }
     }
 
-    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if !pdu.dir && reassembled {
             self.push(pdu);
         }
@@ -299,6 +315,10 @@ impl PacketList for RespPktsReassembled {
         self.packets.clear();
         self.mbufs.clear();
     }
+
+    fn stream_protocols() -> Vec<&'static str> {
+        vec![]
+    }
 }
 
 /// For a connection, the bidirectional stream of packets
@@ -307,14 +327,14 @@ pub struct BidirZcPktStream {
     pub packets: Vec<Mbuf>,
 }
 
-impl PacketList for BidirZcPktStream {
+impl Tracked for BidirZcPktStream {
     fn new(_first_pkt: &L4Pdu) -> Self {
         Self {
             packets: Vec::new(),
         }
     }
 
-    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if !reassembled {
             self.packets.push(Mbuf::new_ref(&pdu.mbuf));
         }
@@ -322,6 +342,10 @@ impl PacketList for BidirZcPktStream {
 
     fn clear(&mut self) {
         self.packets.clear();
+    }
+
+    fn stream_protocols() -> Vec<&'static str> {
+        vec![]
     }
 }
 
@@ -333,14 +357,14 @@ pub struct OrigZcPktStream {
     pub packets: Vec<Mbuf>,
 }
 
-impl PacketList for OrigZcPktStream {
+impl Tracked for OrigZcPktStream {
     fn new(_first_pkt: &L4Pdu) -> Self {
         Self {
             packets: Vec::new(),
         }
     }
 
-    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if !reassembled && pdu.dir {
             self.packets.push(Mbuf::new_ref(&pdu.mbuf));
         }
@@ -348,6 +372,10 @@ impl PacketList for OrigZcPktStream {
 
     fn clear(&mut self) {
         self.packets.clear();
+    }
+
+    fn stream_protocols() -> Vec<&'static str> {
+        vec![]
     }
 }
 
@@ -360,7 +388,7 @@ pub struct RespZcPktStream {
     pub packets: Vec<Mbuf>,
 }
 
-impl PacketList for RespZcPktStream {
+impl Tracked for RespZcPktStream {
     fn new(_first_pkt: &L4Pdu) -> Self {
         // TODO figure out good default capacity
         Self {
@@ -368,7 +396,7 @@ impl PacketList for RespZcPktStream {
         }
     }
 
-    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if !reassembled && !pdu.dir {
             self.packets.push(Mbuf::new_ref(&pdu.mbuf));
         }
@@ -376,6 +404,10 @@ impl PacketList for RespZcPktStream {
 
     fn clear(&mut self) {
         self.packets.clear();
+    }
+
+    fn stream_protocols() -> Vec<&'static str> {
+        vec![]
     }
 }
 
@@ -385,14 +417,14 @@ pub struct OrigZcPktsReassembled {
     pub packets: Vec<Mbuf>,
 }
 
-impl PacketList for OrigZcPktsReassembled {
+impl Tracked for OrigZcPktsReassembled {
     fn new(_first_pkt: &L4Pdu) -> Self {
         Self {
             packets: Vec::new(),
         }
     }
 
-    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if reassembled && pdu.dir {
             self.packets.push(Mbuf::new_ref(&pdu.mbuf));
         }
@@ -400,6 +432,10 @@ impl PacketList for OrigZcPktsReassembled {
 
     fn clear(&mut self) {
         self.packets.clear();
+    }
+
+    fn stream_protocols() -> Vec<&'static str> {
+        vec![]
     }
 }
 
@@ -409,14 +445,14 @@ pub struct RespZcPktsReassembled {
     pub packets: Vec<Mbuf>,
 }
 
-impl PacketList for RespZcPktsReassembled {
+impl Tracked for RespZcPktsReassembled {
     fn new(_first_pkt: &L4Pdu) -> Self {
         Self {
             packets: Vec::new(),
         }
     }
 
-    fn track_packet(&mut self, pdu: &L4Pdu, reassembled: bool) {
+    fn update(&mut self, pdu: &L4Pdu, reassembled: bool) {
         if reassembled && !pdu.dir {
             self.packets.push(Mbuf::new_ref(&pdu.mbuf));
         }
@@ -424,5 +460,9 @@ impl PacketList for RespZcPktsReassembled {
 
     fn clear(&mut self) {
         self.packets.clear();
+    }
+
+    fn stream_protocols() -> Vec<&'static str> {
+        vec![]
     }
 }

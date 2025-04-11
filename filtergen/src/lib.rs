@@ -323,7 +323,7 @@ fn generate(input: syn::ItemFn, config: SubscriptionConfig) -> TokenStream {
         use retina_core::filter::{actions::*, datatypes::Streaming};
         // Import potentially-needed traits
         use retina_core::subscription::{Trackable, Subscribable};
-        use retina_datatypes::{FromSession, Tracked, FromMbuf, StaticData, PacketList};
+        use retina_datatypes::{FromSession, Tracked, FromMbuf, StaticData};
 
         #subscribable
 
