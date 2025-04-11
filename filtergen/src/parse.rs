@@ -1,4 +1,4 @@
-use retina_core::filter::{SubscriptionSpec, datatypes::Streaming, Level};
+use retina_core::filter::{datatypes::Streaming, Level, SubscriptionSpec};
 use retina_datatypes::DATATYPES;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -25,7 +25,6 @@ pub(crate) struct SubscriptionConfig {
 }
 
 impl SubscriptionConfig {
-
     pub(crate) fn from_raw(config: &ConfigRaw) -> Self {
         let mut subscriptions = vec![];
         for s in &config.subscriptions {

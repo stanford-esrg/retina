@@ -490,9 +490,15 @@ pub fn streaming(args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemFn);
     let as_str = parse_macro_input!(args as syn::LitStr).value();
     let split: Vec<&str> = as_str.split("=").collect();
-    let key = *split.get(0).expect("Streaming data must be of the form key=value");
-    let value = *split.get(1).expect("Streaming data must be of the form key=value");
-    let value = value.parse::<f32>().expect("Streaming value must be a float.");
+    let key = *split
+        .get(0)
+        .expect("Streaming data must be of the form key=value");
+    let value = *split
+        .get(1)
+        .expect("Streaming data must be of the form key=value");
+    let value = value
+        .parse::<f32>()
+        .expect("Streaming value must be a float.");
 
     let ret_type = &input.sig.output;
     match ret_type {
@@ -506,11 +512,9 @@ pub fn streaming(args: TokenStream, input: TokenStream) -> TokenStream {
         }
     }
 
-    let callback = &input.sig
-                         .ident
-                         .to_string();
+    let callback = &input.sig.ident.to_string();
 
     add_streaming(callback.clone(), key, value);
 
-    quote!{ #input }.into()
+    quote! { #input }.into()
 }

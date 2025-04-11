@@ -1,15 +1,14 @@
+use crate::Tracked;
+use retina_core::conntrack::pdu::L4Pdu;
 /// Infrastructure for managing the state of streaming subscriptions.
 /// This should not be accessed directly by the user.
-
 use retina_core::filter::datatypes::Streaming;
-use retina_core::conntrack::pdu::L4Pdu;
-use crate::Tracked;
 use std::time::{Duration, Instant};
 
 /// Callback timer wrapper
 pub struct CallbackTimer<T>
 where
-    T: Tracked
+    T: Tracked,
 {
     /// The type of counter (time-based, packet-based, or byte-based)
     counter_type: Streaming,
@@ -25,12 +24,12 @@ where
     count_remaining: Option<u32>,
     /// TMP - TODO move this into the TrackedWrapper to be shared
     /// TODO - ideally could have multiple tracked datatypes
-    data: T
+    data: T,
 }
 
 impl<T> CallbackTimer<T>
 where
-    T: Tracked
+    T: Tracked,
 {
     /// Create a new CallbackTimer with the given counter type and data.
     pub fn new(counter_type: Streaming, first_pkt: &L4Pdu) -> Self {
@@ -86,7 +85,9 @@ where
                     self.last_invoked = Some(Instant::now());
                     return true;
                 }
-                if self.last_invoked.unwrap().elapsed() >= Duration::from_millis((duration * 1000.0).round() as u64) {
+                if self.last_invoked.unwrap().elapsed()
+                    >= Duration::from_millis((duration * 1000.0).round() as u64)
+                {
                     self.last_invoked = Some(Instant::now());
                     return true;
                 }

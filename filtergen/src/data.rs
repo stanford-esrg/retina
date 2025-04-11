@@ -78,11 +78,18 @@ impl TrackedDataBuilder {
                 }
             }
             if let Level::Streaming(streamtype) = spec.level {
-                let field_name = Ident::new(&format!("streaming_{}", self.num_streaming), Span::call_site());
+                let field_name = Ident::new(
+                    &format!("streaming_{}", self.num_streaming),
+                    Span::call_site(),
+                );
                 self.num_streaming += 1;
-                let datatype = spec.datatypes.iter().find(|d| d.level.can_stream() ).unwrap();
+                let datatype = spec
+                    .datatypes
+                    .iter()
+                    .find(|d| d.level.can_stream())
+                    .unwrap();
                 let type_name = Ident::new(&datatype.as_str, Span::call_site());
-                let stream_type = quote!{ #streamtype };
+                let stream_type = quote! { #streamtype };
 
                 self.struct_def.push(quote! {
                     #field_name : retina_datatypes::CallbackTimer<#type_name>,
@@ -95,30 +102,28 @@ impl TrackedDataBuilder {
                 });
                 // Delivery params take the same form as delivering Connection-level data
                 let cb = build_callback(spec, FilterLayer::ConnectionDeliver, false, true);
-                self.streaming_cbs.push(
-                    quote! {
-                        // TODO clean up
-                        if self.#field_name.invoke(pdu) {
-                            let cont = {
-                                let tracked = &self;
-                                let mut ret = true;
-                                // CB returns `true` if user wants to continue receiving data on this subscription.
-                                // By default, continue streaming.
-                                #cb // inserts `;`, returns value to `ret`
-                                ret
-                            };
-                            if cont {
-                                cont_streaming = true;
-                            } else {
-                                self.#field_name.unsubscribe();
-                            }
-                            self.#field_name.clear();
-                        } else {
-                            // Try again
+                self.streaming_cbs.push(quote! {
+                    // TODO clean up
+                    if self.#field_name.invoke(pdu) {
+                        let cont = {
+                            let tracked = &self;
+                            let mut ret = true;
+                            // CB returns `true` if user wants to continue receiving data on this subscription.
+                            // By default, continue streaming.
+                            #cb // inserts `;`, returns value to `ret`
+                            ret
+                        };
+                        if cont {
                             cont_streaming = true;
+                        } else {
+                            self.#field_name.unsubscribe();
                         }
+                        self.#field_name.clear();
+                    } else {
+                        // Try again
+                        cont_streaming = true;
                     }
-                );
+                });
                 self.clear.push(quote! { self.#field_name.clear(); });
             }
         }
@@ -378,7 +383,7 @@ pub(crate) fn build_callback(
     };
     let returns = match returns {
         true => quote! { ret = },
-        false => quote! {}
+        false => quote! {},
     };
 
     quote! {

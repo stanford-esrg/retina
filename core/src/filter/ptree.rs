@@ -568,9 +568,12 @@ impl PTree {
 
     // Removes some patterns that are covered by others
     fn prune_branches(&mut self) {
-        fn prune(node: &mut PNode, on_path_actions: &Actions,
-                 on_path_deliver: &HashSet<String>,
-                 on_path_stream: &HashSet<String>) {
+        fn prune(
+            node: &mut PNode,
+            on_path_actions: &Actions,
+            on_path_deliver: &HashSet<String>,
+            on_path_stream: &HashSet<String>,
+        ) {
             // 1. Remove callbacks that would have already been invoked on this path
             let mut my_deliver = on_path_deliver.clone();
             let mut new_ids = HashSet::new();
@@ -622,7 +625,12 @@ impl PTree {
         let on_path_actions = Actions::new();
         let on_path_deliver = HashSet::new();
         let on_path_stream = HashSet::new();
-        prune(&mut self.root, &on_path_actions, &on_path_deliver, &on_path_stream);
+        prune(
+            &mut self.root,
+            &on_path_actions,
+            &on_path_deliver,
+            &on_path_stream,
+        );
     }
 
     // Avoid re-checking packet-level conditions that, on the basis of previous
@@ -1297,17 +1305,26 @@ mod tests {
         let mut ptree = PTree::new_empty(FilterLayer::Session);
         ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
         println!("Ptree: {}", ptree);
-        assert!(ptree.size == 1 && ptree.root.actions.drop() &&
-                ptree.root.deliver.is_empty() && ptree.root.stream.is_empty());
-
+        assert!(
+            ptree.size == 1
+                && ptree.root.actions.drop()
+                && ptree.root.deliver.is_empty()
+                && ptree.root.stream.is_empty()
+        );
 
         let filter = Filter::new("tls").unwrap();
         let mut ptree = PTree::new_empty(FilterLayer::Protocol);
         ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
         let node = ptree.get_subtree(3).unwrap();
         assert!(node.stream.len() == 1);
-        assert!(node.actions.data.contains(ActionData::UpdatePDU | ActionData::Stream));
-        assert!(node.actions.terminal_actions.contains(ActionData::UpdatePDU | ActionData::Stream));
+        assert!(node
+            .actions
+            .data
+            .contains(ActionData::UpdatePDU | ActionData::Stream));
+        assert!(node
+            .actions
+            .terminal_actions
+            .contains(ActionData::UpdatePDU | ActionData::Stream));
     }
 
     #[test]
