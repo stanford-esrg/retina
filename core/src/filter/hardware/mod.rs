@@ -363,10 +363,7 @@ fn add_redirect(port: &Port, from_group: u32, to_group: u32, priority: u32) -> R
         );
         if ret != 0 {
             let msg: &CStr = CStr::from_ptr(error.message);
-            error!(
-                "Redirect rule failed validation: {}",
-                msg.to_str().unwrap().to_string()
-            );
+            error!("Redirect rule failed validation: {}", msg.to_str().unwrap());
             bail!(HardwareFilterError::Validation {
                 lpattern: LayeredPattern::new(),
                 reason: msg.to_str().unwrap().to_string()
