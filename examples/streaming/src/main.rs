@@ -18,10 +18,10 @@ struct Args {
 /// following filter match (identification of TLS connection).
 /// That is, we expect the initial value of PktCount to be >3
 /// (after the TCP handshake and first data packet).
-#[filter("tls and tcp.port = 52152")]
+#[filter("tls")]
 #[streaming("packets=1")]
 fn tls_cb_pkts(pkts: &PktCount, ft: &FiveTuple) -> bool {
-    println!("{} Packet count: {}", ft, pkts.raw());
+    println!("{} Packet count: {:?}", ft, pkts);
     true
 }
 
