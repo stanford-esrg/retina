@@ -60,27 +60,25 @@ impl From<(&str, f32)> for Streaming {
     }
 }
 
-use quote::{quote, ToTokens};
 use proc_macro2::Span;
+use quote::{quote, ToTokens};
 
 impl ToTokens for Streaming {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        tokens.extend(
-                match self {
-                Streaming::Seconds(val) => {
-                    let val = syn::LitFloat::new(&val.to_string(), Span::call_site());
-                    quote! { Streaming::Seconds(#val as f32) }
-                }
-                Streaming::Packets(val) => {
-                    let val = syn::LitInt::new(&val.to_string(), Span::call_site());
-                    quote! { Streaming::Packets(#val) }
-                }
-                Streaming::Bytes(val) => {
-                    let val = syn::LitInt::new(&val.to_string(), Span::call_site());
-                    quote! { Streaming::Bytes(#val) }
-                }
+        tokens.extend(match self {
+            Streaming::Seconds(val) => {
+                let val = syn::LitFloat::new(&val.to_string(), Span::call_site());
+                quote! { Streaming::Seconds(#val as f32) }
             }
-        )
+            Streaming::Packets(val) => {
+                let val = syn::LitInt::new(&val.to_string(), Span::call_site());
+                quote! { Streaming::Packets(#val) }
+            }
+            Streaming::Bytes(val) => {
+                let val = syn::LitInt::new(&val.to_string(), Span::call_site());
+                quote! { Streaming::Bytes(#val) }
+            }
+        })
     }
 }
 
@@ -339,7 +337,9 @@ impl DataType {
         }
 
         // Session-level subscription can be delivered when session is parsed
-        if matches!(self.level, Level::Session) && matches!(sub_level, Level::Session | Level::Streaming(_)) {
+        if matches!(self.level, Level::Session)
+            && matches!(sub_level, Level::Session | Level::Streaming(_))
+        {
             actions.if_matched.data |= ActionData::SessionDeliver;
             actions.if_matched.terminal_actions |= ActionData::SessionDeliver;
         }
@@ -363,8 +363,9 @@ impl DataType {
         self.track_sessions(&mut actions, sub_level);
         self.conn_deliver(sub_level, &mut actions);
 
-        if matches!(self.level, Level::Session) &&
-           matches!(sub_level, Level::Session | Level::Streaming(_)) {
+        if matches!(self.level, Level::Session)
+            && matches!(sub_level, Level::Session | Level::Streaming(_))
+        {
             // Deliver session when parsed (done in session filter)
             actions.if_matched.data |= ActionData::SessionDeliver;
         }
@@ -481,8 +482,12 @@ impl SubscriptionSpec {
         }
 
         if matches!(self.level, Level::Streaming(_)) {
-            assert!(self.datatypes.iter().filter(|d|
-                d.level.can_stream()).count() == 1,
+            assert!(
+                self.datatypes
+                    .iter()
+                    .filter(|d| d.level.can_stream())
+                    .count()
+                    == 1,
                 "Must have one streamable datatype in streaming subscription: {:?}",
                 self
             ) // TODO should be able to have multiple streaming datatypes.
@@ -540,7 +545,8 @@ impl SubscriptionSpec {
     pub(crate) fn new_default_streaming() -> Self {
         let mut spec = Self::new(String::from("fil"), String::from("cb"));
         spec.level = Level::Streaming(Streaming::Seconds(10.0));
-        spec.datatypes.push(DataType::new_default_connection("Connection"));
+        spec.datatypes
+            .push(DataType::new_default_connection("Connection"));
         spec
     }
 
@@ -566,9 +572,12 @@ impl SubscriptionSpec {
 
     // Helpers
     pub(crate) fn deliver_on_session(&self) -> bool {
-        matches!(self.level, Level::Session) ||
-            (matches!(self.level, Level::Streaming(_)) &&
-                self.datatypes.iter().any(|d| matches!(d.level, Level::Session)))
+        matches!(self.level, Level::Session)
+            || (matches!(self.level, Level::Streaming(_))
+                && self
+                    .datatypes
+                    .iter()
+                    .any(|d| matches!(d.level, Level::Session)))
     }
 
     pub(crate) fn should_stream(&self, filter_layer: FilterLayer, pred: &Predicate) -> bool {
@@ -576,21 +585,27 @@ impl SubscriptionSpec {
             return false;
         }
         // Eliminate if some datatype isn't ready to be delivered
-        if self.datatypes.iter().any(|d|
-            !d.can_deliver(&filter_layer, pred) && !d.level.can_stream()
-        ) {
+        if self
+            .datatypes
+            .iter()
+            .any(|d| !d.can_deliver(&filter_layer, pred) && !d.level.can_stream())
+        {
             return false;
         }
         // Case 1: streaming datatypes only
         // Deliver as soon as predicates match
-        if self.datatypes.iter().all(|d| d.level.can_stream() || matches!(d.level, Level::Static)) {
+        if self
+            .datatypes
+            .iter()
+            .all(|d| d.level.can_stream() || matches!(d.level, Level::Static))
+        {
             return !pred.is_prev_layer(filter_layer, self);
         }
         // Case 2: some non-streaming datatype
         // Deliver as soon as it's ready
-        self.datatypes.iter().any( |d|
-                d.should_deliver(&filter_layer, pred, &self.level)
-        )
+        self.datatypes
+            .iter()
+            .any(|d| d.should_deliver(&filter_layer, pred, &self.level))
     }
 
     // Actions for the PacketContinue filter stage

@@ -1,18 +1,17 @@
 use super::parse::{ConfigRaw, SubscriptionRaw};
 use quote::ToTokens;
+use retina_core::filter::datatypes::Streaming;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Mutex,
 };
-use retina_core::filter::datatypes::Streaming;
 
 lazy_static! {
     pub(crate) static ref NUM_SUBSCRIPTIONS: AtomicUsize = AtomicUsize::new(0);
     pub(crate) static ref CACHED_SUBSCRIPTIONS: Mutex<ConfigRaw> = Mutex::new(ConfigRaw {
         subscriptions: vec![]
     });
-    pub(crate) static ref STREAMING_SUBSCRIPTIONS: Mutex<Option<Streaming>> =
-        Mutex::new(None);
+    pub(crate) static ref STREAMING_SUBSCRIPTIONS: Mutex<Option<Streaming>> = Mutex::new(None);
 }
 
 pub(crate) fn parse_input(input: &syn::ItemFn) -> (Vec<String>, String) {

@@ -208,7 +208,8 @@ where
             for session in self.cdata.conn_parser.drain_sessions() {
                 let session_track = self.actions.session_track();
                 if self.actions.apply_session_filter() {
-                    let actions = subscription.filter_session(&session, &self.cdata, &mut self.sdata);
+                    let actions =
+                        subscription.filter_session(&session, &self.cdata, &mut self.sdata);
                     self.actions.update(&actions);
                 }
                 if session_track || self.actions.session_track() {

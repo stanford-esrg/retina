@@ -1,10 +1,9 @@
+use clap::Parser;
 /// An example to illustrate the streaming callback interface.
-
 use retina_core::{config::load_config, FiveTuple, Runtime};
 use retina_datatypes::*;
 use retina_filtergen::{filter, retina_main, streaming};
 use std::path::PathBuf;
-use clap::Parser;
 
 // Argument parsing
 #[derive(Parser, Debug)]

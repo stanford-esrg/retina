@@ -1,5 +1,5 @@
-use super::{ast::*, SubscriptionSpec};
 use super::ptree::FilterLayer;
+use super::{ast::*, SubscriptionSpec};
 
 use std::cmp::Ordering;
 use std::collections::HashSet;
