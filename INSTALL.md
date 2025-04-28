@@ -16,6 +16,13 @@ Retina can run on other platforms as well, detail to come.
 ## Hardware Recommendations
 Retina should work on any commodity x86 server, but the more cores and memory the better. For real-time operation in 100G network environments, we recommend at least 64GB of memory and a 100G Mellanox ConnectX-5 or similar, but any DPDK-compatible NIC should work.
 
+## VirtualBox Set-Up
+If setting up a Virtual Machine using VirtualBox to run Retina, please follow these set-up instructions first.
+- Download the latest Ubuntu Server image first (https://ubuntu.com/download/server)
+- Follow set-up instructions for VirtualBox machines using downloaded Ubuntu image as the ISO
+- Check that you have at least 64 GB of base memory available to allocate (if you have less, follow modification for hugepages)
+- Set up port forwarding in settings to ssh into the VM
+
 ## Installing Dependencies
 
 On Ubuntu, install dependencies with the following command:
