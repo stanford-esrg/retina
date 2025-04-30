@@ -1,0 +1,168 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A macro for defining subscriptions in Retina."><title>retina_filtergen - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="retina_filtergen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.85.0 (4d91de4e4 2025-02-17)" data-channel="1.85.0" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../retina_filtergen/index.html">retina_<wbr>filtergen</a><span class="version">1.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#specifying-subscriptions-in-a-rs-file" title="Specifying Subscriptions in a .rs File">Specifying Subscriptions in a .rs File</a><ul><li><a href="#usage" title="Usage">Usage</a></li></ul></li><li><a href="#specifying-subscriptions-in-toml-file" title="Specifying Subscriptions in TOML File">Specifying Subscriptions in TOML File</a><ul><li><a href="#usage-1" title="Usage">Usage</a></li></ul></li><li><a href="#datatype-syntax" title="Datatype syntax">Datatype syntax</a></li><li><a href="#filter-syntax" title="Filter syntax">Filter syntax</a><ul><li><a href="#protocols" title="Protocols">Protocols</a></li><li><a href="#fields-1" title="Fields">Fields</a></li><li><a href="#field-types-rhs-values" title="Field types (RHS values)">Field types (RHS values)</a></li><li><a href="#binary-comparison-operators" title="Binary comparison operators">Binary comparison operators</a></li><li><a href="#logical-operators" title="Logical operators">Logical operators</a></li></ul></li></ul><h3><a href="#attributes">Crate Items</a></h3><ul class="block"><li><a href="#attributes" title="Attribute Macros">Attribute Macros</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>retina_filtergen</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/retina_filtergen/lib.rs.html#1-519">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A macro for defining subscriptions in Retina.</p>
+<h2 id="specifying-subscriptions-in-a-rs-file"><a class="doc-anchor" href="#specifying-subscriptions-in-a-rs-file">§</a>Specifying Subscriptions in a .rs File</h2>
+<p><a href="attr.filter.html" title="attr retina_filtergen::filter"><code>filter</code></a> is an attribute macro that parses a user-defined filter
+expression to generate sub-filters that are statically inlined at each processing layer. This
+verifies filter expressions at compile time and avoids overheads associated with interpreting
+filters at runtime. The <code>filter</code> attribute macro must be tied to the callback requested.</p>
+<p><a href="attr.retina_main.html" title="attr retina_filtergen::retina_main"><code>retina_main</code></a> is an attribute macro that must be used alongside
+<a href="attr.filter.html" title="attr retina_filtergen::filter"><code>filter</code></a>. It indicates to the framework how many subscriptions to expect.</p>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>retina_core::config::default_config;
+<span class="kw">use </span>retina_core::Runtime;
+<span class="kw">use </span>retina_filtergen::{filter, retina_main};
+<span class="kw">use </span>retina_datatypes::<span class="kw-2">*</span>;
+
+<span class="attr">#[filter(<span class="string">"ipv4 and tcp.port &gt;= 100"</span>)]
+</span><span class="kw">fn </span>log_tcp(conn: <span class="kw-2">&amp;</span>ConnRecord) { <span class="comment">// Callback; datatype(s) by reference
+   </span><span class="macro">println!</span>(<span class="string">"{:#?}"</span>, conn);
+}
+
+<span class="attr">#[filter(<span class="string">"tls.sni ~ 'netflix'"</span>)]
+</span><span class="kw">fn </span>log_tls(conn: <span class="kw-2">&amp;</span>ConnRecord, tls: <span class="kw-2">&amp;</span>TlsHandshake) {
+   <span class="macro">println!</span>(<span class="string">"{:#?}, {:#?}"</span>, conn, tls);
+}
+
+<span class="attr">#[retina_main(<span class="number">2</span>)] </span><span class="comment">// 2 subscriptions expected
+</span><span class="kw">fn </span>main() {
+   <span class="kw">let </span>cfg = default_config();
+   <span class="comment">// \note SubscribedWrapper is the structure built at compile-time to
+   // 'wrap' all requested data. It must be specified as the generic parameter to Runtime.
+   </span><span class="kw">let </span><span class="kw-2">mut </span>runtime: Runtime&lt;SubscribedWrapper&gt; = Runtime::new(cfg, filter).unwrap();
+   runtime.run();
+}</code></pre></div>
+<h2 id="specifying-subscriptions-in-toml-file"><a class="doc-anchor" href="#specifying-subscriptions-in-toml-file">§</a>Specifying Subscriptions in TOML File</h2>
+<p><a href="attr.subscription.html" title="attr retina_filtergen::subscription"><code>subscription</code></a> is an attribute macro that allows users to specify
+a list of subscriptions from an input file. This may be useful, for example, for programs that require
+a large number of filters to be applied to the same callback.</p>
+<p>Input TOML files should be a list of <code>subscriptions</code>, each of which has <code>filter</code>, <code>datatypes</code>,
+and <code>callback</code> specified. The datatypes in the TOML file must match the order and names of the
+datatypes in the callbacks in code.</p>
+<h3 id="usage-1"><a class="doc-anchor" href="#usage-1">§</a>Usage</h3><div class="example-wrap"><pre class="language-toml"><code>[[subscriptions]]
+filter = &quot;(http.user_agent = &#39;/mm.jpg&#39;) and (tcp.dst_port = 80 or tcp.dst_port = 8080)&quot;
+datatypes = [
+    &quot;HttpTransaction&quot;,
+    &quot;FilterStr&quot;,
+]
+callback = &quot;http_cb&quot;
+
+[[subscriptions]]
+filter = &quot;http.user_agent = &#39;HttpBrowser/1.0&#39;&quot;
+datatypes = [
+    &quot;HttpTransaction&quot;,
+    &quot;FilterStr&quot;,
+]
+callback = &quot;http_cb&quot;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>retina_core::config::default_config;
+<span class="kw">use </span>retina_core::Runtime;
+<span class="kw">use </span>retina_filtergen::subscription;
+<span class="kw">use </span>retina_datatypes::<span class="kw-2">*</span>;
+
+<span class="kw">fn </span>http_cb(http: <span class="kw-2">&amp;</span>HttpTransaction, matched_filter: <span class="kw-2">&amp;</span>FilterStr) {
+   <span class="macro">println!</span>(<span class="string">"Matched {} with {:#?}"</span>, matched_filter, http);
+}
+
+<span class="attr">#[subscription(<span class="string">"examples/XX/spec.toml"</span>)]
+</span><span class="kw">fn </span>main() {
+   <span class="kw">let </span>cfg = default_config();
+   <span class="kw">let </span><span class="kw-2">mut </span>runtime: Runtime&lt;SubscribedWrapper&gt; = Runtime::new(cfg, filter).unwrap();
+   runtime.run();
+}</code></pre></div>
+<h2 id="datatype-syntax"><a class="doc-anchor" href="#datatype-syntax">§</a>Datatype syntax</h2>
+<p>All subscribed datatypes – parameters to callbacks – must be requested by reference.
+Supported datatypes are defined in the <a href="../retina_datatypes">retina_datatypes</a> crate.</p>
+<h2 id="filter-syntax"><a class="doc-anchor" href="#filter-syntax">§</a>Filter syntax</h2>
+<p>The Retina filter syntax is similar to that of <a href="https://wiki.wireshark.org/DisplayFilters">Wireshark display
+filters</a>. However, Retina is capable of filtering on
+live traffic for online analysis, whereas display filters can only be applied for offline
+analysis.</p>
+<p>A filter expression is a logical expression of constraints on attributes of the input traffic.
+Each constraint is either a binary predicate that compares the value of an entity’s attribute
+with a constant, or a unary predicate that matches against the entity itself.</p>
+<h3 id="protocols"><a class="doc-anchor" href="#protocols">§</a>Protocols</h3>
+<p>All protocol identifiers are valid as long as Retina contains an appropriate <a href="../retina_core/protocols">protocol
+module</a> of the same name. The <a href="attr.filter.html" title="attr retina_filtergen::filter"><code>filter</code></a> macro
+automatically generates filtering code using structs defined in the protocol’s corresponding
+parser module. The exception to this is <code>ethernet</code>, which Retina filters for by default.</p>
+<p>For example, <a href="../retina_core/protocols/packet/ipv4"><code>ipv4</code></a> and
+<a href="../retina_core/protocols/stream/tls"><code>tls</code></a> are filterable protocols because they are both
+protocol modules included in Retina.</p>
+<p>Retina will also automatically expand filter expressions to their fully-qualified form. For
+example, the filter <code>tcp</code> is equivalent to <code>(ipv4 and tcp) or (ipv6 and tcp)</code>.</p>
+<h3 id="fields-1"><a class="doc-anchor" href="#fields-1">§</a>Fields</h3>
+<p>All field identifiers are valid as long as Retina exposes a public accessor method for the
+corresponding protocol struct of the same name, and the method returns a supported RHS field
+type.</p>
+<p>For example,
+<a href="../retina_core/protocols/packet/ipv4/struct.Ipv4.html#method.src_addr"><code>ipv4.src_addr</code></a> and
+<a href="../retina_core/protocols/stream/tls/struct.Tls.html#method.sni"><code>tls.sni</code></a> are both filterable
+fields because <code>src_addr()</code> is a public method associated with the <code>Ipv4</code> struct that returns an
+<code>Ipv4Addr</code>, and <code>sni()</code> is a public method associated with the <code>Tls</code> struct that returns a
+<code>String</code>.</p>
+<p>Retina also supports two combined fields: <code>addr</code> and <code>port</code>. Logically, these are equivalent to
+<code>src_addr or dst_addr</code> and <code>src_port or dst_port</code>, respectively, except in predicates that use
+the <code>!=</code> comparison operator (details below).</p>
+<h3 id="field-types-rhs-values"><a class="doc-anchor" href="#field-types-rhs-values">§</a>Field types (RHS values)</h3><div><table><thead><tr><th>Type</th><th>Example</th></tr></thead><tbody>
+<tr><td>IPv4 address</td><td><code>1.2.3.4</code></td></tr>
+<tr><td>IPv4 prefix</td><td><code>1.2.3.4/24</code></td></tr>
+<tr><td>IPv6 address</td><td><code>2001:db8::1</code></td></tr>
+<tr><td>IPv6 prefix</td><td><code>2001:db8::1/64</code></td></tr>
+<tr><td>Integer</td><td><code>443</code></td></tr>
+<tr><td>String</td><td><code>'Safari'</code></td></tr>
+<tr><td>Integer range</td><td><code>1024..5000</code></td></tr>
+<tr><td>Byte</td><td><code>|32 2E 30|</code></td></tr>
+</tbody></table>
+</div><h3 id="binary-comparison-operators"><a class="doc-anchor" href="#binary-comparison-operators">§</a>Binary comparison operators</h3><div><table><thead><tr><th>Operator</th><th>Alias</th><th>Description</th><th>Example</th></tr></thead><tbody>
+<tr><td><code>=</code></td><td></td><td>Equals</td><td><code>ipv4.addr = 127.0.0.1</code></td></tr>
+<tr><td><code>!=</code></td><td><code>ne</code></td><td>Not equals</td><td><code>udp.dst_port != 53</code></td></tr>
+<tr><td><code>&gt;=</code></td><td><code>ge</code></td><td>Greater than or equals</td><td><code>tcp.port &gt;= 1024</code></td></tr>
+<tr><td><code>&lt;=</code></td><td><code>le</code></td><td>Less than or equals</td><td><code>tls.version &lt;= 771</code></td></tr>
+<tr><td><code>&gt;</code></td><td><code>gt</code></td><td>Greater than</td><td><code>ipv4.time_to_live &gt; 64</code></td></tr>
+<tr><td><code>&lt;</code></td><td><code>lt</code></td><td>Less than</td><td><code>ipv6.payload_length &lt; 500</code></td></tr>
+<tr><td><code>in</code></td><td></td><td>In a range, or in a subnet</td><td><code>ipv4.src_addr in 1.2.3.4/16</code></td></tr>
+<tr><td><code>~</code></td><td><code>matches</code></td><td>Regular expression match</td><td><code>tls.sni ~ 'netflix\\.com$'</code></td></tr>
+<tr><td><code>~b</code></td><td></td><td>Byte regular expression match</td><td><code>ssh.protocol_version_ctos ~b '(?-u)^\x32\\.\x30$'</code></td></tr>
+<tr><td><code>contains</code></td><td></td><td>Check if right appears in left</td><td><code>ssh.key_exchange_cookie_stoc contains |15 A1|</code></td></tr>
+<tr><td><code>not contains</code></td><td><code>!contains</code></td><td>Check that right doesn’t appear in left</td><td><code>ssh.key_exchange_cookie_stoc not contains |15 A1|</code></td></tr>
+</tbody></table>
+</div>
+<p><strong>Possible pitfalls involving <code>!=</code></strong></p>
+<p>Retina differs from Wireshark behavior regarding the <code>!=</code> operator. When applied to combined
+fields (i.e., <code>addr</code> or <code>port</code>), Retina follows connection-level semantics instead of
+packet-level semantics. For example, <code>tcp.port != 80</code> is equivalent to <code>tcp.src_port != 80 and  tcp.dst_port != 80</code>.</p>
+<p><strong>Regular expressions</strong></p>
+<p>Retina compiles regular expressions exactly once, using the
+<a href="https://crates.io/crates/regex"><code>regex</code></a> and
+<a href="https://crates.io/crates/lazy_static"><code>lazy_static</code></a> crates. As of this writing, <code>proc-macro</code>
+crates like this one cannot export any items other than procedural macros, thus requiring
+applications that wish to use Retina’s regular expression filtering to specify <code>regex</code> and
+<code>lazy_static</code> as dependencies. Also note that regular expressions are written as normal strings
+in Rust, and not as <a href="https://doc.rust-lang.org/stable/reference/tokens.html#raw-string-literals">raw string
+literals</a>. They are
+allowed to match anywhere in the text, unless start (<code>^</code>) and end (<code>$</code>) anchors are used.</p>
+<p><strong>Byte regular expressions</strong></p>
+<p>Using regular expressions with bytes works similarly as with strings, except we use the
+<code>regex::bytes::Regex</code> API from the <a href="https://docs.rs/regex/latest/regex/bytes/index.html"><code>bytes</code></a> module
+in the <a href="https://crates.io/crates/regex"><code>regex</code></a> crate instead of the <code>regex::Regex</code> API to
+match on bytes.</p>
+<p><strong>Contains operator</strong></p>
+<p>The <code>contains</code> operator uses the <a href="https://crates.io/crates/memchr"><code>memchr</code></a> crate to search in bytes and strings quickly.
+Specifically, <a href="https://docs.rs/memchr/latest/memchr/memmem/struct.Finder.html"><code>Finder</code></a> from the <code>memmem</code> module
+is used to search for the same needle in many different haystacks without the overhead from constructing the searcher.
+For a given needle, Retina uses the <a href="https://crates.io/crates/lazy_static"><code>lazy_static</code></a> crate
+to compile the <code>Finder</code> for this needle just once.</p>
+<h3 id="logical-operators"><a class="doc-anchor" href="#logical-operators">§</a>Logical operators</h3><div><table><thead><tr><th>Operator</th><th>Alias</th><th>Description</th><th>Example</th></tr></thead><tbody>
+<tr><td><code>and</code></td><td><code>AND</code></td><td>Logical AND</td><td><code>tcp.port = 443 and tls</code></td></tr>
+<tr><td><code>or</code></td><td><code>OR</code></td><td>Logical OR</td><td><code>http.method = 'GET' or http.method = 'POST'</code></td></tr>
+</tbody></table>
+</div>
+<p><code>AND</code> takes precedence over <code>OR</code> in the absence of parentheses.</p>
+<p>Retina does not yet support the logical <code>NOT</code> operator. For some expressions, it can be
+approximated using the <code>!=</code> binary comparison operator, taking the above mentioned pitfall into
+consideration.</p>
+</div></details><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.filter.html" title="attr retina_filtergen::filter">filter</a></div><div class="desc docblock-short">Generate a Retina program without a specification file.
+This expects a #[filter(“…”)] macro followed by the expected callback.
+It must be used with #[retina_main(X)], where X = number of subscriptions.</div></li><li><div class="item-name"><a class="attr" href="attr.retina_main.html" title="attr retina_filtergen::retina_main">retina_<wbr>main</a></div><div class="desc docblock-short">For generating a Retina program without a specification file
+This expects to receive the number of subscriptions</div></li><li><div class="item-name"><a class="attr" href="attr.streaming.html" title="attr retina_filtergen::streaming">streaming</a></div><div class="desc docblock-short">The “streaming” macro indicates that a callback should, if matched, be delivered
+for a connection in a streaming fashion: after every N packets, bytes, or seconds
+within the L4 connection.</div></li><li><div class="item-name"><a class="attr" href="attr.subscription.html" title="attr retina_filtergen::subscription">subscription</a></div><div class="desc docblock-short">Generate a Retina program from a specification file.
+This expects an input TOML file with the subscription specifications.</div></li></ul></section></div></main></body></html>

@@ -1,0 +1,29 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The “streaming” macro indicates that a callback should, if matched, be delivered for a connection in a streaming fashion: after every N packets, bytes, or seconds within the L4 connection."><title>streaming in retina_filtergen - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="retina_filtergen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.85.0 (4d91de4e4 2025-02-17)" data-channel="1.85.0" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../retina_filtergen/index.html">retina_<wbr>filtergen</a><span class="version">1.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">streaming</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#performance" title="Performance">Performance</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate retina_<wbr>filtergen</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">retina_filtergen</a></span><h1>Attribute Macro <span class="attr">streaming</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/retina_filtergen/lib.rs.html#488-519">Source</a> </span></div><pre class="rust item-decl"><code>#[streaming]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The “streaming” macro indicates that a callback should, if matched, be delivered
+for a connection in a streaming fashion: after every N packets, bytes, or seconds
+within the L4 connection.</p>
+<p>Streaming callbacks should return a boolean value. The callback can return false
+to “unsubscribe” at any time – i.e., to stop receiving data for a connection.</p>
+<p>After every invocation of the callback, the datatype’s <code>clear()</code> method will be called.</p>
+<p>Streaming callbacks must take exactly one Connection-Level datatype that implements
+the Tracked trait.
+(TODO - working to change this)
+They can additionally take in one or more Session- and/or Static-Level datatypes.</p>
+<p>Streaming callbacks must also specify a filter.</p>
+<p>Streaming callbacks are currently not compatible with the #[subscription(“file.toml”)]
+macro.</p>
+<p>Packets are counted from the beginning of the L4 connection and are bidirectional.
+Bytes include all headers. (We are working to make this more flexible.)</p>
+<p>The streaming macro should be formatted as “packets=X”, “bytes=X”, or “seconds=X”.
+X must be a positive integer (packets, bytes, seconds) or float (seconds).</p>
+<p>The “counter” for streaming callbacks begins after the filter is matched. That is,
+a “packets=10” streaming callback will first be delivered 10 packets after the
+filter has completely matched. (We are working to change this.)</p>
+<p>Streaming callbacks must be triggered by an incoming packet or connection timeout.
+That is, if a callback should be triggered every 2 seconds but no packets are received
+for 4 seconds, the callback will not be triggered until the next packet is received
+(after these 4 seconds).</p>
+<h3 id="performance"><a class="doc-anchor" href="#performance">§</a>Performance</h3>
+<p>Streaming callbacks require per-subscription state, so they are typically less efficient
+than static callbacks. However, streaming callbacks do clear out state after every invocation;
+for memory-intensive datatypes, it can be more efficient to stream, rather than buffer, data.</p>
+</div></details></section></div></main></body></html>
