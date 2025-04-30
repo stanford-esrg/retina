@@ -1,0 +1,9 @@
+[package]
+name = "test_app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+retina-core = { path = "../../../core" }
+retina-datatypes = { path = "../../../datatypes" }
+retina-filtergen = { path = "../../../filtergen" }
