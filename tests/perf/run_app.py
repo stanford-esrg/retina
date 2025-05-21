@@ -19,6 +19,12 @@ def run_app(args):
         generate_subs_cmd = f"python3 {cwd}/tests/perf/generate_subs.py -n {n}"
         p0 = subprocess.run(generate_subs_cmd, shell=True, capture_output=True, text=True)
         print(p0.stdout)
+        
+        cargo_clean_cmd = "cargo clean"
+        subprocess.run(cargo_clean_cmd, shell=True)
+        run_cmd = f"cargo build --release --bin ip_sub"
+        p1 = subprocess.run(run_cmd, shell=True)
+        print(p1.stdout)
 
         # run func_latency.py script on application ip_sub and profile process_packet() in nanoseconds
         # TODO: fix paths
