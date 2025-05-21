@@ -31,6 +31,12 @@ def run_app(args):
         df = pd.read_csv(f"{cwd}/tests/perf/stats/ip_sub_latency_hist.csv")
         STATS = ["avg", "p25", "p50", "p75", "p95", "p99"]
         NUM_SUBS_TO_TIMES[n] = [df.loc[0, stat] for stat in STATS]
+        print('times:', NUM_SUBS_TO_TIMES[n])
+        for stat in STATS:
+            print(df.loc[0, stat])
+
+        num_pkts_processed = df.loc[0, 'cnt']
+        print(f"Number of subscriptions: {n}, Number of packets processed: {num_pkts_processed}")
 
     plot_graph(NUM_SUBS_TO_TIMES, STATS, "nanoseconds", "ip_sub", args.function)
 

@@ -151,7 +151,10 @@ def latency_hist(args):
     ld_library_path = "/home/dianaq/dpdk-21.08/lib/aarch64-linux-gnu"
     cmd = f"sudo env LD_LIBRARY_PATH={ld_library_path} RUST_LOG=error {args.binary} -c {args.config}"
     # print(f"cmd: {cmd}")
-    p2 = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    p2 = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) 
+    # p2 = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # stdout, stderr = p2.communicate()
+    # print('STDOUT:', stdout)
 
     try:
         while p2.poll() is None:
@@ -173,6 +176,7 @@ def dump_stats(app, unit, funcs_and_hists, func_id_mappings):
     dir = "./tests/perf/stats"
     os.makedirs(dir, exist_ok=True)
 
+    print("dump_stats app:", app)
     csv_path = os.path.join(dir, f"{app}_latency_hist.csv")
 
     with open(csv_path, mode='w', newline='') as f:

@@ -30,7 +30,7 @@ def generate_subs(n):
         subscription = SubscriptionSpec(net.with_prefixlen)
         toml_content["subscriptions"].append(subscription.to_dict())
 
-    out_file = f"spec.toml"
+    out_file = "spec.toml"
     with open(out_file, "wb") as f:
         tomli_w.dump(toml_content, f)
     print(f"Generated {out_file} with {n} subscriptions")
