@@ -147,10 +147,8 @@ def latency_hist(args):
         FUNCS_AND_HISTS[event.func_id].record_value(event.latency)
     b["latencies"].open_perf_buffer(handle_event)
 
-    # ld_library_path = os.environ["LD_LIBRARY_PATH"]
-    ld_library_path = "/home/dianaq/dpdk-21.08/lib/aarch64-linux-gnu"
+    ld_library_path = os.environ.get("LD_LIBRARY_PATH")
     cmd = f"sudo env LD_LIBRARY_PATH={ld_library_path} RUST_LOG=error {args.binary} -c {args.config}"
-    # print(f"cmd: {cmd}")
     p2 = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) 
     # p2 = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # stdout, stderr = p2.communicate()
@@ -176,7 +174,7 @@ def dump_stats(app, unit, funcs_and_hists, func_id_mappings):
     dir = "./tests/perf/stats"
     os.makedirs(dir, exist_ok=True)
 
-    print("dump_stats app:", app)
+    # print("dump_stats app:", app)
     csv_path = os.path.join(dir, f"{app}_latency_hist.csv")
 
     with open(csv_path, mode='w', newline='') as f:

@@ -15,23 +15,26 @@ def run_app(args):
     cwd = os.getcwd()
 
     for n in args.num_subs:
+        # if n isn't a power of 2, get the next power of 2
+        if int(n) % 2 != 0:
+            n = 1 << (n - 1).bit_length()
         # run generate_subs.py script to generate TOML files with subscriptions
         generate_subs_cmd = f"python3 {cwd}/tests/perf/generate_subs.py -n {n}"
         p0 = subprocess.run(generate_subs_cmd, shell=True, capture_output=True, text=True)
         print(p0.stdout)
-        
-        cargo_clean_cmd = "cargo clean"
-        subprocess.run(cargo_clean_cmd, shell=True)
-        run_cmd = f"cargo build --release --bin ip_sub"
-        p1 = subprocess.run(run_cmd, shell=True)
+
+        delete_binary_files = f"rm {cwd}/target/release/deps/ip_sub-*"
+        subprocess.run(delete_binary_files, shell=True)
+        force_binary_rebuild = f"cargo build --release --bin ip_sub"
+        p1 = subprocess.run(force_binary_rebuild, shell=True)
         print(p1.stdout)
 
         # run func_latency.py script on application ip_sub and profile process_packet() in nanoseconds
-        # TODO: fix paths
-        # ld_library_path = os.environ["LD_LIBRARY_PATH"]
-        ld_library_path = "/home/dianaq/dpdk-21.08/lib/aarch64-linux-gnu"
-        cmd = f"sudo -E env LD_LIBRARY_PATH={ld_library_path} python3 {cwd}/tests/perf/func_latency.py ip_sub -b {args.binary} -c {args.config} -f {args.function}"
-        subprocess.run(cmd, shell=True)
+        binary_path = f"{cwd}/target/release/ip_sub"
+        ld_library_path = os.environ.get("LD_LIBRARY_PATH")
+        print(f"ld_library_path: {ld_library_path}")
+        cmd = f"sudo -E env LD_LIBRARY_PATH={ld_library_path} python3 {cwd}/tests/perf/func_latency.py ip_sub -b {binary_path} -c {args.config} -f {args.function}"
+        subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
         # read generated csv to get the value at some percentile
         df = pd.read_csv(f"{cwd}/tests/perf/stats/ip_sub_latency_hist.csv")
@@ -70,7 +73,6 @@ def comma_sep_list(value):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--num_subs", type=comma_sep_list)
-    parser.add_argument("-b", "--binary")
     parser.add_argument("-c", "--config", default="./configs/offline.toml")
     parser.add_argument("-f", "--function")
     args = parser.parse_args()

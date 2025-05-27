@@ -17,8 +17,9 @@ class SubscriptionSpec:
 
 def shard_ipv4_addr_space(n):
     root = ipaddress.IPv4Network("0.0.0.0/0")
-
+    
     # divide 0.0.0.0/0 into n subnets
+    # n should be a power of 2
     return list(root.subnets(new_prefix=int((n-1).bit_length())))
 
 def generate_subs(n):
