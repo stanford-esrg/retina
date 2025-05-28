@@ -1,6 +1,7 @@
 import argparse
 import time
 import subprocess
+import signal
 import sys
 import os
 import matplotlib
@@ -19,11 +20,11 @@ def run_app(args):
         if int(n) % 2 != 0:
             n = 1 << (n - 1).bit_length()
         # run generate_subs.py script to generate TOML files with subscriptions
-        generate_subs_cmd = f"python3 {cwd}/tests/perf/generate_subs.py -n {n}"
+        generate_subs_cmd = f"perf-env/bin/python3 {cwd}/tests/perf/generate_subs.py -n {n}"
         p0 = subprocess.run(generate_subs_cmd, shell=True, capture_output=True, text=True)
-        print(p0.stdout)
+        # print(p0.stdout)
 
-        delete_binary_files = f"rm {cwd}/target/release/deps/ip_sub-*"
+        delete_binary_files = f"rm -f {cwd}/target/release/deps/ip_sub-*"
         subprocess.run(delete_binary_files, shell=True)
         force_binary_rebuild = f"cargo build --release --bin ip_sub"
         p1 = subprocess.run(force_binary_rebuild, shell=True)
@@ -33,8 +34,28 @@ def run_app(args):
         binary_path = f"{cwd}/target/release/ip_sub"
         ld_library_path = os.environ.get("LD_LIBRARY_PATH")
         print(f"ld_library_path: {ld_library_path}")
-        cmd = f"sudo -E env LD_LIBRARY_PATH={ld_library_path} python3 {cwd}/tests/perf/func_latency.py ip_sub -b {binary_path} -c {args.config} -f {args.function}"
-        subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        cmd = [
+            "sudo", "-E", "env", 
+            f"LD_LIBRARY_PATH={ld_library_path}", 
+            "perf-env/bin/python3", 
+            f"{cwd}/tests/perf/func_latency.py", 
+            "ip_sub", 
+            "-b", binary_path, 
+            "-c", args.config,
+            "-f", args.function,
+        ]
+
+        # cmd = f"sudo -E env LD_LIBRARY_PATH={ld_library_path} perf-env/bin/python3 {cwd}/tests/perf/func_latency.py ip_sub -b {binary_path} -c {args.config} -f {args.function}"
+        # p2 = subprocess.run(cmd, shell=True)
+        # print(p2.stdout)
+
+        p2 = subprocess.Popen(cmd)
+
+        # profile func latency for 10 seconds 
+        time.sleep(10)
+        p2.send_signal(signal.SIGTERM)
+        p2.communicate()
+        p2.wait()
 
         # read generated csv to get the value at some percentile
         df = pd.read_csv(f"{cwd}/tests/perf/stats/ip_sub_latency_hist.csv")
@@ -48,6 +69,38 @@ def run_app(args):
         print(f"Number of subscriptions: {n}, Number of packets processed: {num_pkts_processed}")
 
     plot_graph(NUM_SUBS_TO_TIMES, STATS, "nanoseconds", "ip_sub", args.function)
+
+def dump_stats():
+    cwd = os.getcwd()
+    dir = f"{cwd}/tests/perf/stats"
+    os.makedirs(dir, exist_ok=True)
+
+    csv_path = os.path.join(dir, f"{app}_latency_stats.csv")
+
+    with open(csv_path, mode='w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(STATS)
+
+        for func_id, hist in funcs_and_hists.items():
+            func_name = func_id_mappings[func_id]
+            row = [
+                func_name,
+                unit,
+                hist.get_total_count(),
+                f"{hist.get_mean_value():.3f}",
+                hist.get_min_value(),
+                hist.get_value_at_percentile(5),
+                hist.get_value_at_percentile(25),
+                hist.get_value_at_percentile(50),
+                hist.get_value_at_percentile(75),
+                hist.get_value_at_percentile(95),
+                hist.get_value_at_percentile(99),
+                hist.get_value_at_percentile(99.9),
+                hist.get_max_value(),
+                f"{hist.get_stddev():.3f}"
+            ]
+
+            writer.writerow(row)
 
 def plot_graph(d, labels, unit, app, func):
     cwd = os.getcwd()

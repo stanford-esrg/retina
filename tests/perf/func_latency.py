@@ -1,6 +1,7 @@
 import argparse
 import time
 import subprocess
+import signal
 import os
 from bcc import BPF
 from hdrh.histogram import HdrHistogram
@@ -154,8 +155,15 @@ def latency_hist(args):
     # stdout, stderr = p2.communicate()
     # print('STDOUT:', stdout)
 
+    running = True
+    def handle_exit(signum, frame):
+        global running
+        running = False
+    
+    signal.signal(signal.SIGTERM, handle_exit)
+
     try:
-        while p2.poll() is None:
+        while p2.poll() is None and running:
             b.perf_buffer_poll(timeout=1)
     except KeyboardInterrupt:
         p2.kill()
