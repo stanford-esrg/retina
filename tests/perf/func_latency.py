@@ -97,9 +97,6 @@ def latency_hist(args):
     else:
         bpf_program = bpf_program.replace('TIMING_UNIT', '')
         unit = "nsecs" 
-
-    # path = f"/home/dianaq/Downloads/retina-fork/retina/target/debug/{args.app}"
-    # path = f"./target/debug/{args.app}"
     
     funcs = []
     # get the mangled function name to pass into attach_uprobe() and attach_uretprobe()
@@ -149,8 +146,15 @@ def latency_hist(args):
     b["latencies"].open_perf_buffer(handle_event)
 
     ld_library_path = os.environ.get("LD_LIBRARY_PATH")
-    cmd = f"sudo env LD_LIBRARY_PATH={ld_library_path} RUST_LOG=error {args.binary} -c {args.config}"
-    p2 = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) 
+    cmd = [
+        "sudo",
+        "env", f"LD_LIBRARY_PATH={ld_library_path}",
+        "RUST_LOG=error", args.binary, 
+        "-c", args.config
+    ]
+    
+    p2 = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # p2 = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  
     # p2 = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # stdout, stderr = p2.communicate()
     # print('STDOUT:', stdout)
@@ -158,15 +162,18 @@ def latency_hist(args):
     running = True
     def handle_exit(signum, frame):
         global running
+        print(f"Received signal {signum}. Exiting.")
         running = False
     
     signal.signal(signal.SIGTERM, handle_exit)
+    signal.signal(signal.SIGINT, handle_exit)
 
     try:
         while p2.poll() is None and running:
             b.perf_buffer_poll(timeout=1)
-    except KeyboardInterrupt:
+    finally:
         p2.kill()
+        p2.wait()
     
     # dist = b.get_table("dist")
     # print("Latency Histogram:")
@@ -240,7 +247,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("app")
     parser.add_argument("-b", "--binary")
-    parser.add_argument("-c", "--config", default="./configs/offline.toml")
+    parser.add_argument("-c", "--config")
     parser.add_argument("-f", "--functions", type=comma_sep_list)
     parser.add_argument("-u", "--microseconds", action="store_true")
     # parser.add_argument("-p", "--plot", action="store_true")

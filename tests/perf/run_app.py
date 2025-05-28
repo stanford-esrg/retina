@@ -20,12 +20,16 @@ def run_app(args):
         if int(n) % 2 != 0:
             n = 1 << (n - 1).bit_length()
         # run generate_subs.py script to generate TOML files with subscriptions
+        print("Generating spec.toml...")
         generate_subs_cmd = f"perf-env/bin/python3 {cwd}/tests/perf/generate_subs.py -n {n}"
         p0 = subprocess.run(generate_subs_cmd, shell=True, capture_output=True, text=True)
-        # print(p0.stdout)
+        print(p0.stdout)
 
+        print("Deleting old ip_sub binaries...")
         delete_binary_files = f"rm -f {cwd}/target/release/deps/ip_sub-*"
         subprocess.run(delete_binary_files, shell=True)
+
+        print("Rebuilding ip_sub...")
         force_binary_rebuild = f"cargo build --release --bin ip_sub"
         p1 = subprocess.run(force_binary_rebuild, shell=True)
         print(p1.stdout)
@@ -45,25 +49,22 @@ def run_app(args):
             "-f", args.function,
         ]
 
-        # cmd = f"sudo -E env LD_LIBRARY_PATH={ld_library_path} perf-env/bin/python3 {cwd}/tests/perf/func_latency.py ip_sub -b {binary_path} -c {args.config} -f {args.function}"
-        # p2 = subprocess.run(cmd, shell=True)
-        # print(p2.stdout)
-
+        print("Running func_latency.py...")
         p2 = subprocess.Popen(cmd)
 
-        # profile func latency for 10 seconds 
-        time.sleep(10)
+        # profile func latency for 1 second
+        time.sleep(1)
         p2.send_signal(signal.SIGTERM)
-        p2.communicate()
         p2.wait()
 
         # read generated csv to get the value at some percentile
+        print("Reading ip_sub_latency_hist.csv...")
         df = pd.read_csv(f"{cwd}/tests/perf/stats/ip_sub_latency_hist.csv")
         STATS = ["avg", "p25", "p50", "p75", "p95", "p99"]
         NUM_SUBS_TO_TIMES[n] = [df.loc[0, stat] for stat in STATS]
         print('times:', NUM_SUBS_TO_TIMES[n])
         for stat in STATS:
-            print(df.loc[0, stat])
+            print(f"{stat}: {df.loc[0, stat]} nanoseconds")
 
         num_pkts_processed = df.loc[0, 'cnt']
         print(f"Number of subscriptions: {n}, Number of packets processed: {num_pkts_processed}")
@@ -126,7 +127,7 @@ def comma_sep_list(value):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--num_subs", type=comma_sep_list)
-    parser.add_argument("-c", "--config", default="./configs/offline.toml")
+    parser.add_argument("-c", "--config")
     parser.add_argument("-f", "--function")
     args = parser.parse_args()
 
