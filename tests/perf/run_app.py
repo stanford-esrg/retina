@@ -30,7 +30,8 @@ def run_app(args):
         subprocess.run(delete_binary_files, shell=True)
 
         print("Rebuilding ip_sub...")
-        force_binary_rebuild = f"cargo build --release --bin ip_sub"
+        home_path = os.environ.get("HOME")
+        force_binary_rebuild = f"{home_path}/.cargo/bin/cargo build --release --bin ip_sub"
         p1 = subprocess.run(force_binary_rebuild, shell=True)
         print(p1.stdout)
 
