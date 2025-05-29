@@ -16,9 +16,6 @@ def run_app(args):
     cwd = os.getcwd()
 
     for n in args.num_subs:
-        # if n isn't a power of 2, get the next power of 2
-        if int(n) % 2 != 0:
-            n = 1 << (n - 1).bit_length()
         # run generate_ip_subs.py script to generate TOML files with subscriptions
         print("Generating spec.toml...")
         generate_ip_subs_cmd = f"perf-env/bin/python3 {cwd}/tests/perf/generate_ip_subs.py -n {n}"
