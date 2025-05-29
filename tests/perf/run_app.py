@@ -19,24 +19,24 @@ def run_app(args):
         # if n isn't a power of 2, get the next power of 2
         if int(n) % 2 != 0:
             n = 1 << (n - 1).bit_length()
-        # run generate_subs.py script to generate TOML files with subscriptions
+        # run generate_ip_subs.py script to generate TOML files with subscriptions
         print("Generating spec.toml...")
-        generate_subs_cmd = f"perf-env/bin/python3 {cwd}/tests/perf/generate_subs.py -n {n}"
-        p0 = subprocess.run(generate_subs_cmd, shell=True, capture_output=True, text=True)
+        generate_ip_subs_cmd = f"perf-env/bin/python3 {cwd}/tests/perf/generate_ip_subs.py -n {n}"
+        p0 = subprocess.run(generate_ip_subs_cmd, shell=True, capture_output=True, text=True)
         print(p0.stdout)
 
-        print("Deleting old ip_sub binaries...")
-        delete_binary_files = f"rm -f {cwd}/target/release/deps/ip_sub-*"
+        print("Deleting old ip_subs binaries...")
+        delete_binary_files = f"rm -f {cwd}/target/release/deps/ip_subs-*"
         subprocess.run(delete_binary_files, shell=True)
 
-        print("Rebuilding ip_sub...")
+        print("Rebuilding ip_subs...")
         home_path = os.environ.get("HOME")
-        force_binary_rebuild = f"{home_path}/.cargo/bin/cargo build --release --bin ip_sub"
+        force_binary_rebuild = f"{home_path}/.cargo/bin/cargo build --release --bin ip_subs"
         p1 = subprocess.run(force_binary_rebuild, shell=True)
         print(p1.stdout)
 
-        # run func_latency.py script on application ip_sub and profile process_packet() in nanoseconds
-        binary_path = f"{cwd}/target/release/ip_sub"
+        # run func_latency.py script on application ip_subs and profile process_packet() in nanoseconds
+        binary_path = f"{cwd}/target/release/ip_subs"
         ld_library_path = os.environ.get("LD_LIBRARY_PATH")
         print(f"ld_library_path: {ld_library_path}")
         cmd = [
@@ -44,7 +44,7 @@ def run_app(args):
             f"LD_LIBRARY_PATH={ld_library_path}", 
             "perf-env/bin/python3", 
             f"{cwd}/tests/perf/func_latency.py", 
-            "ip_sub", 
+            "ip_subs", 
             "-b", binary_path, 
             "-c", args.config,
             "-f", args.function,
@@ -54,8 +54,8 @@ def run_app(args):
         p2 = subprocess.Popen(cmd)
 
         # read generated csv to get the value at some percentile
-        print("Reading ip_sub_latency_hist.csv...")
-        df = pd.read_csv(f"{cwd}/tests/perf/stats/ip_sub_latency_hist.csv")
+        print("Reading ip_subs_latency_hist.csv...")
+        df = pd.read_csv(f"{cwd}/tests/perf/stats/ip_subs_latency_hist.csv")
         STATS = ["avg", "p25", "p50", "p75", "p95", "p99"]
         NUM_SUBS_TO_TIMES[n] = [df.loc[0, stat] for stat in STATS]
         print('times:', NUM_SUBS_TO_TIMES[n])
@@ -65,7 +65,7 @@ def run_app(args):
         num_pkts_processed = df.loc[0, 'cnt']
         print(f"Number of subscriptions: {n}, Number of packets processed: {num_pkts_processed}")
 
-    plot_graph(NUM_SUBS_TO_TIMES, STATS, "nanoseconds", "ip_sub", args.function)
+    plot_graph(NUM_SUBS_TO_TIMES, STATS, "nanoseconds", "ip_subs", args.function)
 
 def dump_stats():
     cwd = os.getcwd()

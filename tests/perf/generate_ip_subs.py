@@ -5,7 +5,7 @@ import tomli_w
 class SubscriptionSpec:
     def __init__(self, addr): # TODO: enable passing in filter, datatypes, callback to make more flexible 
         self.filter = f"ipv4.addr = {addr}"
-        self.datatypes = ["ConnRecord", "FilterStr"]
+        self.datatypes = ["ConnRecord"]
         self.callback = "ip_cb"
     
     def to_dict(self):
@@ -22,7 +22,7 @@ def shard_ipv4_addr_space(n):
     # n should be a power of 2
     return list(root.subnets(new_prefix=int((n-1).bit_length())))
 
-def generate_subs(n):
+def generate_ip_subs(n):
     subnets = shard_ipv4_addr_space(n)
 
     toml_content = {}
@@ -45,4 +45,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     for num_subs in args.num_subs:
-        generate_subs(int(num_subs))
+        generate_ip_subs(int(num_subs))

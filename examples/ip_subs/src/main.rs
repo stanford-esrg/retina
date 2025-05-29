@@ -11,7 +11,7 @@ use std::sync::Mutex;
 
 lazy_static! {
     static ref file: Mutex<BufWriter<File>> =
-        Mutex::new(BufWriter::new(File::create("ip_sub.jsonl").unwrap()));
+        Mutex::new(BufWriter::new(File::create("ip_subs.jsonl").unwrap()));
 }
 
 #[derive(Parser, Debug)]
@@ -23,7 +23,7 @@ struct Args {
         long,
         parse(from_os_str),
         value_name = "FILE",
-        default_value = "ip_sub.jsonl"
+        default_value = "ip_subs.jsonl"
     )]
     outfile: PathBuf,
 }

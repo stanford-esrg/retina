@@ -11,8 +11,8 @@ members = [
     "examples/basic",
     "examples/basic_file",
     "examples/log_ssh",
-    "examples/streaming", "benchmark_app", "examples/ip_sub",
-    "benchmark_app",
+    "examples/streaming", 
+    "examples/ip_subs",
 ]
 resolver = "2"
 
