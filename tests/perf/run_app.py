@@ -15,10 +15,13 @@ def run_app(args):
 
     cwd = os.getcwd()
 
+    # print(os.environ.get("VIRTUAL_ENV"))
+
     for n in args.num_subs:
         # run generate_ip_subs.py script to generate TOML files with subscriptions
         print("Generating spec.toml...")
-        generate_ip_subs_cmd = f"perf-env/bin/python3 {cwd}/tests/perf/generate_ip_subs.py -n {n}"
+        # generate_ip_subs_cmd = f"perf-env/bin/python3 {cwd}/tests/perf/generate_ip_subs.py -n {n}"
+        generate_ip_subs_cmd = f"python3 {cwd}/tests/perf/generate_ip_subs.py -n {n}"
         p0 = subprocess.run(generate_ip_subs_cmd, shell=True, capture_output=True, text=True)
         print(p0.stdout)
 
@@ -39,7 +42,8 @@ def run_app(args):
         cmd = [
             "sudo", "-E", "env", 
             f"LD_LIBRARY_PATH={ld_library_path}", 
-            "perf-env/bin/python3", 
+            # "perf-env/bin/python3", 
+            "python3", 
             f"{cwd}/tests/perf/func_latency.py", 
             "ip_subs", 
             "-b", binary_path, 

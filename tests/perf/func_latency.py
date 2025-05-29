@@ -154,10 +154,6 @@ def latency_hist(args):
     ]
     
     p2 = subprocess.Popen(cmd)
-    # p2 = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  
-    # p2 = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # stdout, stderr = p2.communicate()
-    # print('STDOUT:', stdout)
 
     try:
         while p2.poll() is None:
@@ -181,7 +177,6 @@ def dump_stats(app, unit, funcs_and_hists, func_id_mappings):
 
     # print("dump_stats app:", app)
     csv_path = os.path.join(dir, f"{app}_latency_hist.csv")
-
     with open(csv_path, mode='w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(STATS)
