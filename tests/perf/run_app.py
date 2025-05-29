@@ -53,11 +53,6 @@ def run_app(args):
         print("Running func_latency.py...")
         p2 = subprocess.Popen(cmd)
 
-        # profile func latency for 1 second
-        time.sleep(1)
-        p2.send_signal(signal.SIGTERM)
-        p2.wait()
-
         # read generated csv to get the value at some percentile
         print("Reading ip_sub_latency_hist.csv...")
         df = pd.read_csv(f"{cwd}/tests/perf/stats/ip_sub_latency_hist.csv")

@@ -153,27 +153,17 @@ def latency_hist(args):
         "-c", args.config
     ]
     
-    p2 = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    p2 = subprocess.Popen(cmd)
     # p2 = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  
     # p2 = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # stdout, stderr = p2.communicate()
     # print('STDOUT:', stdout)
 
-    running = True
-    def handle_exit(signum, frame):
-        global running
-        print(f"Received signal {signum}. Exiting.")
-        running = False
-    
-    signal.signal(signal.SIGTERM, handle_exit)
-    signal.signal(signal.SIGINT, handle_exit)
-
     try:
-        while p2.poll() is None and running:
+        while p2.poll() is None:
             b.perf_buffer_poll(timeout=1)
-    finally:
+    except KeyboardInterrupt:
         p2.kill()
-        p2.wait()
     
     # dist = b.get_table("dist")
     # print("Latency Histogram:")
