@@ -21,32 +21,22 @@ def run_app(args):
     NUM_SUBS_TO_TIMES = {}
 
     print("CWD:", CWD)
+    print("HOME:", HOME)
+    print(f"LD_LIBRARY_PATH: {LD_LIB_PATH}")
     print("PYTHON_EXEC:", PYTHON_EXEC)
 
     for n in args.num_subs:
         # run generate_ip_subs.py script to generate TOML files with subscriptions
         print("Generating spec.toml...")
-        generate_ip_subs_cmd = [
-            PYTHON_EXEC,
-            "./tests/perf/generate_ip_subs.py",
-            "-n", f"{n}"
-        ]
-        subprocess.run(generate_ip_subs_cmd, cwd=CWD)
+        subprocess.run([PYTHON_EXEC, "./tests/perf/generate_ip_subs.py", "-n", f"{n}"], cwd=CWD)
 
         print("Deleting old ip_subs binaries...")
         subprocess.run("rm -f ./target/release/deps/ip_subs-*", shell=True, cwd=CWD)
 
         print("Rebuilding ip_subs...")
-        print("HOME:", HOME)
-        force_binary_rebuild = [
-            f"{HOME}/.cargo/bin/cargo",
-            # "cargo", 
-            "build", "--release", "--bin", "ip_subs"
-        ]
-        subprocess.run(force_binary_rebuild, cwd=CWD)
+        subprocess.run(["cargo", "build", "--release", "--bin", "ip_subs"], cwd=CWD)
 
         # run func_latency.py script on application ip_subs and profile process_packet() in nanoseconds
-        print(f"LD_LIBRARY_PATH: {LD_LIB_PATH}")
         cmd = [
             "sudo", "-E", "env", 
             f"LD_LIBRARY_PATH={LD_LIB_PATH}", 
@@ -57,7 +47,6 @@ def run_app(args):
             "-c", args.config,
             "-f", args.function,
         ]
-
         print("Running func_latency.py...")
         subprocess.run(cmd, cwd=CWD)
 
