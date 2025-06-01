@@ -13,20 +13,21 @@ import csv
 CWD = os.getcwd()
 HOME = os.environ.get("HOME")
 LD_LIB_PATH = os.environ.get("LD_LIBRARY_PATH")
-MY_ENV = os.environ.copy()
+# MY_ENV = os.environ.copy()
+PYTHON_EXEC = sys.executable
 
 def run_app(args):
     # key: number of subscriptions, value: list of runtimes (nanoseconds) at different percentiles
     NUM_SUBS_TO_TIMES = {}
 
     print("CWD:", CWD)
+    print("PYTHON_EXEC:", PYTHON_EXEC)
 
     for n in args.num_subs:
         # run generate_ip_subs.py script to generate TOML files with subscriptions
         print("Generating spec.toml...")
         generate_ip_subs_cmd = [
-            # "perf-env/bin/python3",
-            "python3",
+            PYTHON_EXEC,
             "./tests/perf/generate_ip_subs.py",
             "-n", f"{n}"
         ]
@@ -49,8 +50,7 @@ def run_app(args):
         cmd = [
             "sudo", "-E", "env", 
             f"LD_LIBRARY_PATH={LD_LIB_PATH}", 
-            # "perf-env/bin/python3", 
-            "python3", 
+            PYTHON_EXEC,
             "./tests/perf/func_latency.py", 
             "ip_subs", 
             "-b", "./target/release/ip_subs", 
