@@ -16,28 +16,30 @@ def run_app(args):
 
     cwd = os.getcwd()
 
-    # print(os.environ.get("VIRTUAL_ENV"))
-
     for n in args.num_subs:
         # run generate_ip_subs.py script to generate TOML files with subscriptions
         print("Generating spec.toml...")
-        # generate_ip_subs_cmd = f"perf-env/bin/python3 {cwd}/tests/perf/generate_ip_subs.py -n {n}"
-        generate_ip_subs_cmd = f"python3 {cwd}/tests/perf/generate_ip_subs.py -n {n}"
-        p0 = subprocess.run(generate_ip_subs_cmd, shell=True, capture_output=True, text=True)
-        print(p0.stdout)
+        generate_ip_subs_cmd = [
+            # "perf-env/bin/python3",
+            "python3",
+            f"{cwd}/tests/perf/generate_ip_subs.py",
+            "-n", f"{n}"
+        ]
+        subprocess.run(generate_ip_subs_cmd)
 
         print("Deleting old ip_subs binaries...")
-        delete_binary_files = f"rm -f {cwd}/target/release/deps/ip_subs-*"
-        subprocess.run(delete_binary_files, shell=True)
+        subprocess.run(f"rm -f {cwd}/target/release/deps/ip_subs-*", shell=True)
 
         print("Rebuilding ip_subs...")
         home_path = os.environ.get("HOME")
-        force_binary_rebuild = f"{home_path}/.cargo/bin/cargo build --release --bin ip_subs"
-        p1 = subprocess.run(force_binary_rebuild, shell=True)
-        print(p1.stdout)
+        force_binary_rebuild = [
+            f"{home_path}/.cargo/bin/cargo",
+            # "cargo", 
+            "build", "--release", "--bin", "ip_subs"
+        ]
+        subprocess.run(force_binary_rebuild)
 
         # run func_latency.py script on application ip_subs and profile process_packet() in nanoseconds
-        binary_path = f"{cwd}/target/release/ip_subs"
         ld_library_path = os.environ.get("LD_LIBRARY_PATH")
         print(f"ld_library_path: {ld_library_path}")
         cmd = [
@@ -47,13 +49,13 @@ def run_app(args):
             "python3", 
             f"{cwd}/tests/perf/func_latency.py", 
             "ip_subs", 
-            "-b", binary_path, 
+            "-b", f"{cwd}/target/release/ip_subs", 
             "-c", args.config,
             "-f", args.function,
         ]
 
         print("Running func_latency.py...")
-        p2 = subprocess.Popen(cmd)
+        subprocess.run(cmd)
 
         # read generated csv to get the value at some percentile
         print("Reading ip_subs_latency_hist.csv...")
@@ -61,14 +63,12 @@ def run_app(args):
         STATS = ["cnt", "avg", "p25", "p50", "p75", "p95", "p99"]
         NUM_SUBS_TO_TIMES[n] = [df.loc[0, stat] for stat in STATS]
 
+        print(f"Number of subscriptions: {n}")
         for stat in STATS:
             if stat == "cnt":
                 print(f"{stat}: {df.loc[0, stat]} packets processed")
             else:
                 print(f"{stat}: {df.loc[0, stat]} nanoseconds")
-
-        # num_pkts_processed = NUM_SUBS_TO_TIMES[n][2]
-        # print(f"Number of subscriptions: {n}, Number of packets processed: {num_pkts_processed}")
 
     write_stats_to_file("ip_sub", args.function, "nsecs", NUM_SUBS_TO_TIMES, STATS)
     plot_graph(NUM_SUBS_TO_TIMES, STATS, "nanoseconds", "ip_subs", args.function)
