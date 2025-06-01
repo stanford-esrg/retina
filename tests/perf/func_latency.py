@@ -158,9 +158,11 @@ def latency_hist(args):
     try:
         while p2.poll() is None:
             b.perf_buffer_poll(timeout=1)
+        p2.terminate()
+        p2.wait()
     except KeyboardInterrupt:
         p2.kill()
-    
+
     # dist = b.get_table("dist")
     # print("Latency Histogram:")
     # dist.print_log2_hist(unit)

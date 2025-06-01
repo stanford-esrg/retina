@@ -8,6 +8,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
+import csv
 
 def run_app(args):
     # key: number of subscriptions, value: list of runtimes (nanoseconds) at different percentiles
@@ -57,18 +58,22 @@ def run_app(args):
         # read generated csv to get the value at some percentile
         print("Reading ip_subs_latency_hist.csv...")
         df = pd.read_csv(f"{cwd}/tests/perf/stats/ip_subs_latency_hist.csv")
-        STATS = ["avg", "p25", "p50", "p75", "p95", "p99"]
+        STATS = ["cnt", "avg", "p25", "p50", "p75", "p95", "p99"]
         NUM_SUBS_TO_TIMES[n] = [df.loc[0, stat] for stat in STATS]
-        print('times:', NUM_SUBS_TO_TIMES[n])
+
         for stat in STATS:
-            print(f"{stat}: {df.loc[0, stat]} nanoseconds")
+            if stat == "cnt":
+                print(f"{stat}: {df.loc[0, stat]} packets processed")
+            else:
+                print(f"{stat}: {df.loc[0, stat]} nanoseconds")
 
-        num_pkts_processed = df.loc[0, 'cnt']
-        print(f"Number of subscriptions: {n}, Number of packets processed: {num_pkts_processed}")
+        # num_pkts_processed = NUM_SUBS_TO_TIMES[n][2]
+        # print(f"Number of subscriptions: {n}, Number of packets processed: {num_pkts_processed}")
 
+    write_stats_to_file("ip_sub", args.function, "nsecs", NUM_SUBS_TO_TIMES, STATS)
     plot_graph(NUM_SUBS_TO_TIMES, STATS, "nanoseconds", "ip_subs", args.function)
 
-def dump_stats():
+def write_stats_to_file(app, func, unit, num_subs_to_times, stats):
     cwd = os.getcwd()
     dir = f"{cwd}/tests/perf/stats"
     os.makedirs(dir, exist_ok=True)
@@ -77,26 +82,13 @@ def dump_stats():
 
     with open(csv_path, mode='w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(STATS)
+        headers = ["func", "unit", "num_subs"]
+        headers.extend(stats)
+        writer.writerow(headers)
 
-        for func_id, hist in funcs_and_hists.items():
-            func_name = func_id_mappings[func_id]
-            row = [
-                func_name,
-                unit,
-                hist.get_total_count(),
-                f"{hist.get_mean_value():.3f}",
-                hist.get_min_value(),
-                hist.get_value_at_percentile(5),
-                hist.get_value_at_percentile(25),
-                hist.get_value_at_percentile(50),
-                hist.get_value_at_percentile(75),
-                hist.get_value_at_percentile(95),
-                hist.get_value_at_percentile(99),
-                hist.get_value_at_percentile(99.9),
-                hist.get_max_value(),
-                f"{hist.get_stddev():.3f}"
-            ]
+        for k in sorted(num_subs_to_times.keys()):
+            row = [func, unit, k]
+            row.extend(num_subs_to_times[k])
 
             writer.writerow(row)
 
