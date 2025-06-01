@@ -11,6 +11,8 @@ from hdrh.histogram import HdrHistogram
 import ctypes
 import csv
 
+LD_LIB_PATH = os.environ.get("LD_LIBRARY_PATH")
+
 class Data(ctypes.Structure):
     _fields_ = [
         ("pid", ctypes.c_uint32),
@@ -145,10 +147,9 @@ def latency_hist(args):
         FUNCS_AND_HISTS[event.func_id].record_value(event.latency)
     b["latencies"].open_perf_buffer(handle_event)
 
-    ld_library_path = os.environ.get("LD_LIBRARY_PATH")
     cmd = [
         "sudo",
-        "env", f"LD_LIBRARY_PATH={ld_library_path}",
+        "env", f"LD_LIBRARY_PATH={LD_LIB_PATH}",
         "RUST_LOG=error", args.binary, 
         "-c", args.config
     ]

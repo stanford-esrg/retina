@@ -91,6 +91,7 @@ where
         }
     }
 
+    #[inline(never)]
     pub fn process_packet(
         &self,
         mbuf: Mbuf,

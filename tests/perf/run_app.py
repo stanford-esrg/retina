@@ -33,7 +33,7 @@ def run_app(args):
         subprocess.run(generate_ip_subs_cmd, cwd=CWD)
 
         print("Deleting old ip_subs binaries...")
-        subprocess.run(f"rm -f ./target/release/deps/ip_subs-*", shell=True, cwd=CWD)
+        subprocess.run("rm -f ./target/release/deps/ip_subs-*", shell=True, cwd=CWD)
 
         print("Rebuilding ip_subs...")
         print("HOME:", HOME)
