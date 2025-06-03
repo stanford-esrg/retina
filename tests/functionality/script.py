@@ -10,7 +10,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Run a debug build of the Retina test app with expected output and pcap files."
     )
-    parser.add_argument("app_name", help="Name of the test application binary (e.g., test_app)")
+    parser.add_argument("app_name", help="Name of the test application binary (e.g., basic_test)")
     parser.add_argument("expected_output_file_path", help="Path to the expected output binary file")
     parser.add_argument("output_file_path", help="Path to the output file")
     parser.add_argument("pcap_file", help="Path to the packet capture (pcap) file")

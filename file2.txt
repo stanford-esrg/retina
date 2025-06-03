@@ -1,0 +1,543 @@
+[
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52201",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 2855
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52203",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 2855
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52204",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 2855
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52205",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 2855
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52206",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 2855
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52207",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 2855
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52209",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 1245
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52208",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 1245
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52211",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 1245
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52210",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 1305
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52212",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 1245
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52213",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 1245
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52214",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 1245
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52215",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 1245
+  },
+  {
+    "sni": "channel.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10639",
+      "resp": "204.9.163.181:443",
+      "proto": 6
+    },
+    "byte_count": 34318
+  },
+  {
+    "sni": "channel.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10643",
+      "resp": "204.9.163.181:443",
+      "proto": 6
+    },
+    "byte_count": 7773
+  },
+  {
+    "sni": "channel.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10641",
+      "resp": "204.9.163.181:443",
+      "proto": 6
+    },
+    "byte_count": 13617
+  },
+  {
+    "sni": "channel.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10642",
+      "resp": "204.9.163.181:443",
+      "proto": 6
+    },
+    "byte_count": 14113
+  },
+  {
+    "sni": "channel.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10640",
+      "resp": "204.9.163.181:443",
+      "proto": 6
+    },
+    "byte_count": 20459
+  },
+  {
+    "sni": "",
+    "five_tuple": {
+      "orig": "172.16.255.1:10627",
+      "resp": "194.165.188.79:443",
+      "proto": 6
+    },
+    "byte_count": 2058
+  },
+  {
+    "sni": "apps.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10649",
+      "resp": "184.85.226.161:443",
+      "proto": 6
+    },
+    "byte_count": 18849
+  },
+  {
+    "sni": "",
+    "five_tuple": {
+      "orig": "172.16.255.1:10635",
+      "resp": "194.165.188.76:443",
+      "proto": 6
+    },
+    "byte_count": 1258
+  },
+  {
+    "sni": "",
+    "five_tuple": {
+      "orig": "172.16.255.1:10636",
+      "resp": "212.8.166.36:443",
+      "proto": 6
+    },
+    "byte_count": 7255
+  },
+  {
+    "sni": "",
+    "five_tuple": {
+      "orig": "172.16.255.1:10638",
+      "resp": "130.117.72.100:443",
+      "proto": 6
+    },
+    "byte_count": 518062
+  },
+  {
+    "sni": "",
+    "five_tuple": {
+      "orig": "10.0.2.15:2544",
+      "resp": "207.46.113.78:443",
+      "proto": 6
+    },
+    "byte_count": 11523
+  },
+  {
+    "sni": "",
+    "five_tuple": {
+      "orig": "172.16.255.1:10637",
+      "resp": "204.9.163.184:443",
+      "proto": 6
+    },
+    "byte_count": 2400
+  },
+  {
+    "sni": "",
+    "five_tuple": {
+      "orig": "172.16.255.1:10667",
+      "resp": "194.192.199.252:443",
+      "proto": 6
+    },
+    "byte_count": 44067
+  },
+  {
+    "sni": "smetrics.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10648",
+      "resp": "66.235.143.184:443",
+      "proto": 6
+    },
+    "byte_count": 12484
+  },
+  {
+    "sni": "apps.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10691",
+      "resp": "184.85.226.161:443",
+      "proto": 6
+    },
+    "byte_count": 3847
+  },
+  {
+    "sni": "apps.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10652",
+      "resp": "184.85.226.161:443",
+      "proto": 6
+    },
+    "byte_count": 32499
+  },
+  {
+    "sni": "apps.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10651",
+      "resp": "184.85.226.161:443",
+      "proto": 6
+    },
+    "byte_count": 27925
+  },
+  {
+    "sni": "apps.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10646",
+      "resp": "184.85.226.161:443",
+      "proto": 6
+    },
+    "byte_count": 105697
+  },
+  {
+    "sni": "apps.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10647",
+      "resp": "184.85.226.161:443",
+      "proto": 6
+    },
+    "byte_count": 86234
+  },
+  {
+    "sni": "apps.skype.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10650",
+      "resp": "184.85.226.161:443",
+      "proto": 6
+    },
+    "byte_count": 38795
+  },
+  {
+    "sni": "",
+    "five_tuple": {
+      "orig": "10.0.2.15:2544",
+      "resp": "207.46.113.78:5443",
+      "proto": 6
+    },
+    "byte_count": 11523
+  },
+  {
+    "sni": "",
+    "five_tuple": {
+      "orig": "172.16.255.1:10688",
+      "resp": "213.146.189.205:443",
+      "proto": 6
+    },
+    "byte_count": 2358
+  },
+  {
+    "sni": "www.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52152",
+      "resp": "72.14.213.147:443",
+      "proto": 6
+    },
+    "byte_count": 122925
+  },
+  {
+    "sni": "calendar.google.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52202",
+      "resp": "72.14.213.102:443",
+      "proto": 6
+    },
+    "byte_count": 77298
+  },
+  {
+    "sni": "ode25pfjgmvpquh3b1oqo31ti5ibg5fr-a-calendar-opensocial.googleusercontent.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52399",
+      "resp": "72.14.213.132:443",
+      "proto": 6
+    },
+    "byte_count": 9803
+  },
+  {
+    "sni": "www-calendar-opensocial.googleusercontent.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52402",
+      "resp": "72.14.213.132:443",
+      "proto": 6
+    },
+    "byte_count": 28171
+  },
+  {
+    "sni": "pxml10.4publishers.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10661",
+      "resp": "67.215.65.132:443",
+      "proto": 6
+    },
+    "byte_count": 2637
+  },
+  {
+    "sni": "s1.4publishers.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10665",
+      "resp": "67.215.65.132:443",
+      "proto": 6
+    },
+    "byte_count": 2745
+  },
+  {
+    "sni": "s1.4publishers.com",
+    "five_tuple": {
+      "orig": "172.16.255.1:10664",
+      "resp": "67.215.65.132:443",
+      "proto": 6
+    },
+    "byte_count": 2713
+  },
+  {
+    "sni": "ssl.gstatic.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:52497",
+      "resp": "72.14.213.120:443",
+      "proto": 6
+    },
+    "byte_count": 6194
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57243",
+      "resp": "204.14.234.85:443",
+      "proto": 6
+    },
+    "byte_count": 207810
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57243",
+      "resp": "204.14.234.85:8443",
+      "proto": 6
+    },
+    "byte_count": 207810
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57244",
+      "resp": "204.14.234.85:443",
+      "proto": 6
+    },
+    "byte_count": 173529
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57244",
+      "resp": "204.14.234.85:8443",
+      "proto": 6
+    },
+    "byte_count": 173529
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57245",
+      "resp": "204.14.234.85:443",
+      "proto": 6
+    },
+    "byte_count": 103520
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57246",
+      "resp": "204.14.234.85:443",
+      "proto": 6
+    },
+    "byte_count": 79449
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57245",
+      "resp": "204.14.234.85:8443",
+      "proto": 6
+    },
+    "byte_count": 103520
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57246",
+      "resp": "204.14.234.85:8443",
+      "proto": 6
+    },
+    "byte_count": 79449
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57247",
+      "resp": "204.14.234.85:443",
+      "proto": 6
+    },
+    "byte_count": 60330
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57248",
+      "resp": "204.14.234.85:443",
+      "proto": 6
+    },
+    "byte_count": 78753
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57247",
+      "resp": "204.14.234.85:8443",
+      "proto": 6
+    },
+    "byte_count": 60330
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57248",
+      "resp": "204.14.234.85:8443",
+      "proto": 6
+    },
+    "byte_count": 78753
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57249",
+      "resp": "204.14.234.85:443",
+      "proto": 6
+    },
+    "byte_count": 14064
+  },
+  {
+    "sni": "na4.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57249",
+      "resp": "204.14.234.85:8443",
+      "proto": 6
+    },
+    "byte_count": 14064
+  },
+  {
+    "sni": "omtr2.partners.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57250",
+      "resp": "66.235.136.89:443",
+      "proto": 6
+    },
+    "byte_count": 6670
+  },
+  {
+    "sni": "omtr2.partners.salesforce.com",
+    "five_tuple": {
+      "orig": "192.168.3.131:57250",
+      "resp": "66.235.136.89:8443",
+      "proto": 6
+    },
+    "byte_count": 6670
+  }
+]
+TLS Callback Count: 60
