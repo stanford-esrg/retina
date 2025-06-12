@@ -42,7 +42,6 @@ def run_app(args):
         print("Rebuilding ip_subs...")
         subprocess.run(["cargo", "build", "--release", "--bin", "ip_subs"], cwd=CWD)
 
-        # run func_latency.py script on application ip_subs and profile the function in nanoseconds
         cmd = [
             "sudo", "-E", "env", 
             f"LD_LIBRARY_PATH={LD_LIB_PATH}", 
@@ -127,5 +126,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run_app(args)
-
-
