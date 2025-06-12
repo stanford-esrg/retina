@@ -1,4 +1,4 @@
-# code for profiling function latency with eBPF based on https://github.com/iovisor/bcc/blob/master/tools/funclatency.py
+# code for profiling function latency with bcc based on https://github.com/iovisor/bcc/blob/master/tools/funclatency.py
 
 import argparse
 import subprocess
