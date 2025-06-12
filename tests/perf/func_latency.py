@@ -1,3 +1,5 @@
+# code for profiling function latency with eBPF based on https://github.com/iovisor/bcc/blob/master/tools/funclatency.py
+
 import argparse
 import subprocess
 import sys
@@ -198,7 +200,7 @@ if __name__ == "__main__":
     parser.add_argument("-b", "--binary")
     parser.add_argument("-c", "--config")
     parser.add_argument("-f", "--function", type=comma_sep_list)
-    parser.add_argument("-u", "--microseconds", action="store_true")
+    parser.add_argument("-u", "--microseconds", action="store_true", default=False)
     args = parser.parse_args()
             
     profile_latency(args)
