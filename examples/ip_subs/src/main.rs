@@ -1,4 +1,4 @@
-use retina_core::{config::load_config, Runtime};
+use retina_core::{Runtime, config::load_config};
 use retina_datatypes::ConnRecord;
 use retina_filtergen::subscription;
 
@@ -18,7 +18,7 @@ lazy_static! {
 struct Args {
     #[clap(short, long, parse(from_os_str), value_name = "FILE")]
     config: PathBuf,
-     #[clap(
+    #[clap(
         short,
         long,
         parse(from_os_str),
