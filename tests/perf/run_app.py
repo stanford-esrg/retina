@@ -1,7 +1,5 @@
 import argparse
-import time
 import subprocess
-import signal
 import sys
 import os
 import matplotlib
@@ -61,6 +59,7 @@ def run_app(args):
         print("Reading ip_subs_latency_hist.csv...")
         df = pd.read_csv(f"{PERF_STATS_DIR}/ip_subs_latency_hist.csv")
         results = [df.loc[0, stat] for stat in STATS]
+
         write_stats(STATS_CSV_PATH, "ip_subs", args.function, "nsecs", n, results)
     
     create_plots(STATS_CSV_PATH, "ip_subs", args.function, "nsecs")

@@ -1,7 +1,5 @@
 import argparse
-import time
 import subprocess
-import signal
 import sys
 import os
 from bcc import BPF
@@ -102,8 +100,6 @@ def latency_hist(args):
         unit = "nsecs" 
     
     funcs = []
-    # get the mangled function name to pass into attach_uprobe() and attach_uretprobe()
-    # TODO: what if different modules have funcs with the same name
     for func in args.functions:
         get_mangled_name_cmd = f"nm {args.binary} | grep {func} | awk '{{print $3}}'"
         p1 = subprocess.run(get_mangled_name_cmd, shell=True, capture_output=True, text=True)
@@ -112,9 +108,7 @@ def latency_hist(args):
         if not mangled_name:
             print(f"{func} is never called.")
             continue
-        
-        print('mangled_name:', mangled_name)
-        print('address:', BPF.get_user_addresses(args.binary, mangled_name))
+
         funcs.append(mangled_name)
 
     # no functions to profile 
@@ -132,12 +126,8 @@ def latency_hist(args):
             b.attach_uretprobe(name=args.binary, sym=func_mangled_name, fn_name=exit_func, pid=-1) 
         except Exception as e:
             print(f"Failed to attach uprobes: {e}")
-
-    # n_open_probes = b.num_open_uprobes()
-    # print('n_open_probes:', n_open_probes)
     
     FUNCS_AND_HISTS = {}
-    PID_FUNC_HISTS = {} # record latencies for each process
 
     def handle_event(cpu, data, size):
         event = ctypes.cast(data, ctypes.POINTER(Data)).contents
@@ -147,14 +137,7 @@ def latency_hist(args):
             else: # nanoseconds 
                 FUNCS_AND_HISTS[event.func_id] = HdrHistogram(1, 60 * 60 * 1000 * 1000 * 1000, 3)
         FUNCS_AND_HISTS[event.func_id].record_value(event.latency)
-
-        k = (event.pid, event.func_id)
-        if k not in PID_FUNC_HISTS:
-            if args.microseconds:
-                PID_FUNC_HISTS[k] = HdrHistogram(1, 60 * 60 * 1000 * 1000, 3)
-            else: # nanoseconds 
-                PID_FUNC_HISTS[k] = HdrHistogram(1, 60 * 60 * 1000 * 1000 * 1000, 3)
-        PID_FUNC_HISTS[k].record_value(event.latency)
+    
     b["latencies"].open_perf_buffer(handle_event)
 
     cmd = [
@@ -163,7 +146,6 @@ def latency_hist(args):
         "RUST_LOG=error", args.binary, 
         "-c", args.config
     ]
-    
     p2 = subprocess.Popen(cmd)
 
     try:
@@ -174,14 +156,7 @@ def latency_hist(args):
     except KeyboardInterrupt:
         p2.kill()
 
-    # dist = b.get_table("dist")
-    # print("Latency Histogram:")
-    # dist.print_log2_hist(unit)
     dump_stats(args.app, unit, FUNCS_AND_HISTS, FUNC_ID_MAPPINGS)
-    dump_pid_stats(args.app, unit, PID_FUNC_HISTS, FUNC_ID_MAPPINGS)
-    
-    # if args.plot:
-    #     plot_latency_hist(args.app, unit, FUNCS_AND_HISTS, FUNC_ID_MAPPINGS)
 
 def dump_stats(app, unit, funcs_and_hists, func_id_mappings):
     STATS = ["func", "unit", "cnt", "avg", "min", "p05", "p25", "p50", "p75", "p95", "p99", "p999", "max", "std"]
@@ -189,7 +164,6 @@ def dump_stats(app, unit, funcs_and_hists, func_id_mappings):
     dir = "./tests/perf/stats"
     os.makedirs(dir, exist_ok=True)
 
-    # print("dump_stats app:", app)
     csv_path = os.path.join(dir, f"{app}_latency_hist.csv")
     with open(csv_path, mode='w', newline='') as f:
         writer = csv.writer(f)
@@ -199,37 +173,6 @@ def dump_stats(app, unit, funcs_and_hists, func_id_mappings):
             func_name = func_id_mappings[func_id]
             row = [
                 func_name,
-                unit,
-                hist.get_total_count(),
-                f"{hist.get_mean_value():.3f}",
-                hist.get_min_value(),
-                hist.get_value_at_percentile(5),
-                hist.get_value_at_percentile(25),
-                hist.get_value_at_percentile(50),
-                hist.get_value_at_percentile(75),
-                hist.get_value_at_percentile(95),
-                hist.get_value_at_percentile(99),
-                hist.get_value_at_percentile(99.9),
-                hist.get_max_value(),
-                f"{hist.get_stddev():.3f}"
-            ]
-
-            writer.writerow(row)
-
-def dump_pid_stats(app, unit, pid_func_hists, func_id_mappings):
-    dir = f"./tests/perf/stats"
-    os.makedirs(dir, exist_ok=True)
-    csv_path = os.path.join(dir, f"{app}_latency_per_pid.csv")
-
-    with open(csv_path, mode='w', newline='') as f:
-        writer = csv.writer(f)
-        headers = ['func', 'pid', 'unit', 'cnt', 'avg', 'min', 'p05', 'p25', 'p50', 'p75', 'p95', 'p99', 'p999', 'max', 'std']
-        writer.writerow(headers)
-
-        for (pid, func_id), hist in pid_func_hists.items():
-            row = [
-                func_id_mappings[func_id],
-                pid,
                 unit,
                 hist.get_total_count(),
                 f"{hist.get_mean_value():.3f}",
