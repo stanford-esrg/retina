@@ -3,7 +3,7 @@ import ipaddress
 import tomli_w
 
 class SubscriptionSpec:
-    def __init__(self, addr): # TODO: enable passing in filter, datatypes, callback to make more flexible 
+    def __init__(self, addr):
         self.filter = f"ipv4.addr = {addr}"
         self.datatypes = ["ConnRecord"]
         self.callback = "ip_cb"
