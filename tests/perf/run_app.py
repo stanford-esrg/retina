@@ -59,9 +59,11 @@ def run_app(args):
         print("Reading ip_subs_latency_hist.csv...")
         df = pd.read_csv(f"{PERF_STATS_DIR}/ip_subs_latency_hist.csv")
         results = [df.loc[0, stat] for stat in STATS]
-
+        
+        print(f"Writing stats for {n} subscriptions to ip_subs_latency_stats.csv...")
         write_stats(STATS_CSV_PATH, "ip_subs", args.function, "nsecs", n, results)
     
+    print("Creating plots...")
     create_plots(STATS_CSV_PATH, "ip_subs", args.function, "nsecs")
 
 def next_pow_of_2(n):
@@ -101,8 +103,9 @@ def create_plots(path, app, func, unit):
 
     x_vals = df['num_subs'].to_list()
 
-    # plot num subs vs. latency for each stat of interest
     for stat in STATS:
+        if stat == 'cnt':
+            continue
         y_vals = df[stat].to_list()
         plt.plot(x_vals, y_vals, label=stat)
         plt.xlabel('number of subscriptions')

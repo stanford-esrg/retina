@@ -4,13 +4,16 @@ import sys
 import os
 from bcc import BPF
 from hdrh.histogram import HdrHistogram
-# import matplotlib
-# matplotlib.use('Agg')
-# import matplotlib.pyplot as plt
 import ctypes
 import csv
 
+CWD = os.getcwd()
 LD_LIB_PATH = os.environ.get("LD_LIBRARY_PATH")
+
+PERF_DIR = f"{CWD}/tests/perf"
+PERF_STATS_DIR = f"{PERF_DIR}/stats"
+
+STATS = ["func", "unit", "cnt", "avg", "min", "p05", "p25", "p50", "p75", "p95", "p99", "p999", "max", "std"]
 
 class Data(ctypes.Structure):
     _fields_ = [
@@ -19,7 +22,7 @@ class Data(ctypes.Structure):
         ("latency", ctypes.c_ulonglong),
     ]
 
-def latency_hist(args):
+def profile_latency(args):
     setup_code = """
     #include <uapi/linux/ptrace.h>
 
@@ -86,7 +89,7 @@ def latency_hist(args):
     """
     probing_code = ""
     FUNC_ID_MAPPINGS = {}
-    for i, func in enumerate(args.functions):
+    for i, func in enumerate(args.function):
         func_id = i + 1
         FUNC_ID_MAPPINGS[func_id] = func
         probing_code += entry_exit_code.format(id=func_id)
@@ -100,7 +103,7 @@ def latency_hist(args):
         unit = "nsecs" 
     
     funcs = []
-    for func in args.functions:
+    for func in args.function:
         get_mangled_name_cmd = f"nm {args.binary} | grep {func} | awk '{{print $3}}'"
         p1 = subprocess.run(get_mangled_name_cmd, shell=True, capture_output=True, text=True)
         mangled_name = p1.stdout.strip()
@@ -111,7 +114,6 @@ def latency_hist(args):
 
         funcs.append(mangled_name)
 
-    # no functions to profile 
     if not funcs: 
         return
 
@@ -159,12 +161,9 @@ def latency_hist(args):
     dump_stats(args.app, unit, FUNCS_AND_HISTS, FUNC_ID_MAPPINGS)
 
 def dump_stats(app, unit, funcs_and_hists, func_id_mappings):
-    STATS = ["func", "unit", "cnt", "avg", "min", "p05", "p25", "p50", "p75", "p95", "p99", "p999", "max", "std"]
+    os.makedirs(PERF_STATS_DIR, exist_ok=True)
+    csv_path = os.path.join(PERF_STATS_DIR, f"{app}_latency_hist.csv")
 
-    dir = "./tests/perf/stats"
-    os.makedirs(dir, exist_ok=True)
-
-    csv_path = os.path.join(dir, f"{app}_latency_hist.csv")
     with open(csv_path, mode='w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(STATS)
@@ -190,29 +189,6 @@ def dump_stats(app, unit, funcs_and_hists, func_id_mappings):
 
             writer.writerow(row)
 
-def plot_latency_hist(app, unit, funcs_and_hists, func_id_mappings):
-    dir = "./tests/perf/figs"
-    os.makedirs(dir, exist_ok=True)
-
-    for func_id, hist in funcs_and_hists.items():
-        func_name = func_id_mappings[func_id]
-        latencies = raw_latencies(hist)
-
-        plt.hist(latencies)
-        plt.grid(True, ls="--")
-        plt.xlabel(f'latency ({unit})')
-        plt.ylabel('count')
-        plt.title(f'Latency Distribution for {func_name}() for app {app}')
-
-        plt.savefig(os.path.join(dir, f"{app}_{func_name}_latency.png"), dpi=300, bbox_inches='tight')
-        plt.clf()
-
-def raw_latencies(hist):
-    latencies = []
-    for item in hist.get_recorded_iterator():
-        latencies.extend([item.value_iterated_to] * item.count_added_in_this_iter_step)
-    return latencies
-
 def comma_sep_list(value):
     return value.split(',')
 
@@ -221,9 +197,8 @@ if __name__ == "__main__":
     parser.add_argument("app")
     parser.add_argument("-b", "--binary")
     parser.add_argument("-c", "--config")
-    parser.add_argument("-f", "--functions", type=comma_sep_list)
+    parser.add_argument("-f", "--function", type=comma_sep_list)
     parser.add_argument("-u", "--microseconds", action="store_true")
-    # parser.add_argument("-p", "--plot", action="store_true")
     args = parser.parse_args()
             
-    latency_hist(args)
+    profile_latency(args)
