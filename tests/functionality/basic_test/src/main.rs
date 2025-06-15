@@ -1,13 +1,13 @@
-use retina_core::{config::default_config, Runtime, FiveTuple};
-use retina_datatypes::{TlsHandshake, ByteCount};
-use retina_filtergen::{filter, retina_main};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
 use clap::Parser;
 use lazy_static::lazy_static;
+use retina_core::{FiveTuple, Runtime, config::default_config};
+use retina_datatypes::{ByteCount, TlsHandshake};
+use retina_filtergen::{filter, retina_main};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 // Count how many times the TLS callback is invoked
 static TLS_CB_COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -68,4 +68,4 @@ fn main() {
         file.write_all(json.as_bytes()).unwrap();
     }
     println!("TLS Callback Count: {:?}", TLS_CB_COUNT);
-}   
+}
