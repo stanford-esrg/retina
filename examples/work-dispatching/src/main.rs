@@ -1,0 +1,316 @@
+use retina_core::{config::default_config, config::load_config, Runtime, CoreId};
+use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
+use retina_filtergen::{filter, retina_main};
+use retina_multicore::{ChannelDispatcher, ChannelMode};
+use std::sync::{OnceLock, Arc};
+
+static TLS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
+static DNS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
+
+#[derive(Clone)]
+enum Event {
+    Tls((TlsHandshake, ConnRecord)),
+    Dns((DnsTransaction, ConnRecord)),
+}
+
+// =============================================================================
+// CONFIGURATION 1: Per-Core Channels + Dedicated Workers
+// =============================================================================
+
+/*
+use retina_multicore::DedicatedWorkerThreadSpawner;
+
+#[filter("tls")]
+fn tls_cb(tls: &TlsHandshake, conn_record: &ConnRecord, rx_core: &CoreId) {
+    if let Some(dispatcher) = TLS_DISPATCHER.get() {
+        dispatcher.dispatch(
+            Event::Tls((tls.clone(), conn_record.clone())),
+            Some(rx_core), // Per-Core: use rx_core for routing
+        );
+    }
+}
+
+#[filter("dns")]
+fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord, rx_core: &CoreId) {
+    if let Some(dispatcher) = DNS_DISPATCHER.get() {
+        dispatcher.dispatch(
+            Event::Dns((dns.clone(), conn_record.clone())),
+            Some(rx_core), // Per-Core: use rx_core for routing
+        );
+    }
+}
+
+#[retina_main(2)]
+fn main() {
+    let config = load_config("./configs/offline.toml");
+    let rx_cores = config.get_all_rx_core_ids();
+
+    // Per-Core channels
+    let tls_dispatcher = Arc::new(ChannelDispatcher::new(
+        ChannelMode::PerCore(rx_cores.clone()),
+        1024,
+    ));
+   
+    let dns_dispatcher = Arc::new(ChannelDispatcher::new(
+        ChannelMode::PerCore(rx_cores.clone()),
+        512,
+    ));
+
+    let _ = TLS_DISPATCHER.set(tls_dispatcher.clone());
+    let _ = DNS_DISPATCHER.set(dns_dispatcher.clone());
+
+    // Dedicated workers for TLS
+    DedicatedWorkerThreadSpawner::new()
+        .set_cores(vec![1, 2])
+        .set_dispatcher(tls_dispatcher)
+        .set(|event: Event| {
+            if let Event::Tls((tls, conn_record)) = event {
+                println!("TLS SNI: {}, conn. metrics: {:?}", tls.sni(), conn_record);
+            }
+        })
+        .run();
+
+    // Dedicated workers for DNS
+    DedicatedWorkerThreadSpawner::new()
+        .set_cores(vec![3])
+        .set_dispatcher(dns_dispatcher)
+        .set(|event: Event| {
+            if let Event::Dns((dns, conn_record)) = event {
+                println!(
+                    "DNS query domain: {}, conn. metrics: {:?}",
+                    dns.query_domain(),
+                    conn_record
+                );
+            }
+        })
+        .run();
+
+    let config = default_config();
+    let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
+    runtime.run();
+}
+*/
+
+// =============================================================================
+// CONFIGURATION 2: Per-Core Channels + Shared Workers
+// =============================================================================
+
+/*
+use retina_multicore::SharedWorkerThreadSpawner;
+
+#[filter("tls")]
+fn tls_cb(tls: &TlsHandshake, conn_record: &ConnRecord, rx_core: &CoreId) {
+    if let Some(dispatcher) = TLS_DISPATCHER.get() {
+        dispatcher.dispatch(
+            Event::Tls((tls.clone(), conn_record.clone())),
+            Some(rx_core), // Per-Core: use rx_core for routing
+        );
+    }
+}
+
+#[filter("dns")]
+fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord, rx_core: &CoreId) {
+    if let Some(dispatcher) = DNS_DISPATCHER.get() {
+        dispatcher.dispatch(
+            Event::Dns((dns.clone(), conn_record.clone())),
+            Some(rx_core), // Per-Core: use rx_core for routing
+        );
+    }
+}
+
+#[retina_main(2)]
+fn main() {
+    let config = load_config("./configs/offline.toml");
+    let rx_cores = config.get_all_rx_core_ids();
+
+    // Per-Core channels
+    let tls_dispatcher = Arc::new(ChannelDispatcher::new(
+        ChannelMode::PerCore(rx_cores.clone()),
+        1024,
+    ));
+   
+    let dns_dispatcher = Arc::new(ChannelDispatcher::new(
+        ChannelMode::PerCore(rx_cores.clone()),
+        512,
+    ));
+
+    let _ = TLS_DISPATCHER.set(tls_dispatcher.clone());
+    let _ = DNS_DISPATCHER.set(dns_dispatcher.clone());
+
+    // Shared workers handling both event types
+    SharedWorkerThreadSpawner::new()
+        .set_cores(vec![1, 2, 3])
+        .add_dispatcher(
+            tls_dispatcher,
+            |event: Event| {
+                if let Event::Tls((tls, conn_record)) = event {
+                    println!("TLS SNI: {}, metrics: {:?}", tls.sni(), conn_record);
+                }
+            },
+        )
+        .add_dispatcher(
+            dns_dispatcher,
+            |event: Event| {
+                if let Event::Dns((dns, conn_record)) = event {
+                    println!("DNS query domain: {}, metrics: {:?}", dns.query_domain(), conn_record);
+                }
+            },
+        )
+        .run();
+
+    let config = default_config();
+    let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
+    runtime.run();
+}
+*/
+
+// =============================================================================
+// CONFIGURATION 3: Shared Channels + Dedicated Workers
+// =============================================================================
+
+/*
+use retina_multicore::DedicatedWorkerThreadSpawner;
+
+#[filter("tls")]
+fn tls_cb(tls: &TlsHandshake, conn_record: &ConnRecord, _rx_core: &CoreId) {
+    if let Some(dispatcher) = TLS_DISPATCHER.get() {
+        dispatcher.dispatch(
+            Event::Tls((tls.clone(), conn_record.clone())),
+            None, // Shared: no core-specific routing
+        );
+    }
+}
+
+#[filter("dns")]
+fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord, _rx_core: &CoreId) {
+    if let Some(dispatcher) = DNS_DISPATCHER.get() {
+        dispatcher.dispatch(
+            Event::Dns((dns.clone(), conn_record.clone())),
+            None, // Shared: no core-specific routing
+        );
+    }
+}
+
+#[retina_main(2)]
+fn main() {
+    let config = load_config("./configs/offline.toml");
+    let rx_cores = config.get_all_rx_core_ids();
+
+    // Shared channels
+    let tls_dispatcher = Arc::new(ChannelDispatcher::new(
+        ChannelMode::Shared,
+        1024,
+    ));
+   
+    let dns_dispatcher = Arc::new(ChannelDispatcher::new(
+        ChannelMode::Shared,
+        512,
+    ));
+
+    let _ = TLS_DISPATCHER.set(tls_dispatcher.clone());
+    let _ = DNS_DISPATCHER.set(dns_dispatcher.clone());
+
+    // Dedicated workers for TLS
+    DedicatedWorkerThreadSpawner::new()
+        .set_cores(vec![1, 2])
+        .set_dispatcher(tls_dispatcher)
+        .set(|event: Event| {
+            if let Event::Tls((tls, conn_record)) = event {
+                println!("TLS SNI: {}, conn. metrics: {:?}", tls.sni(), conn_record);
+            }
+        })
+        .run();
+
+    // Dedicated workers for DNS
+    DedicatedWorkerThreadSpawner::new()
+        .set_cores(vec![3])
+        .set_dispatcher(dns_dispatcher)
+        .set(|event: Event| {
+            if let Event::Dns((dns, conn_record)) = event {
+                println!(
+                    "DNS query domain: {}, conn. metrics: {:?}",
+                    dns.query_domain(),
+                    conn_record
+                );
+            }
+        })
+        .run();
+
+    let config = default_config();
+    let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
+    runtime.run();
+}
+
+*/
+
+// =============================================================================
+// CONFIGURATION 4: Shared Channels + Shared Workers
+// =============================================================================
+
+
+use retina_multicore::SharedWorkerThreadSpawner;
+
+#[filter("tls")]
+fn tls_cb(tls: &TlsHandshake, conn_record: &ConnRecord, _rx_core: &CoreId) {
+    if let Some(dispatcher) = TLS_DISPATCHER.get() {
+        dispatcher.dispatch(
+            Event::Tls((tls.clone(), conn_record.clone())),
+            None, // Shared: no core-specific routing
+        );
+    }
+}
+
+#[filter("dns")]
+fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord, _rx_core: &CoreId) {
+    if let Some(dispatcher) = DNS_DISPATCHER.get() {
+        dispatcher.dispatch(
+            Event::Dns((dns.clone(), conn_record.clone())),
+            None, // Shared: no core-specific routing
+        );
+    }
+}
+
+#[retina_main(2)]
+fn main() {
+    let config = load_config("./configs/offline.toml");
+    let rx_cores = config.get_all_rx_core_ids();
+
+    // Shared channels
+    let tls_dispatcher = Arc::new(ChannelDispatcher::new(
+        ChannelMode::Shared,
+        1024,
+    ));
+   
+    let dns_dispatcher = Arc::new(ChannelDispatcher::new(
+        ChannelMode::Shared,
+        512,
+    ));
+
+    let _ = TLS_DISPATCHER.set(tls_dispatcher.clone());
+    let _ = DNS_DISPATCHER.set(dns_dispatcher.clone());
+
+    // Shared workers handling both event types
+    SharedWorkerThreadSpawner::new()
+        .set_cores(vec![1, 2, 3])
+        .add_dispatcher(
+            tls_dispatcher,
+            |event: Event| {
+                if let Event::Tls((tls, conn_record)) = event {
+                    println!("TLS SNI: {}, metrics: {:?}", tls.sni(), conn_record);
+                }
+            },
+        )
+        .add_dispatcher(
+            dns_dispatcher,
+            |event: Event| {
+                if let Event::Dns((dns, conn_record)) = event {
+                    println!("DNS query domain: {}, metrics: {:?}", dns.query_domain(), conn_record);
+                }
+            },
+        )
+        .run();
+
+    let config = default_config();
+    let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
+    runtime.run();
+}

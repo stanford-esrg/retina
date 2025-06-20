@@ -1,0 +1,9 @@
+[package]
+name = "retina-multicore"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crossbeam = "0.8"
+retina-core = { path = "../core" } 
+nix = { version = "0.27", features = ["sched", "process"] } 
