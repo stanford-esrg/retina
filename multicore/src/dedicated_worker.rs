@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use std::thread;
-use crossbeam::channel::Select;
+use crossbeam::channel::{Select, Receiver};
 use crate::{ChannelDispatcher, pin_thread_to_core};
 
 pub struct DedicatedWorkerThreadSpawner<T, F> 
@@ -19,6 +19,12 @@ impl<T: Send + 'static> DedicatedWorkerThreadSpawner<T, fn(T)> {
             dispatcher: None,
             thread_fn: Some(|_t: T| {}),
         }
+    }
+}
+
+impl<T: Send + 'static> Default for DedicatedWorkerThreadSpawner<T, fn(T)> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -47,47 +53,53 @@ where
         }
     }
     
-    pub fn run(self) 
+    pub fn run(self)
     where
         F: 'static,
     {
-        let worker_cores = self.worker_cores.expect("Cores not set");
-        let dispatcher = self.dispatcher.expect("Dispatcher not set");
-        let thread_fn = self.thread_fn.expect("Thread function not set");
-
+        let worker_cores = self.worker_cores.expect("Cores must be set via set_cores()");
+        let dispatcher = self.dispatcher.expect("Dispatcher must be set via set_dispatcher()");
+        let thread_fn = self.thread_fn.expect("Thread function must be set via set()");
         let receivers = dispatcher.receivers();
 
         for core in worker_cores {
             let receivers_clone = receivers.clone();
             let thread_fn = thread_fn.clone();
-
+            
             thread::spawn(move || {
                 if let Err(e) = pin_thread_to_core(core) {
                     eprintln!("Failed to pin thread to core {}: {}", core, e);
                 }
-
+                
+                // Optimize for single receiver case
                 if receivers_clone.len() == 1 {
-                    let receiver = &receivers_clone[0];
-                    while let Ok(data) = receiver.recv() {
-                        thread_fn(data);
-                    }
+                    Self::handle_single_receiver(&receivers_clone[0], &thread_fn);
                 } else {
-                    let mut select = Select::new();
-                    for receiver in &receivers_clone {
-                        select.recv(receiver);
-                    }
-
-                    loop {
-                        let oper = select.select();
-                        let index = oper.index();
-
-                        match oper.recv(&receivers_clone[index]) {
-                            Ok(data) => thread_fn(data),
-                            Err(_) => break,
-                        }
-                    }
+                    Self::handle_multiple_receivers(&receivers_clone, &thread_fn);
                 }
             });
         }
     }
+
+    fn handle_single_receiver(receiver: &Arc<Receiver<T>>, thread_fn: &F) {
+        while let Ok(data) = receiver.recv() {
+            thread_fn(data);
+        }
+    }
+
+    fn handle_multiple_receivers(receivers: &[Arc<Receiver<T>>], thread_fn: &F) {
+        let mut select = Select::new();
+        for receiver in receivers {
+            select.recv(receiver);
+        }
+
+        loop {
+            let oper = select.select();
+            let index = oper.index();
+            match oper.recv(&receivers[index]) {
+                Ok(data) => thread_fn(data),
+                Err(_) => break,
+            }
+        }
+    }    
 }

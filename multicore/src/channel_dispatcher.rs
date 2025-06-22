@@ -1,7 +1,8 @@
 use retina_core::CoreId;
-use crossbeam::channel::{bounded, Receiver, Sender};
+use crossbeam::channel::{bounded, Receiver, Sender, TrySendError};
 use std::collections::HashMap;
 use std::sync::Arc;
+use thiserror::Error; 
 
 #[derive(Clone)]
 pub enum ChannelMode {
@@ -28,6 +29,7 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
 
     fn new_shared(channel_size: usize) -> Self {
         let (tx, rx) = bounded(channel_size);
+        
         Self {
             channels: Channels::Shared(tx, Arc::new(rx)),
         }
@@ -35,37 +37,32 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
 
     fn new_percore(rx_cores: &[CoreId], channel_size: usize) -> Self {
         let mut map = HashMap::with_capacity(rx_cores.len());
+        
         for &core in rx_cores {
             let (tx, rx) = bounded(channel_size);
             map.insert(core, (tx, Arc::new(rx)));
         }
+        
         Self {
             channels: Channels::PerCore(map),
         }
     }
 
-    pub fn dispatch(&self, data: T, core_id: Option<&CoreId>) {
+    // Dispatch data to appropriate channel based on mode and core_id 
+    pub fn dispatch(&self, data: T, core_id: Option<&CoreId>) -> Result<(), DispatchError<T>> {
         match &self.channels {
             Channels::PerCore(map) => {
-                if let Some(core) = core_id {
-                    if let Some((sender, _)) = map.get(core) {
-                        if let Err(e) = sender.try_send(data) {
-                            eprintln!("Failed to send data to core {}: {:?}", core, e);
-                        }
-                    } else {
-                        eprintln!("No sender found for core: {}", core);
-                    }
-                } else {
-                    eprintln!("Core ID required for PerCore dispatch but not provided.");
-                }
+                let core = core_id.ok_or(DispatchError::CoreIdRequired)?;
+                let (sender, _) = map.get(core).ok_or(DispatchError::CoreNotFound(*core))?;
+                sender.try_send(data).map_err(DispatchError::SendFailed)?;
             }
             Channels::Shared(sender, _) => {
-                if let Err(e) = sender.try_send(data) {
-                    eprintln!("Failed to send data on shared channel: {:?}", e);
-                }
+                sender.try_send(data).map_err(DispatchError::SendFailed)?;
             }
         }
+        Ok(())
     }
+
 
     pub fn receivers(&self) -> Vec<Arc<Receiver<T>>> {
         match &self.channels {
@@ -73,4 +70,16 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
             Channels::Shared(_, rx) => vec![Arc::clone(rx)],
         }
     }
+}
+
+#[derive(Debug, Error)]
+pub enum DispatchError<T> {
+    #[error("Core ID required for PerCore dispatch")]
+    CoreIdRequired,
+
+    #[error("No sender found for core: {0}")]
+    CoreNotFound(CoreId),
+
+    #[error("Failed to send data")]
+    SendFailed(#[from] TrySendError<T>),
 }

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use std::thread;
-use crossbeam::channel::Select;
+use crossbeam::channel::{Select, Receiver};
 use crate::{ChannelDispatcher, pin_thread_to_core};
 
 pub struct SharedWorkerThreadSpawner<T>
@@ -38,17 +38,23 @@ where
         self
     }
 
-    pub fn run(self) {
-        let worker_cores = self.worker_cores.expect("Cores not set");
-        let handlers = Arc::new(self.handlers); 
-
+    fn build_tagged_receivers(&self) -> Vec<(usize, Arc<Receiver<T>>)> {
         let mut tagged_receivers = Vec::new();
+       
         for (index, dispatcher) in self.dispatchers.iter().enumerate() {
             let receivers = dispatcher.receivers();
             for receiver in receivers {
                 tagged_receivers.push((index, receiver));
             }
         }
+        
+        tagged_receivers
+    }
+
+    pub fn run(self) {
+        let tagged_receivers = self.build_tagged_receivers();
+        let handlers = Arc::new(self.handlers);
+        let worker_cores = self.worker_cores.expect("Cores must be set via set_cores()");
 
         for core in worker_cores {
             let tagged_receivers_clone = tagged_receivers.clone();
@@ -59,26 +65,43 @@ where
                     eprintln!("Failed to pin thread to core {}: {}", core, e);
                 }
 
-                let mut select = Select::new();
-                for (_, receiver) in &tagged_receivers_clone {
-                    select.recv(receiver);
-                }
-
-                loop {
-                    let oper = select.select();
-                    let oper_index = oper.index();
-                    let (handler_index, receiver) = &tagged_receivers_clone[oper_index];
-                    let handler = &handlers_clone[*handler_index];
-
-                    match oper.recv(receiver) {
-                        Ok(data) => handler(data),
-                        Err(_) => {
-                            eprintln!("Receiver {} disconnected on core {}, exiting thread.", handler_index, core);
-                            break;
-                        }
-                    }
-                }
+                Self::run_worker_loop(tagged_receivers_clone, handlers_clone, core);
             });
         }
+    }
+
+    fn run_worker_loop(
+        tagged_receivers: Vec<(usize, Arc<Receiver<T>>)>,
+        handlers: Arc<Vec<Box<dyn Fn(T) + Send + Sync>>>,
+        core: usize,
+    ) {
+        let mut select = Select::new();
+        for (_, receiver) in &tagged_receivers {
+            select.recv(receiver);
+        }
+
+        loop {
+            let oper = select.select();
+            let oper_index = oper.index();
+            let (handler_index, receiver) = &tagged_receivers[oper_index];
+            let handler = &handlers[*handler_index];
+
+            match oper.recv(receiver) {
+                Ok(data) => handler(data),
+                Err(_) => {
+                    eprintln!("Receiver {} disconnected on core {}, exiting", handler_index, core);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+impl<T> Default for SharedWorkerThreadSpawner<T>
+where
+    T: Send + Clone + 'static,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }

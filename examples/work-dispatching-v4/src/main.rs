@@ -1,4 +1,4 @@
-use retina_core::{config::default_config, Runtime, CoreId};
+use retina_core::{config::default_config, Runtime};
 use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
 use retina_filtergen::{filter, retina_main};
 use retina_multicore::{ChannelDispatcher, ChannelMode, SharedWorkerThreadSpawner};
@@ -14,22 +14,26 @@ enum Event {
 }
 
 #[filter("tls")]
-fn tls_cb(tls: &TlsHandshake, conn_record: &ConnRecord, _rx_core: &CoreId) {
+fn tls_cb(tls: &TlsHandshake, conn_record: &ConnRecord) {
     if let Some(dispatcher) = TLS_DISPATCHER.get() {
-        dispatcher.dispatch(
+        if let Err(e) = dispatcher.dispatch(
             Event::Tls((tls.clone(), conn_record.clone())),
             None,
-        );
+        ) {
+            eprintln!("TLS dispatch error: {}", e);
+        }
     }
 }
 
 #[filter("dns")]
-fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord, _rx_core: &CoreId) {
+fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord) {
     if let Some(dispatcher) = DNS_DISPATCHER.get() {
-        dispatcher.dispatch(
+        if let Err(e) = dispatcher.dispatch(
             Event::Dns((dns.clone(), conn_record.clone())),
             None,
-        );
+        ) {
+            eprintln!("DNS dispatch error: {}", e);
+        }
     }
 }
 
@@ -45,8 +49,13 @@ fn main() {
         512,
     ));
 
-    let _ = TLS_DISPATCHER.set(tls_dispatcher.clone());
-    let _ = DNS_DISPATCHER.set(dns_dispatcher.clone());
+    TLS_DISPATCHER.set(tls_dispatcher.clone())
+        .map_err(|_| "Failed to set TLS dispatcher")
+        .unwrap();
+    DNS_DISPATCHER.set(dns_dispatcher.clone())
+        .map_err(|_| "Failed to set DNS dispatcher")
+        .unwrap();
+
 
     SharedWorkerThreadSpawner::new()
         .set_cores(vec![1, 2, 3])
