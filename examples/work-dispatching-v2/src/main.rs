@@ -1,4 +1,4 @@
-use retina_core::{config::load_config, Runtime, CoreId};
+use retina_core::{config::default_config, Runtime, CoreId};
 use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
 use retina_filtergen::{filter, retina_main};
 use retina_multicore::{ChannelDispatcher, ChannelMode, SharedWorkerThreadSpawner};
@@ -39,7 +39,7 @@ fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord, rx_core: &CoreId) {
 
 #[retina_main(2)]
 fn main() {
-    let config = load_config("./configs/offline.toml");
+    let config = default_config();
     let rx_cores = config.get_all_rx_core_ids();
 
     let tls_dispatcher = Arc::new(ChannelDispatcher::new(
@@ -52,7 +52,7 @@ fn main() {
         512,
     ));
 
-   TLS_DISPATCHER.set(tls_dispatcher.clone())
+    TLS_DISPATCHER.set(tls_dispatcher.clone())
         .map_err(|_| "Failed to set TLS dispatcher")
         .unwrap();
     DNS_DISPATCHER.set(dns_dispatcher.clone())
