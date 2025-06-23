@@ -5,7 +5,7 @@ use crate::{ChannelDispatcher, pin_thread_to_core};
 
 pub struct DedicatedWorkerThreadSpawner<T, F> 
 where
-    F: Fn(T) + Send + Sync + Clone + 'static,
+    F: Fn(T) + Send + Sync + 'static,
 {
     worker_cores: Option<Vec<usize>>,
     dispatcher: Option<Arc<ChannelDispatcher<T>>>,
@@ -59,12 +59,14 @@ where
     {
         let worker_cores = self.worker_cores.expect("Cores must be set via set_cores()");
         let dispatcher = self.dispatcher.expect("Dispatcher must be set via set_dispatcher()");
-        let thread_fn = self.thread_fn.expect("Thread function must be set via set()");
-        let receivers = dispatcher.receivers();
+        let thread_fn = Arc::new(self.thread_fn.expect("Thread function must be set via set()"));
+        let receivers = Arc::new(dispatcher.receivers());
+
+        let single_receiver = receivers.len() == 1; 
 
         for core in worker_cores {
-            let receivers_clone = receivers.clone();
-            let thread_fn = thread_fn.clone();
+            let receivers_ref = Arc::clone(&receivers);
+            let thread_fn_ref = Arc::clone(&thread_fn);
             
             thread::spawn(move || {
                 if let Err(e) = pin_thread_to_core(core) {
@@ -72,10 +74,10 @@ where
                 }
                 
                 // Optimize for single receiver case
-                if receivers_clone.len() == 1 {
-                    Self::handle_single_receiver(&receivers_clone[0], &thread_fn);
+                if single_receiver {
+                    Self::handle_single_receiver(&receivers_ref[0], &thread_fn_ref);
                 } else {
-                    Self::handle_multiple_receivers(&receivers_clone, &thread_fn);
+                    Self::handle_multiple_receivers(&receivers_clone_ref, &thread_fn_ref);
                 }
             });
         }

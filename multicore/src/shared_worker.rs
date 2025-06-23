@@ -5,7 +5,7 @@ use crate::{ChannelDispatcher, pin_thread_to_core};
 
 pub struct SharedWorkerThreadSpawner<T>
 where
-    T: Send + Clone + 'static,
+    T: Send + 'static,
 {
     worker_cores: Option<Vec<usize>>,
     dispatchers: Vec<Arc<ChannelDispatcher<T>>>,
@@ -52,20 +52,20 @@ where
     }
 
     pub fn run(self) {
-        let tagged_receivers = self.build_tagged_receivers();
+        let tagged_receivers = Arc::new(self.build_tagged_receivers());
         let handlers = Arc::new(self.handlers);
         let worker_cores = self.worker_cores.expect("Cores must be set via set_cores()");
 
         for core in worker_cores {
-            let tagged_receivers_clone = tagged_receivers.clone();
-            let handlers_clone = Arc::clone(&handlers);
+            let tagged_receivers_ref = Arc::clone(&tagged_receivers);
+            let handlers_ref = Arc::clone(&handlers);
 
             thread::spawn(move || {
                 if let Err(e) = pin_thread_to_core(core) {
                     eprintln!("Failed to pin thread to core {}: {}", core, e);
                 }
 
-                Self::run_worker_loop(tagged_receivers_clone, handlers_clone, core);
+                Self::run_worker_loop(tagged_receivers_ref, handlers_ref, core);
             });
         }
     }
