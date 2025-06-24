@@ -1,4 +1,4 @@
-use retina_core::{config::default_config, Runtime};
+use retina_core::{config::default_config, Runtime, CoreId};
 use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
 use retina_filtergen::{filter, retina_main};
 use retina_multicore::{ChannelDispatcher, ChannelMode, DedicatedWorkerThreadSpawner};
@@ -58,7 +58,7 @@ fn main() {
 
 
     DedicatedWorkerThreadSpawner::new()
-        .set_cores(vec![1, 2])
+        .set_cores(vec![CoreId(1), CoreId(2)])
         .set_dispatcher(tls_dispatcher)
         .set(|event: Event| {
             if let Event::Tls((tls, conn_record)) = event {
@@ -68,7 +68,7 @@ fn main() {
         .run();
 
     DedicatedWorkerThreadSpawner::new()
-        .set_cores(vec![3])
+        .set_cores(vec![CoreId(3)])
         .set_dispatcher(dns_dispatcher)
         .set(|event: Event| {
             if let Event::Dns((dns, conn_record)) = event {

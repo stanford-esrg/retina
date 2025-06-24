@@ -60,7 +60,7 @@ fn main() {
         .unwrap();
 
     SharedWorkerThreadSpawner::new()
-        .set_cores(vec![1, 2, 3])
+        .set_cores(vec![CoreId(1), CoreId(2), CoreId(3)])
         .add_dispatcher(
             tls_dispatcher,
             |event: Event| {

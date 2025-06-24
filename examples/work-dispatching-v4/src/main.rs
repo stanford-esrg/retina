@@ -1,4 +1,4 @@
-use retina_core::{config::default_config, Runtime};
+use retina_core::{config::default_config, Runtime, CoreId};
 use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
 use retina_filtergen::{filter, retina_main};
 use retina_multicore::{ChannelDispatcher, ChannelMode, SharedWorkerThreadSpawner};
@@ -58,7 +58,7 @@ fn main() {
 
 
     SharedWorkerThreadSpawner::new()
-        .set_cores(vec![1, 2, 3])
+        .set_cores(vec![CoreId(1), CoreId(2), CoreId(3)])
         .add_dispatcher(
             tls_dispatcher,
             |event: Event| {

@@ -60,7 +60,7 @@ fn main() {
         .unwrap();
 
     DedicatedWorkerThreadSpawner::new()
-        .set_cores(vec![1, 2])
+        .set_cores(vec![CoreId(1), CoreId(2)])
         .set_dispatcher(tls_dispatcher)
         .set(|event: Event| {
             if let Event::Tls((tls, conn_record)) = event {
@@ -70,7 +70,7 @@ fn main() {
         .run();
 
     DedicatedWorkerThreadSpawner::new()
-        .set_cores(vec![3])
+        .set_cores(vec![CoreId(3)])
         .set_dispatcher(dns_dispatcher)
         .set(|event: Event| {
             if let Event::Dns((dns, conn_record)) = event {

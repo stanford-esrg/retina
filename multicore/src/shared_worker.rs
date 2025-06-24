@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use std::thread;
+use retina_core::CoreId; 
 use crossbeam::channel::{Select, Receiver};
 use crate::{ChannelDispatcher, pin_thread_to_core};
 
@@ -7,7 +8,7 @@ pub struct SharedWorkerThreadSpawner<T>
 where
     T: Send + 'static,
 {
-    worker_cores: Option<Vec<usize>>,
+    worker_cores: Option<Vec<CoreId>>,
     dispatchers: Vec<Arc<ChannelDispatcher<T>>>,
     handlers: Vec<Box<dyn Fn(T) + Send + Sync>>,
 }
@@ -24,7 +25,7 @@ where
         }
     }
 
-    pub fn set_cores(mut self, cores: Vec<usize>) -> Self {
+    pub fn set_cores(mut self, cores: Vec<CoreId>) -> Self {
         self.worker_cores = Some(cores);
         self
     }
@@ -61,7 +62,7 @@ where
             let handlers_ref = Arc::clone(&handlers);
 
             thread::spawn(move || {
-                if let Err(e) = pin_thread_to_core(core) {
+                if let Err(e) = pin_thread_to_core(core.raw()) {
                     eprintln!("Failed to pin thread to core {}: {}", core, e);
                 }
 
@@ -71,12 +72,12 @@ where
     }
 
     fn run_worker_loop(
-        tagged_receivers: Vec<(usize, Arc<Receiver<T>>)>,
+        tagged_receivers: Arc<Vec<(usize, Arc<Receiver<T>>)>>,
         handlers: Arc<Vec<Box<dyn Fn(T) + Send + Sync>>>,
-        core: usize,
+        core: CoreId,
     ) {
         let mut select = Select::new();
-        for (_, receiver) in &tagged_receivers {
+        for (_, receiver) in tagged_receivers.iter() {
             select.recv(receiver);
         }
 
@@ -89,7 +90,7 @@ where
             match oper.recv(receiver) {
                 Ok(data) => handler(data),
                 Err(_) => {
-                    eprintln!("Receiver {} disconnected on core {}, exiting", handler_index, core);
+                    eprintln!("Receiver {} disconnected on core {:?}, exiting", handler_index, core);
                     break;
                 }
             }

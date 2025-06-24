@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use std::thread;
+use retina_core::CoreId; 
 use crossbeam::channel::{Select, Receiver};
 use crate::{ChannelDispatcher, pin_thread_to_core};
 
@@ -7,7 +8,7 @@ pub struct DedicatedWorkerThreadSpawner<T, F>
 where
     F: Fn(T) + Send + Sync + 'static,
 {
-    worker_cores: Option<Vec<usize>>,
+    worker_cores: Option<Vec<CoreId>>,
     dispatcher: Option<Arc<ChannelDispatcher<T>>>,
     thread_fn: Option<F>,
 }
@@ -32,7 +33,7 @@ impl<T: Send + 'static, F> DedicatedWorkerThreadSpawner<T, F>
 where
     F: Fn(T) + Send + Sync + Clone + 'static,
 {
-    pub fn set_cores(mut self, cores: Vec<usize>) -> Self {
+    pub fn set_cores(mut self, cores: Vec<CoreId>) -> Self {
         self.worker_cores = Some(cores);
         self
     }
@@ -69,15 +70,15 @@ where
             let thread_fn_ref = Arc::clone(&thread_fn);
             
             thread::spawn(move || {
-                if let Err(e) = pin_thread_to_core(core) {
-                    eprintln!("Failed to pin thread to core {}: {}", core, e);
+                if let Err(e) = pin_thread_to_core(core.raw()) {
+                    eprintln!("Failed to pin thread to core {:?}: {}", core, e);
                 }
                 
                 // Optimize for single receiver case
                 if single_receiver {
                     Self::handle_single_receiver(&receivers_ref[0], &thread_fn_ref);
                 } else {
-                    Self::handle_multiple_receivers(&receivers_clone_ref, &thread_fn_ref);
+                    Self::handle_multiple_receivers(&receivers_ref, &thread_fn_ref);
                 }
             });
         }
