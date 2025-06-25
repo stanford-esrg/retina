@@ -61,7 +61,7 @@ fn main() {
 
     DedicatedWorkerThreadSpawner::new()
         .set_cores(vec![CoreId(1), CoreId(2)])
-        .set_dispatcher(tls_dispatcher)
+        .set_dispatcher(tls_dispatcher.clone())
         .set(|event: Event| {
             if let Event::Tls((tls, conn_record)) = event {
                 println!("TLS SNI: {}, conn. metrics: {:?}", tls.sni(), conn_record);
@@ -71,7 +71,7 @@ fn main() {
 
     DedicatedWorkerThreadSpawner::new()
         .set_cores(vec![CoreId(3)])
-        .set_dispatcher(dns_dispatcher)
+        .set_dispatcher(dns_dispatcher.clone())
         .set(|event: Event| {
             if let Event::Dns((dns, conn_record)) = event {
                 println!(
@@ -85,4 +85,13 @@ fn main() {
     
     let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
     runtime.run();
+
+    tls_dispatcher.stats().waiting_completion(tls_dispatcher.receivers()); 
+    dns_dispatcher.stats().waiting_completion(dns_dispatcher.receivers()); 
+
+    println!("=== TLS Stats ==="); 
+    tls_dispatcher.stats().print();
+
+    println!("=== DNS Stats ===");
+    dns_dispatcher.stats().print();
 }

@@ -1,8 +1,9 @@
 use retina_core::CoreId;
 use crossbeam::channel::{bounded, Receiver, Sender, TrySendError};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, atomic::Ordering};
 use thiserror::Error; 
+use crate::{SubscriptionStats};
 
 #[derive(Clone)]
 pub enum ChannelMode {
@@ -17,6 +18,7 @@ pub enum Channels<T> {
 
 pub struct ChannelDispatcher<T> {
     channels: Channels<T>,
+    stats: SubscriptionStats, 
 }
 
 impl<T: Send + 'static> ChannelDispatcher<T> {
@@ -32,6 +34,7 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
         
         Self {
             channels: Channels::Shared(tx, Arc::new(rx)),
+            stats: SubscriptionStats::new(), 
         }
     }
 
@@ -45,22 +48,33 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
         
         Self {
             channels: Channels::PerCore(map),
+            stats: SubscriptionStats::new(), 
         }
     }
 
     // Dispatch data to appropriate channel based on mode and core_id 
     pub fn dispatch(&self, data: T, core_id: Option<&CoreId>) -> Result<(), DispatchError<T>> {
-        match &self.channels {
+        let result = match &self.channels {
             Channels::PerCore(map) => {
                 let core = core_id.ok_or(DispatchError::CoreIdRequired)?;
                 let (sender, _) = map.get(core).ok_or(DispatchError::CoreNotFound(*core))?;
-                sender.try_send(data).map_err(DispatchError::SendFailed)?;
+                sender.try_send(data)
             }
             Channels::Shared(sender, _) => {
-                sender.try_send(data).map_err(DispatchError::SendFailed)?;
+                sender.try_send(data)
+            }
+        };
+
+        match result {
+            Ok(()) => {
+                self.stats.dispatched.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            }
+            Err(e) => {
+                self.stats.dropped.fetch_add(1, Ordering::Relaxed);
+                Err(DispatchError::SendFailed(e))
             }
         }
-        Ok(())
     }
 
 
@@ -69,6 +83,10 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
             Channels::PerCore(map) => map.values().map(|(_, rx)| Arc::clone(rx)).collect(),
             Channels::Shared(_, rx) => vec![Arc::clone(rx)],
         }
+    }
+
+    pub fn stats(&self) -> &SubscriptionStats {
+        return &self.stats; 
     }
 }
 
