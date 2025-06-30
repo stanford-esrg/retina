@@ -1,8 +1,8 @@
 use std::sync::{Arc, atomic::Ordering};
-use std::thread;
-use retina_core::CoreId; 
+use std::thread; 
 use crossbeam::channel::{Select, Receiver};
-use crate::{ChannelDispatcher, pin_thread_to_core};
+use crate::{CoreId};
+use super::{ChannelDispatcher, pin_thread_to_core};
 
 pub struct SharedWorkerThreadSpawner<T>
 where

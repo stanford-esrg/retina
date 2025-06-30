@@ -1,7 +1,7 @@
 use retina_core::{config::default_config, Runtime, CoreId};
+use retina_core::multicore::{ChannelDispatcher, ChannelMode, DedicatedWorkerThreadSpawner}; 
 use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
 use retina_filtergen::{filter, retina_main};
-use retina_multicore::{ChannelDispatcher, ChannelMode, DedicatedWorkerThreadSpawner};
 use std::sync::{OnceLock, Arc};
 
 static TLS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();

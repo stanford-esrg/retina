@@ -1,9 +1,9 @@
-use retina_core::CoreId;
 use crossbeam::channel::{bounded, Receiver, Sender, TrySendError};
 use std::collections::HashMap;
 use std::sync::{Arc, atomic::Ordering};
 use thiserror::Error; 
-use crate::{SubscriptionStats};
+use crate::{CoreId};
+use super::{SubscriptionStats};
 
 #[derive(Clone)]
 pub enum ChannelMode {
