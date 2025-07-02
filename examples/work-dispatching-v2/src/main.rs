@@ -1,8 +1,8 @@
-use retina_core::{config::default_config, Runtime, CoreId};
 use retina_core::multicore::{ChannelDispatcher, ChannelMode, SharedWorkerThreadSpawner};
+use retina_core::{config::default_config, CoreId, Runtime};
 use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
 use retina_filtergen::{filter, retina_main};
-use std::sync::{OnceLock, Arc};
+use std::sync::{Arc, OnceLock};
 
 static TLS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
 static DNS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
@@ -46,44 +46,48 @@ fn main() {
         ChannelMode::PerCore(rx_cores.clone()),
         1024,
     ));
-   
+
     let dns_dispatcher = Arc::new(ChannelDispatcher::new(
         ChannelMode::PerCore(rx_cores.clone()),
         512,
     ));
 
-    TLS_DISPATCHER.set(tls_dispatcher.clone())
+    TLS_DISPATCHER
+        .set(tls_dispatcher.clone())
         .map_err(|_| "Failed to set TLS dispatcher")
         .unwrap();
-    DNS_DISPATCHER.set(dns_dispatcher.clone())
+    DNS_DISPATCHER
+        .set(dns_dispatcher.clone())
         .map_err(|_| "Failed to set DNS dispatcher")
         .unwrap();
 
     SharedWorkerThreadSpawner::new()
         .set_cores(vec![CoreId(1), CoreId(2), CoreId(3)])
-        .add_dispatcher(
-            tls_dispatcher.clone(),
-            |event: Event| {
-                if let Event::Tls((tls, conn_record)) = event {
-                    println!("TLS SNI: {}, metrics: {:?}", tls.sni(), conn_record);
-                }
-            },
-        )
-        .add_dispatcher(
-            dns_dispatcher.clone(),
-            |event: Event| {
-                if let Event::Dns((dns, conn_record)) = event {
-                    println!("DNS query domain: {}, metrics: {:?}", dns.query_domain(), conn_record);
-                }
-            },
-        )
+        .add_dispatcher(tls_dispatcher.clone(), |event: Event| {
+            if let Event::Tls((tls, conn_record)) = event {
+                println!("TLS SNI: {}, metrics: {:?}", tls.sni(), conn_record);
+            }
+        })
+        .add_dispatcher(dns_dispatcher.clone(), |event: Event| {
+            if let Event::Dns((dns, conn_record)) = event {
+                println!(
+                    "DNS query domain: {}, metrics: {:?}",
+                    dns.query_domain(),
+                    conn_record
+                );
+            }
+        })
         .run();
 
     let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
     runtime.run();
 
-    tls_dispatcher.stats().waiting_completion(tls_dispatcher.receivers());
-    dns_dispatcher.stats().waiting_completion(dns_dispatcher.receivers());
+    tls_dispatcher
+        .stats()
+        .waiting_completion(tls_dispatcher.receivers());
+    dns_dispatcher
+        .stats()
+        .waiting_completion(dns_dispatcher.receivers());
 
     println!("=== TLS Stats ===");
     tls_dispatcher.stats().print();

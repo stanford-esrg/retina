@@ -1,12 +1,12 @@
-use std::sync::{Arc, atomic::Ordering};
-use std::thread; 
-use crossbeam::channel::{Select, Receiver};
-use crate::{CoreId};
-use super::{ChannelDispatcher, pin_thread_to_core};
+use super::{pin_thread_to_core, ChannelDispatcher};
+use crate::CoreId;
+use crossbeam::channel::{Receiver, Select};
+use std::sync::{atomic::Ordering, Arc};
+use std::thread;
 
 /// Spawns worker threads dedicated to a single dispatcher, with all threads using the same handler function.
 /// Optimizes for single-receiver scenarios by avoiding select overhead.
-pub struct DedicatedWorkerThreadSpawner<T, F> 
+pub struct DedicatedWorkerThreadSpawner<T, F>
 where
     F: Fn(T) + Send + Sync + 'static,
 {
@@ -32,7 +32,7 @@ impl<T: Send + 'static> Default for DedicatedWorkerThreadSpawner<T, fn(T)> {
     }
 }
 
-impl<T: Send + 'static, F> DedicatedWorkerThreadSpawner<T, F> 
+impl<T: Send + 'static, F> DedicatedWorkerThreadSpawner<T, F>
 where
     F: Fn(T) + Send + Sync + Clone + 'static,
 {
@@ -59,51 +59,80 @@ where
             thread_fn: Some(func),
         }
     }
-    
+
     /// Spawns worker threads on configured cores. Uses optimized single-receiver handling when possible.
     pub fn run(self)
     where
         F: 'static,
     {
-        let worker_cores = self.worker_cores.expect("Cores must be set via set_cores()");
-        let dispatcher = self.dispatcher.expect("Dispatcher must be set via set_dispatcher()");
-        let thread_fn = Arc::new(self.thread_fn.expect("Thread function must be set via set()"));
+        let worker_cores = self
+            .worker_cores
+            .expect("Cores must be set via set_cores()");
+        let dispatcher = self
+            .dispatcher
+            .expect("Dispatcher must be set via set_dispatcher()");
+        let thread_fn = Arc::new(
+            self.thread_fn
+                .expect("Thread function must be set via set()"),
+        );
         let receivers = Arc::new(dispatcher.receivers());
 
-        let single_receiver = receivers.len() == 1; 
+        let single_receiver = receivers.len() == 1;
 
         for core in worker_cores {
             let receivers_ref = Arc::clone(&receivers);
             let thread_fn_ref = Arc::clone(&thread_fn);
-            let dispatcher_ref = Arc::clone(&dispatcher); 
+            let dispatcher_ref = Arc::clone(&dispatcher);
 
             thread::spawn(move || {
                 if let Err(e) = pin_thread_to_core(core.raw()) {
                     eprintln!("Failed to pin thread to core {:?}: {}", core, e);
                 }
-                
+
                 // Optimize for single receiver case
                 if single_receiver {
-                    Self::handle_single_receiver(&receivers_ref[0], &thread_fn_ref, &dispatcher_ref);
+                    Self::handle_single_receiver(
+                        &receivers_ref[0],
+                        &thread_fn_ref,
+                        &dispatcher_ref,
+                    );
                 } else {
-                    Self::handle_multiple_receivers(&receivers_ref, &thread_fn_ref, &dispatcher_ref);
+                    Self::handle_multiple_receivers(
+                        &receivers_ref,
+                        &thread_fn_ref,
+                        &dispatcher_ref,
+                    );
                 }
             });
         }
     }
 
     /// Optimized handler for single receiver - uses blocking recv() instead of select for better performance.
-    fn handle_single_receiver(receiver: &Arc<Receiver<T>>, thread_fn: &F, dispatcher: &Arc<ChannelDispatcher<T>>) {
+    fn handle_single_receiver(
+        receiver: &Arc<Receiver<T>>,
+        thread_fn: &F,
+        dispatcher: &Arc<ChannelDispatcher<T>>,
+    ) {
         while let Ok(data) = receiver.recv() {
-            dispatcher.stats().actively_processing.fetch_add(1, Ordering::Relaxed); 
+            dispatcher
+                .stats()
+                .actively_processing
+                .fetch_add(1, Ordering::Relaxed);
             thread_fn(data);
             dispatcher.stats().processed.fetch_add(1, Ordering::Relaxed);
-            dispatcher.stats().actively_processing.fetch_sub(1, Ordering::Relaxed); 
+            dispatcher
+                .stats()
+                .actively_processing
+                .fetch_sub(1, Ordering::Relaxed);
         }
     }
 
     /// Handler for multiple receivers - uses crossbeam Select to wait on any available channel.
-    fn handle_multiple_receivers(receivers: &[Arc<Receiver<T>>], thread_fn: &F, dispatcher: &Arc<ChannelDispatcher<T>>) {
+    fn handle_multiple_receivers(
+        receivers: &[Arc<Receiver<T>>],
+        thread_fn: &F,
+        dispatcher: &Arc<ChannelDispatcher<T>>,
+    ) {
         let mut select = Select::new();
         for receiver in receivers {
             select.recv(receiver);
@@ -114,13 +143,19 @@ where
             let index = oper.index();
             match oper.recv(&receivers[index]) {
                 Ok(data) => {
-                    dispatcher.stats().actively_processing.fetch_add(1, Ordering::Relaxed); 
-                    thread_fn(data); 
+                    dispatcher
+                        .stats()
+                        .actively_processing
+                        .fetch_add(1, Ordering::Relaxed);
+                    thread_fn(data);
                     dispatcher.stats().processed.fetch_add(1, Ordering::Relaxed);
-                    dispatcher.stats().actively_processing.fetch_sub(1, Ordering::Relaxed); 
+                    dispatcher
+                        .stats()
+                        .actively_processing
+                        .fetch_sub(1, Ordering::Relaxed);
                 }
                 Err(_) => break,
             }
         }
-    }    
+    }
 }

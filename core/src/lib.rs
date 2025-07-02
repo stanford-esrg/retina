@@ -79,6 +79,7 @@ mod dpdk;
 pub mod filter;
 pub mod lcore;
 pub mod memory;
+pub mod multicore;
 mod port;
 pub mod protocols;
 mod runtime;
@@ -86,7 +87,6 @@ pub mod stats;
 #[doc(hidden)]
 pub mod subscription;
 pub mod utils;
-pub mod multicore; 
 
 pub use self::conntrack::conn_id::{ConnId, FiveTuple};
 pub use self::conntrack::pdu::L4Pdu;
