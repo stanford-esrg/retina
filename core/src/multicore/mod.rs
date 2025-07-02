@@ -1,3 +1,9 @@
+//! Multicore processing management. 
+//!
+//! This module provides abstractions for distributing network subscription processing across
+//! multiple CPU cores using channel-based message passing. It supports both shared worker pools
+//! and dedicated worker pools. 
+
 mod channel_dispatcher;
 mod pin;
 mod subscription_stats; 

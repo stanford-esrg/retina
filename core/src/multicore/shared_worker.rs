@@ -4,6 +4,8 @@ use crossbeam::channel::{Select, Receiver};
 use crate::{CoreId};
 use super::{ChannelDispatcher, pin_thread_to_core};
 
+/// Spawns worker threads that share multiple dispatchers, with each thread handling subscriptions
+/// from all configured dispatchers using different handlers per dispatcher type.
 pub struct SharedWorkerThreadSpawner<T>
 where
     T: Send + 'static,
@@ -17,6 +19,7 @@ impl<T> SharedWorkerThreadSpawner<T>
 where
     T: Send + Clone + 'static,
 {
+    /// Creates a new spawner with no cores, dispatchers, or handlers configured.
     pub fn new() -> Self {
         Self {
             worker_cores: None,
@@ -25,11 +28,13 @@ where
         }
     }
 
+    /// Sets the CPU cores that worker threads will be pinned to.
     pub fn set_cores(mut self, cores: Vec<CoreId>) -> Self {
         self.worker_cores = Some(cores);
         self
     }
 
+    /// Adds a dispatcher-handler pair. Each dispatcher's subscriptions will be processed by its corresponding handler.
     pub fn add_dispatcher<F>(mut self, dispatcher: Arc<ChannelDispatcher<T>>, handler: F) -> Self
     where
         F: Fn(T) + Send + Sync + 'static,
@@ -39,6 +44,8 @@ where
         self
     }
 
+    /// Builds a flattened list of all receivers tagged with their dispatcher index.
+    /// This allows workers to know which handler to use for each received subscription.
     fn build_tagged_receivers(&self) -> Vec<(usize, Arc<Receiver<T>>)> {
         let mut tagged_receivers = Vec::new();
        
@@ -52,6 +59,8 @@ where
         tagged_receivers
     }
 
+    /// Spawns worker threads on the configured cores. Each thread processes subscriptions from all dispatchers
+    /// using a select operation to handle whichever channel has data available.
     pub fn run(self) {
         let tagged_receivers = Arc::new(self.build_tagged_receivers());
         let handlers = Arc::new(self.handlers);
@@ -73,6 +82,8 @@ where
         }
     }
 
+    /// Main worker loop that uses crossbeam Select to efficiently wait on multiple channels.
+    /// Routes each subscription to the appropriate handler and updates processing statistics.
     fn run_worker_loop(
         tagged_receivers: Arc<Vec<(usize, Arc<Receiver<T>>)>>,
         handlers: Arc<Vec<Box<dyn Fn(T) + Send + Sync>>>,

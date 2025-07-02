@@ -4,6 +4,8 @@ use crossbeam::channel::{Select, Receiver};
 use crate::{CoreId};
 use super::{ChannelDispatcher, pin_thread_to_core};
 
+/// Spawns worker threads dedicated to a single dispatcher, with all threads using the same handler function.
+/// Optimizes for single-receiver scenarios by avoiding select overhead.
 pub struct DedicatedWorkerThreadSpawner<T, F> 
 where
     F: Fn(T) + Send + Sync + 'static,
@@ -14,6 +16,7 @@ where
 }
 
 impl<T: Send + 'static> DedicatedWorkerThreadSpawner<T, fn(T)> {
+    /// Creates a new spawner with a no-op handler function.
     pub fn new() -> Self {
         DedicatedWorkerThreadSpawner {
             worker_cores: None,
@@ -33,16 +36,19 @@ impl<T: Send + 'static, F> DedicatedWorkerThreadSpawner<T, F>
 where
     F: Fn(T) + Send + Sync + Clone + 'static,
 {
+    /// Sets the CPU cores that worker threads will be pinned to.
     pub fn set_cores(mut self, cores: Vec<CoreId>) -> Self {
         self.worker_cores = Some(cores);
         self
     }
 
+    /// Sets the single dispatcher that all worker threads will process subscriptions from.
     pub fn set_dispatcher(mut self, dispatcher: Arc<ChannelDispatcher<T>>) -> Self {
         self.dispatcher = Some(dispatcher);
         self
     }
 
+    /// Sets the handler function that will process all subscriptions. Changes the function type parameter.
     pub fn set<G>(self, func: G) -> DedicatedWorkerThreadSpawner<T, G>
     where
         G: Fn(T) + Send + Sync + Clone + 'static,
@@ -54,6 +60,7 @@ where
         }
     }
     
+    /// Spawns worker threads on configured cores. Uses optimized single-receiver handling when possible.
     pub fn run(self)
     where
         F: 'static,
@@ -85,6 +92,7 @@ where
         }
     }
 
+    /// Optimized handler for single receiver - uses blocking recv() instead of select for better performance.
     fn handle_single_receiver(receiver: &Arc<Receiver<T>>, thread_fn: &F, dispatcher: &Arc<ChannelDispatcher<T>>) {
         while let Ok(data) = receiver.recv() {
             dispatcher.stats().actively_processing.fetch_add(1, Ordering::Relaxed); 
@@ -94,6 +102,7 @@ where
         }
     }
 
+    /// Handler for multiple receivers - uses crossbeam Select to wait on any available channel.
     fn handle_multiple_receivers(receivers: &[Arc<Receiver<T>>], thread_fn: &F, dispatcher: &Arc<ChannelDispatcher<T>>) {
         let mut select = Select::new();
         for receiver in receivers {
