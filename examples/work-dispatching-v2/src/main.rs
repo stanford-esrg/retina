@@ -1,11 +1,20 @@
 use retina_core::multicore::{ChannelDispatcher, ChannelMode, SharedWorkerThreadSpawner};
-use retina_core::{config::default_config, CoreId, Runtime};
+use retina_core::{config::load_config, CoreId, Runtime};
 use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
 use retina_filtergen::{filter, retina_main};
 use std::sync::{Arc, OnceLock};
+use std::path::PathBuf;
+use clap::Parser;
 
 static TLS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
 static DNS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
+
+// Argument parsing
+#[derive(Parser, Debug)]
+struct Args {
+    #[clap(short, long, parse(from_os_str), value_name = "FILE", default_value = "./configs/offline.toml")]
+    config: PathBuf
+}
 
 #[derive(Clone)]
 enum Event {
@@ -16,30 +25,27 @@ enum Event {
 #[filter("tls")]
 fn tls_cb(tls: &TlsHandshake, conn_record: &ConnRecord, rx_core: &CoreId) {
     if let Some(dispatcher) = TLS_DISPATCHER.get() {
-        if let Err(e) = dispatcher.dispatch(
+        let _ = dispatcher.dispatch(
             Event::Tls((tls.clone(), conn_record.clone())),
             Some(rx_core),
-        ) {
-            eprintln!("TLS dispatch error: {}", e);
-        }
+        ); 
     }
 }
 
 #[filter("dns")]
 fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord, rx_core: &CoreId) {
     if let Some(dispatcher) = DNS_DISPATCHER.get() {
-        if let Err(e) = dispatcher.dispatch(
+        let _ = dispatcher.dispatch(
             Event::Dns((dns.clone(), conn_record.clone())),
             Some(rx_core),
-        ) {
-            eprintln!("DNS dispatch error: {}", e);
-        }
+        ); 
     }
 }
 
 #[retina_main(2)]
 fn main() {
-    let config = default_config();
+    let args = Args::parse();
+    let config = load_config(&args.config);
     let rx_cores = config.get_all_rx_core_ids();
 
     let tls_dispatcher = Arc::new(ChannelDispatcher::new(
@@ -64,17 +70,13 @@ fn main() {
     SharedWorkerThreadSpawner::new()
         .set_cores(vec![CoreId(1), CoreId(2), CoreId(3)])
         .add_dispatcher(tls_dispatcher.clone(), |event: Event| {
-            if let Event::Tls((tls, conn_record)) = event {
-                println!("TLS SNI: {}, metrics: {:?}", tls.sni(), conn_record);
+            if let Event::Tls((_tls, _conn_record)) = event {
+                // add handler here
             }
         })
         .add_dispatcher(dns_dispatcher.clone(), |event: Event| {
-            if let Event::Dns((dns, conn_record)) = event {
-                println!(
-                    "DNS query domain: {}, metrics: {:?}",
-                    dns.query_domain(),
-                    conn_record
-                );
+            if let Event::Dns((_dns, _conn_record)) = event {
+                // add handler here 
             }
         })
         .run();
