@@ -13,7 +13,16 @@ static DNS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new()
 #[derive(Parser, Debug)]
 struct Args {
     #[clap(short, long, parse(from_os_str), value_name = "FILE", default_value = "./configs/offline.toml")]
-    config: PathBuf
+    config: PathBuf,
+    
+    #[clap(long, value_name = "SIZE", default_value = "1024")]
+    tls_channel_size: usize,
+    
+    #[clap(long, value_name = "SIZE", default_value = "1024")]
+    dns_channel_size: usize,
+
+    #[clap(long, value_delimiter = ',', value_name = "TLS_CORES", default_value = "36,37,38,39")]
+    worker_cores: Vec<u32>,
 }
 
 #[derive(Clone)]
@@ -48,14 +57,26 @@ fn main() {
     let config = load_config(&args.config);
     let rx_cores = config.get_all_rx_core_ids();
 
+    let core_ids: Vec<CoreId> = args.worker_cores
+        .iter()
+        .map(|&core| CoreId(core))
+        .collect();
+    
+    println!("=== Configuration ===");
+    println!("Config file: {:?}", args.config);
+    println!("TLS channel size: {}", args.tls_channel_size);
+    println!("DNS channel size: {}", args.dns_channel_size);
+    println!("Worker Core Ids: {:?}", core_ids);
+    println!("=====================\n");
+
     let tls_dispatcher = Arc::new(ChannelDispatcher::new(
         ChannelMode::PerCore(rx_cores.clone()),
-        1024,
+        args.tls_channel_size,
     ));
 
     let dns_dispatcher = Arc::new(ChannelDispatcher::new(
         ChannelMode::PerCore(rx_cores.clone()),
-        512,
+        args.dns_channel_size,
     ));
 
     TLS_DISPATCHER
@@ -68,7 +89,7 @@ fn main() {
         .unwrap();
 
     SharedWorkerThreadSpawner::new()
-        .set_cores(vec![CoreId(1), CoreId(2), CoreId(3)])
+        .set_cores(core_ids)
         .add_dispatcher(tls_dispatcher.clone(), |event: Event| {
             if let Event::Tls((_tls, _conn_record)) = event {
                 // add handler here
