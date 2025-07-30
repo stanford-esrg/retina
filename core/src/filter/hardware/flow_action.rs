@@ -15,7 +15,7 @@ pub(super) struct FlowAction {
     pub(super) rss: Vec<dpdk::rte_flow_action_rss>,
     pub(super) jump: Vec<dpdk::rte_flow_action_jump>,
     pub(super) mark: Vec<dpdk::rte_flow_action_mark>,
-    // drop has no config
+    // drop has no config ??
 }
 
 impl FlowAction {

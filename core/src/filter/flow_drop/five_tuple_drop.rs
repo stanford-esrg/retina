@@ -1,21 +1,31 @@
 use std::ffi::CStr;
 use std::mem;
-
-use retina::ast::{BinOp, Predicate, Value};
-use retina::flow_action::FlowAction;
-use retina::flow_attr::FlowAttribute;
-use retina::flow_item::FlowPattern;
-use retina::port::Port;
 use std::ptr;
-use dpdk_sys::*;
+use std::net::{IpAddr};
 
-use retina::dpdk::{self, rte_flow, rte_flow_error};
+use anyhow::{bail, Result};
+use crate::FiveTuple;
+use crate::protocols::packet::tcp::TCP_PROTOCOL;
+use crate::protocols::packet::udp::UDP_PROTOCOL;
 
-pub fn install_drop_flow(port: &Port, tuple: &FiveTuple) -> Result<*mut rte_flow> {
-    let attr = rte_flow_attr {
-        ingress: 1,
-        ..unsafe { mem::zeroed() }
-    };
+// Use crate-relative paths
+use crate::dpdk;
+use crate::dpdk::{rte_flow, rte_flow_item, rte_flow_attr, rte_flow_error, rte_flow_create, 
+    rte_flow_destroy, rte_flow_action, rte_flow_item_ipv4, rte_flow_item_ipv6, 
+    rte_flow_item_tcp, rte_flow_item_udp};
+
+use crate::port::PortId;
+
+// Need to install on all of the NICs (and uninstall)
+// Look at config file to get a vec of strings that are pcie addrs
+// config = load_config(fname) which gives you runtime config
+// config.unline.unwrap().ports << vec of PortMaps .iter.map(blah blah).collect()
+// then use this to call new_from_device on each Port and get a vec of PortIds
+
+// Take in vector of PortIds
+pub fn install_drop_flow(port_id: &PortId, tuple: &FiveTuple) -> Result<*mut rte_flow> {
+    let mut attr: rte_flow_attr = unsafe { mem::zeroed() };
+    attr.set_ingress(1);
 
     // Recommended to declare headers and masks here so they're not dropped prematurely
     let mut ipv4_spec: rte_flow_item_ipv4 = unsafe { mem::zeroed() };
@@ -36,7 +46,7 @@ pub fn install_drop_flow(port: &Port, tuple: &FiveTuple) -> Result<*mut rte_flow
 
     // ETH
     pattern[i] = rte_flow_item {
-        type_: RTE_FLOW_ITEM_TYPE_ETH,
+        type_: dpdk::rte_flow_item_type_RTE_FLOW_ITEM_TYPE_ETH,
         spec: ptr::null(),
         mask: ptr::null(),
         last: ptr::null(),
@@ -55,7 +65,7 @@ pub fn install_drop_flow(port: &Port, tuple: &FiveTuple) -> Result<*mut rte_flow
             ipv4_mask.hdr.next_proto_id = 0xFF;
 
             pattern[i] = rte_flow_item {
-                type_: RTE_FLOW_ITEM_TYPE_IPV4,
+                type_: dpdk::rte_flow_item_type_RTE_FLOW_ITEM_TYPE_IPV4,
                 spec: &ipv4_spec as *const _ as *const _,
                 mask: &ipv4_mask as *const _ as *const _,
                 last: ptr::null(),
@@ -63,16 +73,16 @@ pub fn install_drop_flow(port: &Port, tuple: &FiveTuple) -> Result<*mut rte_flow
             i += 1;
         }
         (IpAddr::V6(src), IpAddr::V6(dst)) => {
-            ipv6_spec.hdr.src_addr = src.octets();
-            ipv6_spec.hdr.dst_addr = dst.octets();
+            ipv6_spec.hdr.src_addr = dpdk::rte_ipv6_addr { a: src.octets() };
+            ipv6_spec.hdr.dst_addr = dpdk::rte_ipv6_addr { a: dst.octets() };
             ipv6_spec.hdr.proto = tuple.proto as u8;
 
-            ipv6_mask.hdr.src_addr = [0xFF; 16];
-            ipv6_mask.hdr.dst_addr = [0xFF; 16];
+            ipv6_mask.hdr.src_addr = dpdk::rte_ipv6_addr { a: [0xFF; 16] };
+            ipv6_mask.hdr.dst_addr = dpdk::rte_ipv6_addr { a: [0xFF; 16] };
             ipv6_mask.hdr.proto = 0xFF;
 
             pattern[i] = rte_flow_item {
-                type_: RTE_FLOW_ITEM_TYPE_IPV6,
+                type_: dpdk::rte_flow_item_type_RTE_FLOW_ITEM_TYPE_IPV6,
                 spec: &ipv6_spec as *const _ as *const _,
                 mask: &ipv6_mask as *const _ as *const _,
                 last: ptr::null(),
@@ -84,7 +94,7 @@ pub fn install_drop_flow(port: &Port, tuple: &FiveTuple) -> Result<*mut rte_flow
 
     // Check TCP vs UDP
     match tuple.proto {
-        IPPROTO_TCP => {
+        TCP_PROTOCOL => {
             tcp_spec.hdr.src_port = src_port.to_be();
             tcp_spec.hdr.dst_port = dst_port.to_be();
 
@@ -92,14 +102,14 @@ pub fn install_drop_flow(port: &Port, tuple: &FiveTuple) -> Result<*mut rte_flow
             tcp_mask.hdr.dst_port = 0xFFFF;
 
             pattern[i] = rte_flow_item {
-                type_: RTE_FLOW_ITEM_TYPE_TCP,
+                type_: dpdk::rte_flow_item_type_RTE_FLOW_ITEM_TYPE_TCP,
                 spec: &tcp_spec as *const _ as *const _,
                 mask: &tcp_mask as *const _ as *const _,
                 last: ptr::null(),
             };
             i += 1;
         }
-        IPPROTO_UDP => {
+        UDP_PROTOCOL => {
             udp_spec.hdr.src_port = src_port.to_be();
             udp_spec.hdr.dst_port = dst_port.to_be();
 
@@ -107,7 +117,7 @@ pub fn install_drop_flow(port: &Port, tuple: &FiveTuple) -> Result<*mut rte_flow
             udp_mask.hdr.dst_port = 0xFFFF;
 
             pattern[i] = rte_flow_item {
-                type_: RTE_FLOW_ITEM_TYPE_UDP,
+                type_: dpdk::rte_flow_item_type_RTE_FLOW_ITEM_TYPE_UDP,
                 spec: &udp_spec as *const _ as *const _,
                 mask: &udp_mask as *const _ as *const _,
                 last: ptr::null(),
@@ -119,7 +129,7 @@ pub fn install_drop_flow(port: &Port, tuple: &FiveTuple) -> Result<*mut rte_flow
 
     // END
     pattern[i] = rte_flow_item {
-        type_: RTE_FLOW_ITEM_TYPE_END,
+        type_: dpdk::rte_flow_action_type_RTE_FLOW_ACTION_TYPE_END,
         spec: ptr::null(),
         mask: ptr::null(),
         last: ptr::null(),
@@ -128,11 +138,11 @@ pub fn install_drop_flow(port: &Port, tuple: &FiveTuple) -> Result<*mut rte_flow
     // Actions
     let actions = [
         rte_flow_action {
-            type_: RTE_FLOW_ACTION_TYPE_DROP,
+            type_: dpdk::rte_flow_action_type_RTE_FLOW_ACTION_TYPE_DROP,
             conf: ptr::null(),
         },
         rte_flow_action {
-            type_: RTE_FLOW_ACTION_TYPE_END,
+            type_: dpdk::rte_flow_action_type_RTE_FLOW_ACTION_TYPE_END,
             conf: ptr::null(),
         },
     ];
@@ -141,7 +151,7 @@ pub fn install_drop_flow(port: &Port, tuple: &FiveTuple) -> Result<*mut rte_flow
     let mut error: rte_flow_error = unsafe { mem::zeroed() };
     let flow = unsafe {
         rte_flow_create(
-            port.id.raw(),
+            port_id.raw(),
             &attr,
             pattern.as_ptr(),
             actions.as_ptr(),

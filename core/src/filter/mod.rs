@@ -22,6 +22,9 @@ pub mod ptree;
 #[doc(hidden)]
 pub mod ptree_flat;
 
+// Added
+pub mod flow_drop;
+
 pub mod datatypes;
 pub use datatypes::{DataType, Level, SubscriptionSpec};
 

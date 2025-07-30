@@ -79,7 +79,7 @@ mod dpdk;
 pub mod filter;
 pub mod lcore;
 pub mod memory;
-mod port;
+pub mod port;
 pub mod protocols;
 mod runtime;
 pub mod stats;
