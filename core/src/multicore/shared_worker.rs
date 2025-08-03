@@ -26,6 +26,7 @@ where
     dispatchers: Vec<Arc<ChannelDispatcher<T>>>,
 }
 
+/// Handle for initializing a group of shared worker threads. 
 impl<T> SharedWorkerThreadSpawner<T>
 where
     T: Send + Clone + 'static,
@@ -90,8 +91,8 @@ where
         for core in worker_cores {
             let tagged_receivers_ref = Arc::clone(&tagged_receivers);
             let handlers_ref = Arc::clone(&handlers);
-            let dispatchers_ref = Arc::clone(&dispatchers);
-            let barrier = Arc::clone(&startup_barrier);
+            let dispatchers_ref = dispatchers.clone();
+            let barrier_ref = Arc::clone(&startup_barrier);
 
             let handle = thread::spawn(move || {
                 if let Err(e) = pin_thread_to_core(core.raw()) {
@@ -99,9 +100,9 @@ where
                 }
 
                 // Signal that this thread is ready
-                barrier.wait();
+                barrier_ref.wait();
 
-                Self::run_worker_loop(tagged_receivers_ref, handlers_ref, dispatchers_ref);
+                Self::run_worker_loop(&tagged_receivers_ref, &handlers_ref, &dispatchers_ref);
             });
 
             handles.push(handle);
@@ -110,7 +111,7 @@ where
         // Wait for all threads to be ready
         startup_barrier.wait();
 
-        SharedWorkerHandle {
+        return SharedWorkerHandle {
             handles,
             dispatchers: dispatchers.to_vec(),
         }
@@ -119,9 +120,9 @@ where
     /// Main worker loop that uses crossbeam Select to efficiently wait on multiple channels.
     /// Routes each subscription to the appropriate handler and updates processing statistics.
     fn run_worker_loop(
-        tagged_receivers: Arc<Vec<(usize, Arc<Receiver<T>>)>>,
-        handlers: Arc<Vec<Box<dyn Fn(T) + Send + Sync>>>,
-        dispatchers: Arc<Vec<Arc<ChannelDispatcher<T>>>>,
+        tagged_receivers: &[(usize, Arc<Receiver<T>>)],
+        handlers: &[Box<dyn Fn(T) + Send + Sync>],
+        dispatchers: &[Arc<ChannelDispatcher<T>>],
     ) {
         let mut select = Select::new();
         for (_, receiver) in tagged_receivers.iter() {
@@ -165,7 +166,6 @@ where
     }
 }
 
-
 impl<T> SharedWorkerHandle<T>
 where
     T: Send + 'static,
@@ -174,7 +174,8 @@ where
     pub fn wait_for_completion(&self) {
         loop {
             let all_complete = self.dispatchers.iter().all(|dispatcher| {
-                let queues_empty = dispatcher.receivers().iter().all(|r| r.is_empty());
+                let receivers = dispatcher.receivers();
+                let queues_empty = receivers.iter().all(|r| r.is_empty());
                 let active_handlers = dispatcher.stats().get_actively_processing();
                 
                 return queues_empty && active_handlers == 0;

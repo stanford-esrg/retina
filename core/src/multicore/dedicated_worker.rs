@@ -13,7 +13,7 @@ where
 {
     worker_cores: Option<Vec<CoreId>>,
     dispatcher: Option<Arc<ChannelDispatcher<T>>>,
-    thread_fn: Option<F>,
+    handler: Option<F>,
 }
 
 /// Handle for managing a group of dedicated worker threads.
@@ -26,15 +26,14 @@ where
     dispatcher: Arc<ChannelDispatcher<T>>,
 }
 
-/// Handle for managing a group of dedicated worker threads. 
-/// Provides methods for graceful shutdown and statistics access. 
+/// Handle for initializing a group of dedicated worker threads. 
 impl<T: Send + 'static> DedicatedWorkerThreadSpawner<T, fn(T)> {
     /// Creates a new spawner with a no-op handler function.
     pub fn new() -> Self {
-        DedicatedWorkerThreadSpawner {
+        Self {
             worker_cores: None,
             dispatcher: None,
-            thread_fn: Some(|_t: T| {}),
+            handler: Some(|_t: T| {}),
         }
     }
 }
@@ -62,14 +61,14 @@ where
     }
 
     /// Sets the handler function that will process all subscriptions. Changes the function type parameter.
-    pub fn set<G>(self, func: G) -> DedicatedWorkerThreadSpawner<T, G>
+    pub fn set_handler<G>(self, handler: G) -> DedicatedWorkerThreadSpawner<T, G>
     where
         G: Fn(T) + Send + Sync + Clone + 'static,
     {
         DedicatedWorkerThreadSpawner {
             worker_cores: self.worker_cores,
             dispatcher: self.dispatcher,
-            thread_fn: Some(func),
+            handler: Some(handler),
         }
     }
 
@@ -85,13 +84,12 @@ where
         let dispatcher = self
             .dispatcher
             .expect("Dispatcher must be set via set_dispatcher()");
-        let thread_fn = Arc::new(
-            self.thread_fn
-                .expect("Thread function must be set via set()"),
+        let handler = Arc::new(
+            self.handler
+                .expect("Handler function must be set via set_handler()"),
         );
 
         let receivers = Arc::new(dispatcher.receivers());
-        let single_receiver = receivers.len() == 1;
         let num_threads = worker_cores.len(); 
 
         // Barrier to ensure all threads are spawned before returning 
@@ -100,38 +98,25 @@ where
         let mut handles = Vec::with_capacity(num_threads); 
         for core in worker_cores {
             let receivers_ref = Arc::clone(&receivers);
-            let thread_fn_ref = Arc::clone(&thread_fn);
+            let handler_ref = Arc::clone(&handler);
             let dispatcher_ref = Arc::clone(&dispatcher);
-            let barrier = Arc::clone(&startup_barrier);
+            let barrier_ref = Arc::clone(&startup_barrier);
 
             let handle = thread::spawn(move || {
                 if let Err(e) = pin_thread_to_core(core.raw()) {
-                    eprintln!("Failed to pin thread to core {:?}: {}", core, e);
+                    eprintln!("Failed to pin thread to core {}: {}", core, e);
                 }
 
                 // Signal that this thread is ready
-                barrier.wait();
+                barrier_ref.wait();
 
-                // Optimize for single receiver case
-                if single_receiver {
-                    Self::handle_single_receiver(
-                        &receivers_ref[0],
-                        &thread_fn_ref,
-                        &dispatcher_ref,
-                    );
-                } else {
-                    Self::handle_multiple_receivers(
-                        &receivers_ref,
-                        &thread_fn_ref,
-                        &dispatcher_ref,
-                    );
-                }
+                Self::run_worker_loop(&receivers_ref, &handler_ref, &dispatcher_ref);
             });
 
             handles.push(handle); 
         }
 
-        // Wait for all threads to be "ready" to proceed 
+        // Wait for all threads to be ready
         startup_barrier.wait(); 
 
         return DedicatedWorkerHandle {
@@ -140,30 +125,11 @@ where
         }
     }
 
-    /// Optimized handler for single receiver - uses blocking recv() instead of select for better performance.
-    fn handle_single_receiver(
-        receiver: &Arc<Receiver<T>>,
-        thread_fn: &F,
-        dispatcher: &Arc<ChannelDispatcher<T>>,
-    ) {
-        while let Ok(data) = receiver.recv() {
-            dispatcher
-                .stats()
-                .actively_processing
-                .fetch_add(1, Ordering::Relaxed);
-            thread_fn(data);
-            dispatcher.stats().processed.fetch_add(1, Ordering::Relaxed);
-            dispatcher
-                .stats()
-                .actively_processing
-                .fetch_sub(1, Ordering::Relaxed);
-        }
-    }
-
-    /// Handler for multiple receivers - uses crossbeam Select to wait on any available channel.
-    fn handle_multiple_receivers(
+    /// Main worker loop that uses crossbeam Select to efficiently wait on multiple channels.
+    /// Routes each subscription to the appropriate handler and updates processing statistics.
+    fn run_worker_loop(
         receivers: &[Arc<Receiver<T>>],
-        thread_fn: &F,
+        handler: &F,
         dispatcher: &Arc<ChannelDispatcher<T>>,
     ) {
         let mut select = Select::new();
@@ -180,7 +146,7 @@ where
                         .stats()
                         .actively_processing
                         .fetch_add(1, Ordering::Relaxed);
-                    thread_fn(data);
+                    handler(data);
                     dispatcher.stats().processed.fetch_add(1, Ordering::Relaxed);
                     dispatcher
                         .stats()

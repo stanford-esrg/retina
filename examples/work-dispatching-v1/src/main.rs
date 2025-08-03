@@ -101,7 +101,7 @@ fn main() {
     let tls_handler = DedicatedWorkerThreadSpawner::new()
         .set_cores(tls_core_ids)
         .set_dispatcher(tls_dispatcher.clone())
-        .set(|event: Event| {
+        .set_handler(|event: Event| {
             if let Event::Tls((_tls, _conn_record)) = event {
                 // add handler here 
             }
@@ -112,7 +112,7 @@ fn main() {
     let dns_handler = DedicatedWorkerThreadSpawner::new()
         .set_cores(dns_core_ids)
         .set_dispatcher(dns_dispatcher.clone())
-        .set(|event: Event| {
+        .set_handler(|event: Event| {
             if let Event::Dns((_dns, _conn_record)) = event {
                 // add handler here 
             }
