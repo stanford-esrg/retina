@@ -103,13 +103,17 @@ fn main() {
         .set_cores(core_ids)
         .set_batch_size(args.batch_size)
         .add_dispatcher(tls_dispatcher.clone(), |event: Event| {
-            if let Event::Tls((_tls, _conn_record)) = event {
-                // add handler here
+            if let Event::Tls((tls, conn_record)) = event {
+                println!("Tls SNI: {}, conn. metrics: {:?}", tls.sni(), conn_record);
             }
         })
         .add_dispatcher(dns_dispatcher.clone(), |event: Event| {
-            if let Event::Dns((_dns, _conn_record)) = event {
-                // add handler here 
+            if let Event::Dns((dns, conn_record)) = event {
+                println!(
+                    "DNS query domain: {}, conn. metrics: {:?}",
+                    dns.query_domain(),
+                    conn_record
+                );
             }
         })
         .run();
