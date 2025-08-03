@@ -1,8 +1,9 @@
-use super::{pin_thread_to_core, ChannelDispatcher};
+use super::{pin_thread_to_core, ChannelDispatcher, SubscriptionStats};
 use crate::CoreId;
 use crossbeam::channel::{Receiver, Select};
-use std::sync::{atomic::Ordering, Arc};
-use std::thread;
+use std::sync::{atomic::Ordering, Arc, Barrier};
+use std::thread::{self, sleep, JoinHandle};
+use std::time::Duration;
 
 /// Spawns worker threads dedicated to a single dispatcher, with all threads using the same handler function.
 /// Optimizes for single-receiver scenarios by avoiding select overhead.
@@ -15,6 +16,18 @@ where
     thread_fn: Option<F>,
 }
 
+/// Handle for managing a group of dedicated worker threads.
+/// Provides methods for graceful shutdown and statistics access.
+pub struct DedicatedWorkerHandle<T>
+where
+    T: Send + 'static,
+{
+    handles: Vec<JoinHandle<()>>,
+    dispatcher: Arc<ChannelDispatcher<T>>,
+}
+
+/// Handle for managing a group of dedicated worker threads. 
+/// Provides methods for graceful shutdown and statistics access. 
 impl<T: Send + 'static> DedicatedWorkerThreadSpawner<T, fn(T)> {
     /// Creates a new spawner with a no-op handler function.
     pub fn new() -> Self {
@@ -60,8 +73,9 @@ where
         }
     }
 
-    /// Spawns worker threads on configured cores. Uses optimized single-receiver handling when possible.
-    pub fn run(self)
+    /// Spawns worker threads on configured cores. Returns a handle for managing the worker group. 
+    /// Uses a barrier to ensure all threads are ready before returning. 
+    pub fn run(self) -> DedicatedWorkerHandle<T>
     where
         F: 'static,
     {
@@ -75,19 +89,28 @@ where
             self.thread_fn
                 .expect("Thread function must be set via set()"),
         );
+
         let receivers = Arc::new(dispatcher.receivers());
-
         let single_receiver = receivers.len() == 1;
+        let num_threads = worker_cores.len(); 
 
+        // Barrier to ensure all threads are spawned before returning 
+        let startup_barrier = Arc::new(Barrier::new(num_threads + 1)); // +1 for main thread 
+        
+        let mut handles = Vec::with_capacity(num_threads); 
         for core in worker_cores {
             let receivers_ref = Arc::clone(&receivers);
             let thread_fn_ref = Arc::clone(&thread_fn);
             let dispatcher_ref = Arc::clone(&dispatcher);
+            let barrier = Arc::clone(&startup_barrier);
 
-            thread::spawn(move || {
+            let handle = thread::spawn(move || {
                 if let Err(e) = pin_thread_to_core(core.raw()) {
                     eprintln!("Failed to pin thread to core {:?}: {}", core, e);
                 }
+
+                // Signal that this thread is ready
+                barrier.wait();
 
                 // Optimize for single receiver case
                 if single_receiver {
@@ -104,6 +127,16 @@ where
                     );
                 }
             });
+
+            handles.push(handle); 
+        }
+
+        // Wait for all threads to be "ready" to proceed 
+        startup_barrier.wait(); 
+
+        return DedicatedWorkerHandle {
+            handles, 
+            dispatcher
         }
     }
 
@@ -154,8 +187,55 @@ where
                         .actively_processing
                         .fetch_sub(1, Ordering::Relaxed);
                 }
-                Err(_) => break,
+                Err(_) => {
+                    break;
+                }
             }
         }
+    }
+}
+
+impl<T> DedicatedWorkerHandle<T>
+where
+    T: Send + 'static,
+{
+    /// Blocks until all queues are empty and no messages are actively processing.
+    pub fn wait_for_completion(&self) {
+        let receivers = self.dispatcher.receivers();
+        
+        loop {
+            let queues_empty = receivers.iter().all(|r| r.is_empty());
+            let active_handlers = self.dispatcher.stats().get_actively_processing();
+
+            if queues_empty && active_handlers == 0 {
+                break;
+            }
+
+            // Small sleep to avoid busy waiting
+            sleep(Duration::from_millis(10));
+        }
+    }
+    
+    /// Gracefully shuts down all worker threads. 
+    /// Returns the final statistics snapshot
+    pub fn shutdown(mut self) -> SubscriptionStats {
+        // Wait for active processing to complete
+        self.wait_for_completion();
+        let final_stats = self.dispatcher.stats().snapshot();
+        
+        // Drop channels to break out of processing loops 
+        self.dispatcher.close_channels();
+        
+        // Drop the dispatcher
+        drop(self.dispatcher);
+
+        // Wait for all worker threads to complete
+        for (i, handle) in self.handles.drain(..).enumerate() {
+            if let Err(e) = handle.join() {
+                eprintln!("Thread {} error: {:?}", i, e);
+            }
+        }
+        
+        return final_stats; 
     }
 }

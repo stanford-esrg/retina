@@ -11,7 +11,7 @@ use super::SubscriptionStats;
 use crate::CoreId;
 use crossbeam::channel::{bounded, Receiver, Sender, TrySendError};
 use std::collections::HashMap;
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::{atomic::Ordering, Arc, Mutex};
 use thiserror::Error;
 
 /// Defines the operating mode for the channel dispatcher.
@@ -39,9 +39,9 @@ pub enum ChannelMode {
 /// Internal representation of the channel configuration based on chosen operating mode.
 pub enum Channels<T> {
     /// Single shared sender and receiver pair.
-    Shared(Sender<T>, Arc<Receiver<T>>),
+    Shared(Option<Sender<T>>, Arc<Receiver<T>>),
     /// HashMap mapping core IDs to their dedicated sender/receiver pairs.
-    PerCore(HashMap<CoreId, (Sender<T>, Arc<Receiver<T>>)>),
+    PerCore(HashMap<CoreId, (Option<Sender<T>>, Arc<Receiver<T>>)>),
 }
 
 /// A unified thread-safe interface for dispatching subscriptions.
@@ -51,7 +51,7 @@ pub enum Channels<T> {
 /// * `T` - The type of subscriptions being dispatched. Must implement `Send + 'static`.
 
 pub struct ChannelDispatcher<T> {
-    channels: Channels<T>,
+    channels: Mutex<Channels<T>>,
     stats: SubscriptionStats,
 }
 
@@ -69,7 +69,7 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
         let (tx, rx) = bounded(channel_size);
 
         Self {
-            channels: Channels::Shared(tx, Arc::new(rx)),
+            channels: Mutex::new(Channels::Shared(Some(tx), Arc::new(rx))),
             stats: SubscriptionStats::new(),
         }
     }
@@ -80,11 +80,11 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
 
         for &core in rx_cores {
             let (tx, rx) = bounded(channel_size);
-            map.insert(core, (tx, Arc::new(rx)));
+            map.insert(core, (Some(tx), Arc::new(rx)));
         }
 
         Self {
-            channels: Channels::PerCore(map),
+            channels: Mutex::new(Channels::PerCore(map)),
             stats: SubscriptionStats::new(),
         }
     }
@@ -94,13 +94,23 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
     /// In either case, the subscription passing is non-blocking through crossbeam's try_send
     /// operation and doesn't rely on mutexes internally (relies on lower-level atomic operations).
     pub fn dispatch(&self, data: T, core_id: Option<&CoreId>) -> Result<(), DispatchError<T>> {
-        let result = match &self.channels {
+        let channels = self.channels.lock().unwrap();
+        
+        let result = match &*channels {
             Channels::PerCore(map) => {
                 let core = core_id.ok_or(DispatchError::CoreIdRequired)?;
-                let (sender, _) = map.get(core).ok_or(DispatchError::CoreNotFound(*core))?;
-                sender.try_send(data)
+                let (sender_result, _) = map.get(core).ok_or(DispatchError::CoreNotFound(*core))?;
+                match sender_result {
+                    Some(sender) => sender.try_send(data),
+                    None => Err(TrySendError::Disconnected(data)),
+                }
             }
-            Channels::Shared(sender, _) => sender.try_send(data),
+            Channels::Shared(sender_result, _) => {
+                match sender_result {
+                    Some(sender) => sender.try_send(data),
+                    None => Err(TrySendError::Disconnected(data)),
+                }
+            }
         };
 
         match result {
@@ -117,9 +127,27 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
 
     /// Returns a vector of all receivers for subscription consumption.
     pub fn receivers(&self) -> Vec<Arc<Receiver<T>>> {
-        match &self.channels {
+        let channels = self.channels.lock().unwrap();
+
+        match &*channels {
             Channels::PerCore(map) => map.values().map(|(_, rx)| Arc::clone(rx)).collect(),
             Channels::Shared(_, rx) => vec![Arc::clone(rx)],
+        }
+    }
+
+    /// Manually closes all channels. 
+    pub fn close_channels(&self) {
+        let mut channels = self.channels.lock().unwrap();
+
+        match &mut *channels {
+            Channels::PerCore(map) => {
+                for (_, (sender_result, _)) in map.iter_mut() {
+                    *sender_result = None;
+                }
+            }
+            Channels::Shared(sender_result, _) => {
+                *sender_result = None;
+            }
         }
     }
 

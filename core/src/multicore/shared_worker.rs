@@ -1,8 +1,9 @@
-use super::{pin_thread_to_core, ChannelDispatcher};
+use super::{pin_thread_to_core, ChannelDispatcher, SubscriptionStats};
 use crate::CoreId;
 use crossbeam::channel::{Receiver, Select};
-use std::sync::{atomic::Ordering, Arc};
-use std::thread;
+use std::sync::{atomic::Ordering, Arc, Barrier};
+use std::thread::{self, sleep, JoinHandle};
+use std::time::Duration;
 
 /// Spawns worker threads that share multiple dispatchers, with each thread handling subscriptions
 /// from all configured dispatchers using different handlers per dispatcher type.
@@ -13,6 +14,16 @@ where
     worker_cores: Option<Vec<CoreId>>,
     dispatchers: Vec<Arc<ChannelDispatcher<T>>>,
     handlers: Vec<Box<dyn Fn(T) + Send + Sync>>,
+}
+
+/// Handle for managing a group of shared worker threads.
+/// Provides methods for graceful shutdown and statistics access.
+pub struct SharedWorkerHandle<T>
+where
+    T: Send + 'static,
+{
+    handles: Vec<JoinHandle<()>>,
+    dispatchers: Vec<Arc<ChannelDispatcher<T>>>,
 }
 
 impl<T> SharedWorkerThreadSpawner<T>
@@ -59,9 +70,10 @@ where
         tagged_receivers
     }
 
-    /// Spawns worker threads on the configured cores. Each thread processes subscriptions from all dispatchers
-    /// using a select operation to handle whichever channel has data available.
-    pub fn run(self) {
+    /// Spawns worker threads on the configured cores. Each thread processes subscriptions 
+    /// from all dispatchers using a select operation to handle whichever channel has data available.
+    /// Returns a handle for managing the worker group and uses a barrier to ensure all threads are ready.
+    pub fn run(self) -> SharedWorkerHandle<T> {
         let tagged_receivers = Arc::new(self.build_tagged_receivers());
         let handlers = Arc::new(self.handlers);
         let dispatchers = Arc::new(self.dispatchers);
@@ -69,18 +81,38 @@ where
             .worker_cores
             .expect("Cores must be set via set_cores()");
 
+        let num_threads = worker_cores.len(); 
+
+        // Barrier to ensure all threads are spawned before returning 
+        let startup_barrier = Arc::new(Barrier::new(num_threads + 1)); // +1 for main thread 
+        
+        let mut handles = Vec::with_capacity(num_threads); 
         for core in worker_cores {
             let tagged_receivers_ref = Arc::clone(&tagged_receivers);
             let handlers_ref = Arc::clone(&handlers);
             let dispatchers_ref = Arc::clone(&dispatchers);
+            let barrier = Arc::clone(&startup_barrier);
 
-            thread::spawn(move || {
+            let handle = thread::spawn(move || {
                 if let Err(e) = pin_thread_to_core(core.raw()) {
                     eprintln!("Failed to pin thread to core {}: {}", core, e);
                 }
 
-                Self::run_worker_loop(tagged_receivers_ref, handlers_ref, dispatchers_ref, core);
+                // Signal that this thread is ready
+                barrier.wait();
+
+                Self::run_worker_loop(tagged_receivers_ref, handlers_ref, dispatchers_ref);
             });
+
+            handles.push(handle);
+        }
+        
+        // Wait for all threads to be ready
+        startup_barrier.wait();
+
+        SharedWorkerHandle {
+            handles,
+            dispatchers: dispatchers.to_vec(),
         }
     }
 
@@ -90,7 +122,6 @@ where
         tagged_receivers: Arc<Vec<(usize, Arc<Receiver<T>>)>>,
         handlers: Arc<Vec<Box<dyn Fn(T) + Send + Sync>>>,
         dispatchers: Arc<Vec<Arc<ChannelDispatcher<T>>>>,
-        core: CoreId,
     ) {
         let mut select = Select::new();
         for (_, receiver) in tagged_receivers.iter() {
@@ -118,10 +149,6 @@ where
                         .fetch_sub(1, Ordering::Relaxed);
                 }
                 Err(_) => {
-                    eprintln!(
-                        "Receiver {} disconnected on core {:?}, exiting",
-                        handler_index, core
-                    );
                     break;
                 }
             }
@@ -135,5 +162,55 @@ where
 {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+
+impl<T> SharedWorkerHandle<T>
+where
+    T: Send + 'static,
+{
+    /// Blocks until all queues are empty and no messages are actively processing.
+    pub fn wait_for_completion(&self) {
+        loop {
+            let all_complete = self.dispatchers.iter().all(|dispatcher| {
+                let queues_empty = dispatcher.receivers().iter().all(|r| r.is_empty());
+                let active_handlers = dispatcher.stats().get_actively_processing();
+                
+                return queues_empty && active_handlers == 0;
+            });
+
+            if all_complete {
+                break;
+            }
+
+            // Small sleep to avoid busy waiting
+            sleep(Duration::from_millis(10));
+        }
+    }
+    
+    /// Gracefully shuts down all worker threads. 
+    /// Returns the final statistics snapshot
+    pub fn shutdown(mut self) -> Vec<SubscriptionStats> {
+        // Wait for active processing to complete
+        self.wait_for_completion();
+        let final_stats: Vec<SubscriptionStats> = self.dispatchers
+            .iter()
+            .map(|dispatcher| dispatcher.stats().snapshot())
+            .collect();
+        
+        // Drop channels to break out of processing loops 
+        for dispatcher in &self.dispatchers {
+            dispatcher.close_channels();
+        }
+        
+        // Wait for all worker threads to complete
+        for (i, handle) in self.handles.drain(..).enumerate() {
+            if let Err(e) = handle.join() {
+                eprintln!("Thread {} error: {:?}", i, e);
+            }
+        }
+        
+        return final_stats; 
     }
 }

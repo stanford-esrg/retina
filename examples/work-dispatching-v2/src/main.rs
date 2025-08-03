@@ -88,7 +88,7 @@ fn main() {
         .map_err(|_| "Failed to set DNS dispatcher")
         .unwrap();
 
-    SharedWorkerThreadSpawner::new()
+    let worker_handle = SharedWorkerThreadSpawner::new()
         .set_cores(core_ids)
         .add_dispatcher(tls_dispatcher.clone(), |event: Event| {
             if let Event::Tls((_tls, _conn_record)) = event {
@@ -102,19 +102,21 @@ fn main() {
         })
         .run();
 
+    println!("Worker threads spawned and ready. Starting runtime...");
     let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
     runtime.run();
 
-    tls_dispatcher
-        .stats()
-        .waiting_completion(tls_dispatcher.receivers());
-    dns_dispatcher
-        .stats()
-        .waiting_completion(dns_dispatcher.receivers());
+    println!("Runtime completed. Beginning dispatcher shutdown...");
+    let final_stats = worker_handle.shutdown();
+    println!("Shutdown Complete \n");
 
     println!("=== TLS Stats ===");
-    tls_dispatcher.stats().print();
+    if let Some(tls_stats) = final_stats.get(0) {
+        tls_stats.print();
+    }
 
     println!("=== DNS Stats ===");
-    dns_dispatcher.stats().print();
+    if let Some(dns_stats) = final_stats.get(1) {
+        dns_stats.print();
+    }
 }

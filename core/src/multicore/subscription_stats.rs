@@ -4,10 +4,6 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::thread::sleep;
-use std::time;
-
-use crossbeam::channel::Receiver;
 
 /// Thread-safe statistics tracker for the various stages of subscription processing.
 /// All counters use atomic operations for thread safety.
@@ -39,6 +35,16 @@ impl SubscriptionStats {
         }
     }
 
+    /// This creates a new `SubscriptionStats` instance with identical atomic counters. 
+    pub fn snapshot(&self) -> SubscriptionStats {
+        SubscriptionStats {
+            dispatched: AtomicU64::new(self.get_dispatched()),
+            dropped: AtomicU64::new(self.get_dropped()),
+            processed: Arc::new(AtomicU64::new(self.get_processed())),
+            actively_processing: Arc::new(AtomicU64::new(self.get_actively_processing())),
+        }
+    }
+
     /// Returns the current number of dispatched messages.
     pub fn get_dispatched(&self) -> u64 {
         self.dispatched.load(Ordering::Relaxed)
@@ -57,21 +63,6 @@ impl SubscriptionStats {
     /// Returns the current number of messages actively being processed.
     pub fn get_actively_processing(&self) -> u64 {
         self.actively_processing.load(Ordering::Relaxed)
-    }
-
-    /// Blocks until all queues are empty and no messages are actively processing.
-    pub fn waiting_completion<T>(&self, receivers: Vec<Arc<Receiver<T>>>) {
-        loop {
-            let queues_empty = receivers.iter().all(|r| r.is_empty());
-            let active_handlers = self.get_actively_processing();
-
-            if queues_empty && active_handlers == 0 {
-                break;
-            }
-
-            // Small sleep to avoid busy waiting
-            sleep(time::Duration::from_millis(10));
-        }
     }
 
     /// Prints current statistics to stdout.

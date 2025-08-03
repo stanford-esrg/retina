@@ -83,7 +83,7 @@ fn main() {
         .map_err(|_| "Failed to set DNS dispatcher")
         .unwrap();
 
-    DedicatedWorkerThreadSpawner::new()
+    let tls_handler = DedicatedWorkerThreadSpawner::new()
         .set_cores(tls_core_ids)
         .set_dispatcher(tls_dispatcher.clone())
         .set(|event: Event| {
@@ -93,7 +93,7 @@ fn main() {
         })
         .run();
 
-    DedicatedWorkerThreadSpawner::new()
+    let dns_handler = DedicatedWorkerThreadSpawner::new()
         .set_cores(dns_core_ids)
         .set_dispatcher(dns_dispatcher.clone())
         .set(|event: Event| {
@@ -104,19 +104,18 @@ fn main() {
         .run();
 
     
+    println!("Worker threads spawned and ready. Starting runtime...");
     let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
     runtime.run();
 
-    tls_dispatcher
-        .stats()
-        .waiting_completion(tls_dispatcher.receivers());
-    dns_dispatcher
-        .stats()
-        .waiting_completion(dns_dispatcher.receivers());
+    println!("Runtime completed. Beginning dispatcher shutdown...");
+    let tls_stats = tls_handler.shutdown();
+    let dns_stats = dns_handler.shutdown();
+    println!("Shutdown Complete \n");
 
     println!("=== TLS Stats ===");
-    tls_dispatcher.stats().print();
+    tls_stats.print(); 
 
     println!("=== DNS Stats ===");
-    dns_dispatcher.stats().print();
+    dns_stats.print();
 }
