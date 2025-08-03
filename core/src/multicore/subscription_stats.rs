@@ -71,11 +71,9 @@ impl SubscriptionStats {
 impl fmt::Display for SubscriptionStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, 
-            "Dispatched: {}\nDropped: {}\nProcessed: {}\nActively Processing: {}",
-            self.get_dispatched(),
-            self.get_dropped(), 
+            "Processed: {}\nDropped: {}",
             self.get_processed(),
-            self.get_actively_processing()
+            self.get_dropped(), 
         )
     }
 }
