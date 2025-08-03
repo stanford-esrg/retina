@@ -4,16 +4,16 @@ use retina_filtergen::{filter, retina_main};
 
 #[filter("tls")]
 fn tls_cb(tls: &TlsHandshake, conn_record: &ConnRecord) {
-    // println!("Tls SNI: {}, conn. metrics: {:?}", tls.sni(), conn_record);
+    println!("Tls SNI: {}, conn. metrics: {:?}", tls.sni(), conn_record);
 }
 
 #[filter("dns")]
 fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord) {
-    /* println!(
+    println!(
         "DNS query domain: {}, conn. metrics: {:?}",
         dns.query_domain(),
         conn_record
-    ); */
+    );
 }
 
 #[retina_main(2)]

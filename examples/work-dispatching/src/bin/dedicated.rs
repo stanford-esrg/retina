@@ -9,7 +9,12 @@ use clap::Parser;
 static TLS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
 static DNS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
 
-// Argument parsing
+#[derive(Copy, Clone, Debug, clap::ValueEnum)]
+enum ChannelModeArg {
+    PerCore,
+    Shared,
+}
+
 #[derive(Parser, Debug)]
 struct Args {
     #[clap(short, long, parse(from_os_str), value_name = "FILE", default_value = "./configs/offline.toml")]
@@ -32,6 +37,9 @@ struct Args {
 
     #[clap(long, value_name = "SIZE", default_value = "1")]
     dns_batch_size: usize,
+
+    #[clap(long, value_enum, default_value = "per-core")]
+    channel_mode: ChannelModeArg,
 }
 
 #[derive(Clone)]
@@ -63,36 +71,23 @@ fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord, rx_core: &CoreId) {
 #[retina_main(2)]
 fn main() {
     let args = Args::parse();
+    println!("{:#?}", args);
+
     let config = load_config(&args.config);
     let rx_cores = config.get_all_rx_core_ids();
-    
-    let tls_core_ids: Vec<CoreId> = args.tls_worker_cores
-        .iter()
-        .map(|&core| CoreId(core))
-        .collect();
 
-    let dns_core_ids: Vec<CoreId> = args.dns_worker_cores
-        .iter()
-        .map(|&core| CoreId(core))
-        .collect();
+    let channel_mode = match args.channel_mode {
+        ChannelModeArg::PerCore => ChannelMode::PerCore(rx_cores),
+        ChannelModeArg::Shared => ChannelMode::Shared,
+    };
 
-    println!("=== Configuration ===");
-    println!("Config file: {:?}", args.config);
-    println!("TLS channel size: {}", args.tls_channel_size);
-    println!("DNS channel size: {}", args.dns_channel_size);
-    println!("TLS Core Ids: {:?}", tls_core_ids);
-    println!("DNS Core Ids: {:?}", dns_core_ids);
-    println!("TLS Batch Size: {}", args.tls_batch_size);
-    println!("DNS Batch Size: {}", args.dns_batch_size);
-    println!("=====================\n");
-        
     let tls_dispatcher = Arc::new(ChannelDispatcher::new(
-        ChannelMode::PerCore(rx_cores.clone()),
+        channel_mode.clone(),
         args.tls_channel_size,
     ));
 
     let dns_dispatcher = Arc::new(ChannelDispatcher::new(
-        ChannelMode::PerCore(rx_cores.clone()),
+        channel_mode.clone(),
         args.dns_channel_size,
     ));
 
@@ -105,7 +100,16 @@ fn main() {
         .map_err(|_| "Failed to set DNS dispatcher")
         .unwrap();
 
-    println!("Spawning TLS worker threads...");
+    let tls_core_ids: Vec<CoreId> = args.tls_worker_cores
+        .iter()
+        .map(|&core| CoreId(core))
+        .collect();
+
+    let dns_core_ids: Vec<CoreId> = args.dns_worker_cores
+        .iter()
+        .map(|&core| CoreId(core))
+        .collect();
+
     let tls_handler = DedicatedWorkerThreadSpawner::new()
         .set_cores(tls_core_ids)
         .set_batch_size(args.tls_batch_size)
@@ -117,7 +121,6 @@ fn main() {
         })
         .run();
 
-    println!("Spawning DNS worker threads...");
     let dns_handler = DedicatedWorkerThreadSpawner::new()
         .set_cores(dns_core_ids)
         .set_batch_size(args.dns_batch_size)
@@ -129,15 +132,12 @@ fn main() {
         })
         .run();
 
-    println!("Worker threads spawned and ready. Starting runtime...");
     let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
     runtime.run();
-
-    println!("Runtime completed. Beginning dispatcher shutdown...");
+    
     let tls_stats = tls_handler.shutdown();
     let dns_stats = dns_handler.shutdown();
-    println!("Shutdown complete \n");
 
     println!("=== TLS Stats ===\n{}\n", tls_stats);
-    println!("=== DNS Stats ===\n{}\n", dns_stats);
+    println!("=== DNS Stats ===\n{}", dns_stats);
 }

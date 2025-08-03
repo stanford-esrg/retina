@@ -12,10 +12,7 @@ members = [
     "examples/basic_file",
     "examples/log_ssh",
     "examples/streaming",
-    "examples/work-dispatching-v1",
-    "examples/work-dispatching-v2",
-    "examples/work-dispatching-v3", 
-    "examples/work-dispatching-v4" 
+    "examples/work-dispatching",
 ]
 resolver = "2"
 

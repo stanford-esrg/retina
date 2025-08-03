@@ -1,5 +1,5 @@
 [package]
-name = "work-dispatching-v4"
+name = "work-dispatching"
 version = "0.1.0"
 edition = "2021"
 
