@@ -23,6 +23,9 @@ struct Args {
 
     #[clap(long, value_delimiter = ',', value_name = "TLS_CORES", default_value = "36,37,38,39")]
     worker_cores: Vec<u32>,
+
+    #[clap(long, value_name = "SIZE", default_value = "1")]
+    batch_size: usize,
 }
 
 #[derive(Clone)]
@@ -67,6 +70,7 @@ fn main() {
     println!("TLS channel size: {}", args.tls_channel_size);
     println!("DNS channel size: {}", args.dns_channel_size);
     println!("Worker Core Ids: {:?}", core_ids);
+    println!("Batch Size: {}", args.batch_size); 
     println!("=====================\n");
 
     let tls_dispatcher = Arc::new(ChannelDispatcher::new(
@@ -90,6 +94,7 @@ fn main() {
 
     let worker_handle = SharedWorkerThreadSpawner::new()
         .set_cores(core_ids)
+        .set_batch_size(args.batch_size)
         .add_dispatcher(tls_dispatcher.clone(), |event: Event| {
             if let Event::Tls((_tls, _conn_record)) = event {
                 // add handler here

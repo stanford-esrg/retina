@@ -1,6 +1,6 @@
 use super::{pin_thread_to_core, ChannelDispatcher, SubscriptionStats};
 use crate::CoreId;
-use crossbeam::channel::{Receiver, Select};
+use crossbeam::channel::{Receiver, Select, TryRecvError};
 use std::sync::{atomic::Ordering, Arc, Barrier};
 use std::thread::{self, sleep, JoinHandle};
 use std::time::Duration;
@@ -14,6 +14,7 @@ where
     worker_cores: Option<Vec<CoreId>>,
     dispatcher: Option<Arc<ChannelDispatcher<T>>>,
     handler: Option<F>,
+    batch_size: usize, 
 }
 
 /// Handle for managing a group of dedicated worker threads.
@@ -34,6 +35,7 @@ impl<T: Send + 'static> DedicatedWorkerThreadSpawner<T, fn(T)> {
             worker_cores: None,
             dispatcher: None,
             handler: Some(|_t: T| {}),
+            batch_size: 1,
         }
     }
 }
@@ -54,6 +56,12 @@ where
         self
     }
 
+    /// Sets the batch size for processing messages.
+    pub fn set_batch_size(mut self, batch_size: usize) -> Self {
+        self.batch_size = batch_size.max(1);
+        self
+    }
+
     /// Sets the single dispatcher that all worker threads will process subscriptions from.
     pub fn set_dispatcher(mut self, dispatcher: Arc<ChannelDispatcher<T>>) -> Self {
         self.dispatcher = Some(dispatcher);
@@ -69,6 +77,7 @@ where
             worker_cores: self.worker_cores,
             dispatcher: self.dispatcher,
             handler: Some(handler),
+            batch_size: self.batch_size, 
         }
     }
 
@@ -89,6 +98,7 @@ where
                 .expect("Handler function must be set via set_handler()"),
         );
 
+        let batch_size = self.batch_size;
         let receivers = Arc::new(dispatcher.receivers());
         let num_threads = worker_cores.len(); 
 
@@ -110,7 +120,7 @@ where
                 // Signal that this thread is ready
                 barrier_ref.wait();
 
-                Self::run_worker_loop(&receivers_ref, &handler_ref, &dispatcher_ref);
+                Self::run_worker_loop(&receivers_ref, &handler_ref, &dispatcher_ref, batch_size);
             });
 
             handles.push(handle); 
@@ -125,12 +135,41 @@ where
         }
     }
 
+    /// Process channel messages in batches. 
+    fn process_batch(
+        batch: Vec<T>,
+        handler: &F,
+        dispatcher: &Arc<ChannelDispatcher<T>>,
+    ) {
+        if batch.is_empty() {
+            return; 
+        }
+        
+        let batch_size = batch.len() as u64;
+        
+        dispatcher
+            .stats()
+            .actively_processing
+            .fetch_add(batch_size, Ordering::Relaxed);
+        
+        for data in batch {
+            handler(data);
+        }
+        
+        dispatcher.stats().processed.fetch_add(batch_size, Ordering::Relaxed);
+        dispatcher
+            .stats()
+            .actively_processing
+            .fetch_sub(batch_size, Ordering::Relaxed);
+    }
+
     /// Main worker loop that uses crossbeam Select to efficiently wait on multiple channels.
     /// Routes each subscription to the appropriate handler and updates processing statistics.
     fn run_worker_loop(
         receivers: &[Arc<Receiver<T>>],
         handler: &F,
         dispatcher: &Arc<ChannelDispatcher<T>>,
+        batch_size: usize, 
     ) {
         let mut select = Select::new();
         for receiver in receivers {
@@ -140,21 +179,45 @@ where
         loop {
             let oper = select.select();
             let index = oper.index();
-            match oper.recv(&receivers[index]) {
-                Ok(data) => {
-                    dispatcher
-                        .stats()
-                        .actively_processing
-                        .fetch_add(1, Ordering::Relaxed);
-                    handler(data);
-                    dispatcher.stats().processed.fetch_add(1, Ordering::Relaxed);
-                    dispatcher
-                        .stats()
-                        .actively_processing
-                        .fetch_sub(1, Ordering::Relaxed);
+            let receiver = &receivers[index]; 
+            
+            let mut batch = Vec::with_capacity(batch_size);
+            let mut recv_error: Option<TryRecvError> = None;
+            
+            match oper.recv(receiver) {
+                Ok(msg) => {
+                    batch.push(msg);
                 }
                 Err(_) => {
+                    // Channel is disconnected, exit the loop
                     break;
+                }
+            }
+
+            for _ in 0..batch_size {
+                match receiver.try_recv() {
+                    Ok(msg) => {
+                        batch.push(msg);
+                    }
+                    Err(e) => {
+                        recv_error = Some(e);
+                        break;
+                    }
+                }
+            }
+
+            if !batch.is_empty() {
+                Self::process_batch(batch, handler, dispatcher);
+            }
+
+            if let Some(err) = recv_error {
+                match err {
+                    TryRecvError::Empty => {
+                        continue; // Channel is empty, go back to select
+                    }
+                    TryRecvError::Disconnected => {
+                        break; // Channel is disconnected, exit the loop
+                    }
                 }
             }
         }
