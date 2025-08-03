@@ -126,11 +126,8 @@ fn main() {
     println!("Runtime completed. Beginning dispatcher shutdown...");
     let tls_stats = tls_handler.shutdown();
     let dns_stats = dns_handler.shutdown();
-    println!("Shutdown Complete \n");
+    println!("Shutdown complete \n");
 
-    println!("=== TLS Stats ===");
-    tls_stats.print(); 
-
-    println!("=== DNS Stats ===");
-    dns_stats.print();
+    println!("=== TLS Stats ===\n{}\n", tls_stats);
+    println!("=== DNS Stats ===\n{}\n", dns_stats);
 }

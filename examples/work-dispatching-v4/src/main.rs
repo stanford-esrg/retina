@@ -95,15 +95,13 @@ fn main() {
 
     println!("Runtime completed. Beginning dispatcher shutdown...");
     let final_stats = worker_handle.shutdown();
-    println!("Shutdown Complete \n");
+    println!("Shutdown complete \n");
 
-    println!("=== TLS Stats ===");
     if let Some(tls_stats) = final_stats.get(0) {
-        tls_stats.print();
+        println!("=== TLS Stats ===\n{}\n", tls_stats);
     }
 
-    println!("=== DNS Stats ===");
     if let Some(dns_stats) = final_stats.get(1) {
-        dns_stats.print();
+        println!("=== DNS Stats ===\n{}\n", dns_stats);
     }
 }

@@ -4,6 +4,7 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::fmt;
 
 /// Thread-safe statistics tracker for the various stages of subscription processing.
 /// All counters use atomic operations for thread safety.
@@ -64,11 +65,17 @@ impl SubscriptionStats {
     pub fn get_actively_processing(&self) -> u64 {
         self.actively_processing.load(Ordering::Relaxed)
     }
+}
 
-    /// Prints current statistics to stdout.
-    pub fn print(&self) {
-        println!("Dispatched: {}", self.get_dispatched());
-        println!("Dropped: {}", self.get_dropped());
-        println!("Processed: {}", self.get_processed());
+/// Prints current statistics to stdout.
+impl fmt::Display for SubscriptionStats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, 
+            "Dispatched: {}\nDropped: {}\nProcessed: {}\nActively Processing: {}",
+            self.get_dispatched(),
+            self.get_dropped(), 
+            self.get_processed(),
+            self.get_actively_processing()
+        )
     }
 }
