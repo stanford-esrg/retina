@@ -20,16 +20,16 @@ struct Args {
     #[clap(short, long, parse(from_os_str), value_name = "FILE", default_value = "./configs/offline.toml")]
     config: PathBuf,
     
-    #[clap(long, value_name = "SIZE", default_value = "1024")]
+    #[clap(long, value_name = "SIZE", default_value = "32768")]
     tls_channel_size: usize,
     
-    #[clap(long, value_name = "SIZE", default_value = "1024")]
+    #[clap(long, value_name = "SIZE", default_value = "32768")]
     dns_channel_size: usize,
 
     #[clap(long, value_delimiter = ',', value_name = "TLS_CORES", default_value = "36,37,38,39")]
     worker_cores: Vec<u32>,
 
-    #[clap(long, value_name = "SIZE", default_value = "1")]
+    #[clap(long, value_name = "SIZE", default_value = "16")]
     batch_size: usize,
 
     #[clap(long, value_enum, default_value = "per-core")]
