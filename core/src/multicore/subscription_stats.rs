@@ -2,9 +2,9 @@
 //!
 //! This module provides thread-safe statistics tracking allowing monitoring of subscription dispatch, processing, and completion states.
 
+use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::fmt;
 
 /// Thread-safe statistics tracker for the various stages of subscription processing.
 /// All counters use atomic operations for thread safety.
@@ -36,7 +36,7 @@ impl SubscriptionStats {
         }
     }
 
-    /// This creates a new `SubscriptionStats` instance with identical atomic counters. 
+    /// This creates a new `SubscriptionStats` instance with identical atomic counters.
     pub fn snapshot(&self) -> SubscriptionStats {
         SubscriptionStats {
             dispatched: AtomicU64::new(self.get_dispatched()),
@@ -70,10 +70,11 @@ impl SubscriptionStats {
 /// Prints current statistics to stdout.
 impl fmt::Display for SubscriptionStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, 
+        write!(
+            f,
             "Processed: {}\nDropped: {}",
             self.get_processed(),
-            self.get_dropped(), 
+            self.get_dropped(),
         )
     }
 }

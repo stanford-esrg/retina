@@ -27,7 +27,7 @@ where
     dispatchers: Vec<Arc<ChannelDispatcher<T>>>,
 }
 
-/// Handle for initializing a group of shared worker threads. 
+/// Handle for initializing a group of shared worker threads.
 impl<T> SharedWorkerThreadSpawner<T>
 where
     T: Send + Clone + 'static,
@@ -48,7 +48,7 @@ where
         self
     }
 
-     /// Sets the batch size for processing messages.
+    /// Sets the batch size for processing messages.
     pub fn set_batch_size(mut self, batch_size: usize) -> Self {
         self.batch_size = batch_size.max(1);
         self
@@ -79,7 +79,7 @@ where
         tagged_receivers
     }
 
-    /// Spawns worker threads on the configured cores. Each thread processes subscriptions 
+    /// Spawns worker threads on the configured cores. Each thread processes subscriptions
     /// from all dispatchers using a select operation to handle whichever channel has data available.
     /// Returns a handle for managing the worker group and uses a barrier to ensure all threads are ready.
     pub fn run(self) -> SharedWorkerHandle<T> {
@@ -91,12 +91,12 @@ where
             .worker_cores
             .expect("Cores must be set via set_cores()");
 
-        let num_threads = worker_cores.len(); 
+        let num_threads = worker_cores.len();
 
-        // Barrier to ensure all threads are spawned before returning 
-        let startup_barrier = Arc::new(Barrier::new(num_threads + 1)); // +1 for main thread 
-        
-        let mut handles = Vec::with_capacity(num_threads); 
+        // Barrier to ensure all threads are spawned before returning
+        let startup_barrier = Arc::new(Barrier::new(num_threads + 1)); // +1 for main thread
+
+        let mut handles = Vec::with_capacity(num_threads);
         for core in worker_cores {
             let tagged_receivers_ref = Arc::clone(&tagged_receivers);
             let handlers_ref = Arc::clone(&handlers);
@@ -111,43 +111,51 @@ where
                 // Signal that this thread is ready
                 barrier_ref.wait();
 
-                Self::run_worker_loop(&tagged_receivers_ref, &handlers_ref, &dispatchers_ref, batch_size);
+                Self::run_worker_loop(
+                    &tagged_receivers_ref,
+                    &handlers_ref,
+                    &dispatchers_ref,
+                    batch_size,
+                );
             });
 
             handles.push(handle);
         }
-        
+
         // Wait for all threads to be ready
         startup_barrier.wait();
 
         return SharedWorkerHandle {
             handles,
             dispatchers: dispatchers.to_vec(),
-        }
+        };
     }
 
-    /// Process channel messages in batches. 
+    /// Process channel messages in batches.
     fn process_batch(
         batch: Vec<T>,
         handler: &(dyn Fn(T) + Send + Sync),
         dispatcher: &Arc<ChannelDispatcher<T>>,
     ) {
         if batch.is_empty() {
-            return; 
+            return;
         }
-        
+
         let batch_size = batch.len() as u64;
-        
+
         dispatcher
             .stats()
             .actively_processing
             .fetch_add(batch_size, Ordering::Relaxed);
-        
+
         for data in batch {
             handler(data);
         }
-        
-        dispatcher.stats().processed.fetch_add(batch_size, Ordering::Relaxed);
+
+        dispatcher
+            .stats()
+            .processed
+            .fetch_add(batch_size, Ordering::Relaxed);
         dispatcher
             .stats()
             .actively_processing
@@ -160,7 +168,7 @@ where
         tagged_receivers: &[(usize, Arc<Receiver<T>>)],
         handlers: &[Box<dyn Fn(T) + Send + Sync>],
         dispatchers: &[Arc<ChannelDispatcher<T>>],
-        batch_size: usize, 
+        batch_size: usize,
     ) {
         let mut select = Select::new();
         for (_, receiver) in tagged_receivers.iter() {
@@ -186,7 +194,7 @@ where
                     break;
                 }
             }
-            
+
             for _ in 0..batch_size {
                 match receiver.try_recv() {
                     Ok(msg) => {
@@ -237,7 +245,7 @@ where
                 let receivers = dispatcher.receivers();
                 let queues_empty = receivers.iter().all(|r| r.is_empty());
                 let active_handlers = dispatcher.stats().get_actively_processing();
-                
+
                 return queues_empty && active_handlers == 0;
             });
 
@@ -249,29 +257,30 @@ where
             sleep(Duration::from_millis(10));
         }
     }
-    
-    /// Gracefully shuts down all worker threads. 
+
+    /// Gracefully shuts down all worker threads.
     /// Returns the final statistics snapshot
     pub fn shutdown(mut self) -> Vec<SubscriptionStats> {
         // Wait for active processing to complete
         self.wait_for_completion();
-        let final_stats: Vec<SubscriptionStats> = self.dispatchers
+        let final_stats: Vec<SubscriptionStats> = self
+            .dispatchers
             .iter()
             .map(|dispatcher| dispatcher.stats().snapshot())
             .collect();
-        
-        // Drop channels to break out of processing loops 
+
+        // Drop channels to break out of processing loops
         for dispatcher in &self.dispatchers {
             dispatcher.close_channels();
         }
-        
+
         // Wait for all worker threads to complete
         for (i, handle) in self.handles.drain(..).enumerate() {
             if let Err(e) = handle.join() {
                 eprintln!("Thread {} error: {:?}", i, e);
             }
         }
-        
-        return final_stats; 
+
+        return final_stats;
     }
 }

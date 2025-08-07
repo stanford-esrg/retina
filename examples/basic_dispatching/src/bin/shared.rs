@@ -1,10 +1,10 @@
+use clap::Parser;
 use retina_core::multicore::{ChannelDispatcher, ChannelMode, SharedWorkerThreadSpawner};
 use retina_core::{config::load_config, CoreId, Runtime};
 use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
 use retina_filtergen::{filter, retina_main};
-use std::sync::{Arc, OnceLock};
 use std::path::PathBuf;
-use clap::Parser;
+use std::sync::{Arc, OnceLock};
 
 static TLS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
 static DNS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
@@ -17,16 +17,27 @@ enum ChannelModeArg {
 
 #[derive(Parser, Debug)]
 struct Args {
-    #[clap(short, long, parse(from_os_str), value_name = "FILE", default_value = "./configs/offline.toml")]
+    #[clap(
+        short,
+        long,
+        parse(from_os_str),
+        value_name = "FILE",
+        default_value = "./configs/offline.toml"
+    )]
     config: PathBuf,
-    
+
     #[clap(long, value_name = "SIZE", default_value = "32768")]
     tls_channel_size: usize,
-    
+
     #[clap(long, value_name = "SIZE", default_value = "32768")]
     dns_channel_size: usize,
 
-    #[clap(long, value_delimiter = ',', value_name = "TLS_CORES", default_value = "36,37,38,39")]
+    #[clap(
+        long,
+        value_delimiter = ',',
+        value_name = "TLS_CORES",
+        default_value = "36,37,38,39"
+    )]
     worker_cores: Vec<u32>,
 
     #[clap(long, value_name = "SIZE", default_value = "16")]
@@ -94,11 +105,8 @@ fn main() {
         .map_err(|_| "Failed to set DNS dispatcher")
         .unwrap();
 
-    let core_ids: Vec<CoreId> = args.worker_cores
-        .iter()
-        .map(|&core| CoreId(core))
-        .collect();
-    
+    let core_ids: Vec<CoreId> = args.worker_cores.iter().map(|&core| CoreId(core)).collect();
+
     let worker_handle = SharedWorkerThreadSpawner::new()
         .set_cores(core_ids)
         .set_batch_size(args.batch_size)
@@ -112,13 +120,13 @@ fn main() {
 
     let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
     runtime.run();
-    
+
     let final_stats = worker_handle.shutdown();
-    
+
     if let Some(tls_stats) = final_stats.get(0) {
         println!("=== TLS Stats ===\n{}\n", tls_stats);
     }
-    
+
     if let Some(dns_stats) = final_stats.get(1) {
         println!("=== DNS Stats ===\n{}", dns_stats);
     }

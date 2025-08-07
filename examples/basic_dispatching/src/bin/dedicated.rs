@@ -1,10 +1,10 @@
+use clap::Parser;
 use retina_core::multicore::{ChannelDispatcher, ChannelMode, DedicatedWorkerThreadSpawner};
 use retina_core::{config::load_config, CoreId, Runtime};
 use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
 use retina_filtergen::{filter, retina_main};
-use std::sync::{Arc, OnceLock};
 use std::path::PathBuf;
-use clap::Parser;
+use std::sync::{Arc, OnceLock};
 
 static TLS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
 static DNS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
@@ -17,19 +17,35 @@ enum ChannelModeArg {
 
 #[derive(Parser, Debug)]
 struct Args {
-    #[clap(short, long, parse(from_os_str), value_name = "FILE", default_value = "./configs/offline.toml")]
+    #[clap(
+        short,
+        long,
+        parse(from_os_str),
+        value_name = "FILE",
+        default_value = "./configs/offline.toml"
+    )]
     config: PathBuf,
-    
+
     #[clap(long, value_name = "SIZE", default_value = "32768")]
     tls_channel_size: usize,
-    
+
     #[clap(long, value_name = "SIZE", default_value = "32768")]
     dns_channel_size: usize,
 
-    #[clap(long, value_delimiter = ',', value_name = "TLS_CORES", default_value = "36,37")]
+    #[clap(
+        long,
+        value_delimiter = ',',
+        value_name = "TLS_CORES",
+        default_value = "36,37"
+    )]
     tls_worker_cores: Vec<u32>,
 
-    #[clap(long, value_delimiter = ',', value_name = "DNS_CORES", default_value = "38,39")]
+    #[clap(
+        long,
+        value_delimiter = ',',
+        value_name = "DNS_CORES",
+        default_value = "38,39"
+    )]
     dns_worker_cores: Vec<u32>,
 
     #[clap(long, value_name = "SIZE", default_value = "16")]
@@ -100,12 +116,14 @@ fn main() {
         .map_err(|_| "Failed to set DNS dispatcher")
         .unwrap();
 
-    let tls_core_ids: Vec<CoreId> = args.tls_worker_cores
+    let tls_core_ids: Vec<CoreId> = args
+        .tls_worker_cores
         .iter()
         .map(|&core| CoreId(core))
         .collect();
 
-    let dns_core_ids: Vec<CoreId> = args.dns_worker_cores
+    let dns_core_ids: Vec<CoreId> = args
+        .dns_worker_cores
         .iter()
         .map(|&core| CoreId(core))
         .collect();
@@ -114,23 +132,27 @@ fn main() {
         .set_cores(tls_core_ids)
         .set_batch_size(args.tls_batch_size)
         .set_dispatcher(tls_dispatcher.clone())
-        .set_handler(|event: Event| {
-            if let Event::Tls((_tls, _conn_record)) = event {}
-        })
+        .set_handler(
+            |event: Event| {
+                if let Event::Tls((_tls, _conn_record)) = event {}
+            },
+        )
         .run();
 
     let dns_handler = DedicatedWorkerThreadSpawner::new()
         .set_cores(dns_core_ids)
         .set_batch_size(args.dns_batch_size)
         .set_dispatcher(dns_dispatcher.clone())
-        .set_handler(|event: Event| {
-            if let Event::Dns((_dns, _conn_record)) = event {}
-        })
+        .set_handler(
+            |event: Event| {
+                if let Event::Dns((_dns, _conn_record)) = event {}
+            },
+        )
         .run();
 
     let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
     runtime.run();
-    
+
     let tls_stats = tls_handler.shutdown();
     let dns_stats = dns_handler.shutdown();
 

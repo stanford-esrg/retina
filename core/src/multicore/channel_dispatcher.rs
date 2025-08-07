@@ -95,7 +95,7 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
     /// operation and doesn't rely on mutexes internally (relies on lower-level atomic operations).
     pub fn dispatch(&self, data: T, core_id: Option<&CoreId>) -> Result<(), DispatchError<T>> {
         let channels = self.channels.lock().unwrap();
-        
+
         let result = match &*channels {
             Channels::PerCore(map) => {
                 let core = core_id.ok_or(DispatchError::CoreIdRequired)?;
@@ -105,12 +105,10 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
                     None => Err(TrySendError::Disconnected(data)),
                 }
             }
-            Channels::Shared(sender_result, _) => {
-                match sender_result {
-                    Some(sender) => sender.try_send(data),
-                    None => Err(TrySendError::Disconnected(data)),
-                }
-            }
+            Channels::Shared(sender_result, _) => match sender_result {
+                Some(sender) => sender.try_send(data),
+                None => Err(TrySendError::Disconnected(data)),
+            },
         };
 
         match result {
@@ -135,7 +133,7 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
         }
     }
 
-    /// Manually closes all channels. 
+    /// Manually closes all channels.
     pub fn close_channels(&self) {
         let mut channels = self.channels.lock().unwrap();
 

@@ -14,7 +14,7 @@ where
     worker_cores: Option<Vec<CoreId>>,
     dispatcher: Option<Arc<ChannelDispatcher<T>>>,
     handler: Option<F>,
-    batch_size: usize, 
+    batch_size: usize,
 }
 
 /// Handle for managing a group of dedicated worker threads.
@@ -27,7 +27,7 @@ where
     dispatcher: Arc<ChannelDispatcher<T>>,
 }
 
-/// Handle for initializing a group of dedicated worker threads. 
+/// Handle for initializing a group of dedicated worker threads.
 impl<T: Send + 'static> DedicatedWorkerThreadSpawner<T, fn(T)> {
     /// Creates a new spawner with a no-op handler function.
     pub fn new() -> Self {
@@ -77,12 +77,12 @@ where
             worker_cores: self.worker_cores,
             dispatcher: self.dispatcher,
             handler: Some(handler),
-            batch_size: self.batch_size, 
+            batch_size: self.batch_size,
         }
     }
 
-    /// Spawns worker threads on configured cores. Returns a handle for managing the worker group. 
-    /// Uses a barrier to ensure all threads are ready before returning. 
+    /// Spawns worker threads on configured cores. Returns a handle for managing the worker group.
+    /// Uses a barrier to ensure all threads are ready before returning.
     pub fn run(self) -> DedicatedWorkerHandle<T>
     where
         F: 'static,
@@ -100,12 +100,12 @@ where
 
         let batch_size = self.batch_size;
         let receivers = Arc::new(dispatcher.receivers());
-        let num_threads = worker_cores.len(); 
+        let num_threads = worker_cores.len();
 
-        // Barrier to ensure all threads are spawned before returning 
-        let startup_barrier = Arc::new(Barrier::new(num_threads + 1)); // +1 for main thread 
-        
-        let mut handles = Vec::with_capacity(num_threads); 
+        // Barrier to ensure all threads are spawned before returning
+        let startup_barrier = Arc::new(Barrier::new(num_threads + 1)); // +1 for main thread
+
+        let mut handles = Vec::with_capacity(num_threads);
         for core in worker_cores {
             let receivers_ref = Arc::clone(&receivers);
             let handler_ref = Arc::clone(&handler);
@@ -123,40 +123,39 @@ where
                 Self::run_worker_loop(&receivers_ref, &handler_ref, &dispatcher_ref, batch_size);
             });
 
-            handles.push(handle); 
+            handles.push(handle);
         }
 
         // Wait for all threads to be ready
-        startup_barrier.wait(); 
+        startup_barrier.wait();
 
         return DedicatedWorkerHandle {
-            handles, 
-            dispatcher
-        }
+            handles,
+            dispatcher,
+        };
     }
 
-    /// Process channel messages in batches. 
-    fn process_batch(
-        batch: Vec<T>,
-        handler: &F,
-        dispatcher: &Arc<ChannelDispatcher<T>>,
-    ) {
+    /// Process channel messages in batches.
+    fn process_batch(batch: Vec<T>, handler: &F, dispatcher: &Arc<ChannelDispatcher<T>>) {
         if batch.is_empty() {
-            return; 
+            return;
         }
-        
+
         let batch_size = batch.len() as u64;
-        
+
         dispatcher
             .stats()
             .actively_processing
             .fetch_add(batch_size, Ordering::Relaxed);
-        
+
         for data in batch {
             handler(data);
         }
-        
-        dispatcher.stats().processed.fetch_add(batch_size, Ordering::Relaxed);
+
+        dispatcher
+            .stats()
+            .processed
+            .fetch_add(batch_size, Ordering::Relaxed);
         dispatcher
             .stats()
             .actively_processing
@@ -169,7 +168,7 @@ where
         receivers: &[Arc<Receiver<T>>],
         handler: &F,
         dispatcher: &Arc<ChannelDispatcher<T>>,
-        batch_size: usize, 
+        batch_size: usize,
     ) {
         let mut select = Select::new();
         for receiver in receivers {
@@ -179,11 +178,11 @@ where
         loop {
             let oper = select.select();
             let index = oper.index();
-            let receiver = &receivers[index]; 
-            
+            let receiver = &receivers[index];
+
             let mut batch = Vec::with_capacity(batch_size);
             let mut recv_error: Option<TryRecvError> = None;
-            
+
             match oper.recv(receiver) {
                 Ok(msg) => {
                     batch.push(msg);
@@ -231,7 +230,7 @@ where
     /// Blocks until all queues are empty and no messages are actively processing.
     pub fn wait_for_completion(&self) {
         let receivers = self.dispatcher.receivers();
-        
+
         loop {
             let queues_empty = receivers.iter().all(|r| r.is_empty());
             let active_handlers = self.dispatcher.stats().get_actively_processing();
@@ -244,17 +243,17 @@ where
             sleep(Duration::from_millis(10));
         }
     }
-    
-    /// Gracefully shuts down all worker threads. 
+
+    /// Gracefully shuts down all worker threads.
     /// Returns the final statistics snapshot
     pub fn shutdown(mut self) -> SubscriptionStats {
         // Wait for active processing to complete
         self.wait_for_completion();
         let final_stats = self.dispatcher.stats().snapshot();
-        
-        // Drop channels to break out of processing loops 
+
+        // Drop channels to break out of processing loops
         self.dispatcher.close_channels();
-        
+
         // Drop the dispatcher
         drop(self.dispatcher);
 
@@ -264,7 +263,7 @@ where
                 eprintln!("Thread {} error: {:?}", i, e);
             }
         }
-        
-        return final_stats; 
+
+        return final_stats;
     }
 }
