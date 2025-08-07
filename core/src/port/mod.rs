@@ -39,7 +39,11 @@ impl PortId {
             dpdk::rte_eth_dev_get_port_by_name(dev_name.as_ptr(), &mut port_id)
         };
         if ret != 0 {
-            panic!("Failed to find device by name {}", _device);
+            panic!(
+                "Failed to find device by name {} (Avail. devices: {})",
+                _device,
+                Self::get_avail_device_names()
+            );
         }
 
         if { unsafe { dpdk::rte_eth_dev_is_valid_port(port_id) } } == 0 {
@@ -55,6 +59,23 @@ impl PortId {
     /// For DPDK functions
     pub(crate) fn raw(&self) -> u16 {
         self.0
+    }
+
+    /// Error helper
+    fn get_avail_device_names() -> String {
+        let port_count = unsafe { dpdk::rte_eth_dev_count_avail() };
+        let mut avail_devices = String::new();
+        for id in 0..port_count {
+            let mut name = [0i8; dpdk::RTE_ETH_NAME_MAX_LEN as usize];
+            let ret = unsafe { dpdk::rte_eth_dev_get_name_by_port(id, name.as_mut_ptr()) };
+            if ret == 0 {
+                let name = unsafe { std::ffi::CStr::from_ptr(name.as_ptr()) };
+                avail_devices.push_str(&format!("{:?}, ", name));
+            } else {
+                avail_devices.push_str(&format!("(Unknown: {} (err: {}), ", id, ret));
+            }
+        }
+        avail_devices
     }
 }
 
