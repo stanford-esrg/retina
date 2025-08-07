@@ -9,7 +9,7 @@ use nix::Error;
 ///
 /// **Note:** This does *not* prevent other threads or processes from being scheduled on the same
 /// core. It only restricts where the current thread may run. To achieve true core exclusivity,
-/// other threads must be restricted seperately.
+/// other threads must be restricted separately.
 ///
 /// # Arguments
 ///

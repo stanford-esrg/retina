@@ -17,9 +17,7 @@ members = [
 resolver = "2"
 
 [profile.release]
-lto = false
-debug = true
-strip = false
+lto = true
 
 [patch.crates-io]
 pcap = { git = 'https://github.com/thegwan/pcap', branch = 'compile-optimized' }

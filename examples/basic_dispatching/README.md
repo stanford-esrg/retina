@@ -7,6 +7,10 @@ An introductory example that dispatches TLS and DNS transaction metric logs to w
 
 Both examples process the same network events but use different thread management strategies.
 
+## Performance
+
+With the default configuration provided, testing on Stanford University network achieved **zero subscription loss** running at **135Gbps of traffic for 3 minutes**.
+
 ## Configuration
 
 The worker threads and message passing setup are designed to be configurable based on your system requirements.
@@ -18,11 +22,11 @@ The worker threads and message passing setup are designed to be configurable bas
 | `--config` | ./configs/offline.toml | Mode to run retina in (offline or online) |
 | `--tls-worker-cores` | 36,37 | CPU cores dedicated to TLS processing |
 | `--dns-worker-cores` | 38,39 | CPU cores dedicated to DNS processing |
-| `--tls-batch-size` | 1 | Batch size for TLS event processing |
-| `--dns-batch-size` | 1 | Batch size for DNS event processing |
+| `--tls-batch-size` | 16 | Batch size for TLS event processing |
+| `--dns-batch-size` | 16 | Batch size for DNS event processing |
 | `--tls-channel-size` | 32768 | Channel buffer size for TLS events |
 | `--dns-channel-size` | 32768 | Channel buffer size for DNS events |
-| `--channel-mode` | per-core | Is channels sharded by RX core? |
+| `--channel-mode` | per-core | Are channels sharded by RX core? |
 
 ### Shared Worker Configuration
 
@@ -30,10 +34,10 @@ The worker threads and message passing setup are designed to be configurable bas
 |--------|---------|-------------|
 | `--config` | ./configs/offline.toml | Mode to run retina in (offline or online) |
 | `--worker-cores` | 36,37,38,39 | CPU cores for shared worker pool |
-| `--batch-size` | 1 | Batch size for shared processing |
+| `--batch-size` | 16 | Batch size for shared processing |
 | `--tls-channel-size` | 32768 | Channel buffer size for TLS events |
 | `--dns-channel-size` | 32768 | Channel buffer size for DNS events |
-| `--channel-mode` | per-core | Is channels sharded by RX core? |
+| `--channel-mode` | per-core | Are channels sharded by RX core? |
 
 ## Memory Considerations
 
@@ -46,7 +50,7 @@ Due to the bursty nature of network traffic, channel sizes are typically set hig
 ## Getting Started
 
 1. Choose your approach based on your use case:
-   - Use **dedicated.rs** for specialized processing with separate thread pools
+   - Use **dedicated.rs** when you need specialized processing with separate thread pools
    - Use **shared.rs** for simpler setup with unified processing
 
 2. Configure worker cores and batch sizes according to your system capacity

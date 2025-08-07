@@ -4,7 +4,7 @@
 //! - **Shared**: All data is sent through a single shared channel.
 //! - **PerCore**: Data is dispatched to specific channels based on coreID
 //!
-//! The dispatcher automatically tracks statistics for didspatched and dropped subscriptions
+//! The dispatcher automatically tracks statistics for dispatched and dropped subscriptions
 //! and provides thread-safe access to receivers for consumption.
 
 use super::SubscriptionStats;
