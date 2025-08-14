@@ -1,0 +1,61 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="An ergonomic framework for high speed network traffic analysis on commodity hardware."><title>retina_core - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="retina_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.85.0 (4d91de4e4 2025-02-17)" data-channel="1.85.0" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../retina_core/index.html">retina_<wbr>core</a><span class="version">1.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>retina_core</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/retina_core/lib.rs.html#1-104">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>An ergonomic framework for high speed network traffic analysis on commodity hardware.</p>
+<p>Retina provides a simple filter and callback interface that lets users subscribe to network
+traffic in real-time and run user-defined analysis code in a standard software environment. It
+is a passive analysis framework that supports access to network traffic at one of four
+abstraction levels:</p>
+<ul>
+<li>Individual packets</li>
+<li>Reassembled connections</li>
+<li>Parsed application-layer sessions</li>
+<li>Static (inferrable at first packet and constant throughout the connection)</li>
+</ul>
+<p>Retina is designed with a focus on performance in real-world, high-volume network environments
+(e.g., full-network or full-uplink analysis). It employs an efficient filtering mechanism to
+discard out-of-scope traffic. Due to performance, is not specifically geared towards deep
+inspection of all packets, though it can be customized to do so with sampling.</p>
+<p>For filter and callback syntax and usage, see <a href="../retina_filtergen">retina_filtergen</a>.
+All built-in subscribable datatypes are defined in <a href="../retina_datatypes">retina_datatypes</a>.
+Additional datatypes in this crate are welcome and encouraged!</p>
+<p>The following example shows a simple Retina application with two subscriptions, which print
+(1) parsed TLS handshakes and (2) parsed DNS transactions to stdout:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>retina_core::config::default_config;
+<span class="kw">use </span>retina_core::Runtime;
+<span class="kw">use </span>retina_filtergen::{retina_main, filter};
+<span class="kw">use </span>retina_datatypes::<span class="kw-2">*</span>;
+
+<span class="comment">// Specify a subscription: filter, datatype(s), and callback. The filter determines what
+// subset of traffic is delivered to the callback. The datatype(s) determine what data is
+// delivered (here, a parsed TLS handshake). Datatypes are defined in the retina_datatypes
+// crate and must be passed by immutable reference.
+// The callback is executed when the filter (here, TLS connection with matching sni)
+// is matched and the specified data is ready to be delivered (here, when the TLS handshake
+// is fully parsed).
+</span><span class="attr">#[filter(<span class="string">"tls.sni ~ '^.*\\.com$'"</span>)]
+</span><span class="kw">fn </span>log_tls(tls: <span class="kw-2">&amp;</span>TlsHandshake) {
+     <span class="macro">println!</span>(<span class="string">"{:?}"</span>, tls);
+}
+
+<span class="comment">// A Retina application consists of one or more subscriptions.
+// Define other subscriptions in the same file.
+</span><span class="attr">#[filter(<span class="string">"dns"</span>)]
+</span><span class="kw">fn </span>log_dns(dns: <span class="kw-2">&amp;</span>DnsTransaction) {
+     <span class="macro">println!</span>(<span class="string">"{:?}"</span>, dns);
+}
+
+<span class="comment">// When using the `filter` macro to identify subscriptions, include the
+// `retina_main` attribute with the number of expected subscriptions.
+</span><span class="attr">#[retina_main(<span class="number">2</span>)]
+</span><span class="kw">fn </span>main() {
+    <span class="comment">// Specify the runtime config (default or from a config file)
+    </span><span class="kw">let </span>cfg = default_config();
+    <span class="comment">// SubscribedWrapper is the type generated at compile-time to "wrap" all
+    // data tracking and delivering functionality, while `filter` wraps all filtering.
+    </span><span class="kw">let </span>runtime::&lt;SubscribedWrapper&gt; = Runtime::new(cfg, filter).unwrap();
+    <span class="comment">// Starts Retina
+    </span>runtime.run();
+}</code></pre></div>
+<p>For programs that require many filters (e.g., searching for 100s of attack signatures), using
+the <a href="../retina_filtergen/attr.subscription.html">subscription</a> macro to specify an input TOML
+file may be preferable to specifying each subscription individually as above.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.ConnId"><code>pub use self::conntrack::conn_id::<a class="struct" href="conntrack/conn_id/struct.ConnId.html" title="struct retina_core::conntrack::conn_id::ConnId">ConnId</a>;</code></div></li><li><div class="item-name" id="reexport.FiveTuple"><code>pub use self::conntrack::conn_id::<a class="struct" href="conntrack/conn_id/struct.FiveTuple.html" title="struct retina_core::conntrack::conn_id::FiveTuple">FiveTuple</a>;</code></div></li><li><div class="item-name" id="reexport.L4Pdu"><code>pub use self::conntrack::pdu::<a class="struct" href="conntrack/pdu/struct.L4Pdu.html" title="struct retina_core::conntrack::pdu::L4Pdu">L4Pdu</a>;</code></div></li><li><div class="item-name" id="reexport.CoreId"><code>pub use self::lcore::<a class="struct" href="lcore/struct.CoreId.html" title="struct retina_core::lcore::CoreId">CoreId</a>;</code></div></li><li><div class="item-name" id="reexport.Mbuf"><code>pub use self::memory::mbuf::<a class="struct" href="memory/mbuf/struct.Mbuf.html" title="struct retina_core::memory::mbuf::Mbuf">Mbuf</a>;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="config/index.html" title="mod retina_core::config">config</a></div><div class="desc docblock-short">Configuration options.</div></li><li><div class="item-name"><a class="mod" href="conntrack/index.html" title="mod retina_core::conntrack">conntrack</a></div><div class="desc docblock-short">Per-core connection state management.</div></li><li><div class="item-name"><a class="mod" href="filter/index.html" title="mod retina_core::filter">filter</a></div><div class="desc docblock-short">Utilities for compile-time filter generation and subscription handling.</div></li><li><div class="item-name"><a class="mod" href="lcore/index.html" title="mod retina_core::lcore">lcore</a></div><div class="desc docblock-short">Utilities for managing and monitoring Retina cores.</div></li><li><div class="item-name"><a class="mod" href="memory/index.html" title="mod retina_core::memory">memory</a></div><div class="desc docblock-short">Packet memory buffer management.</div></li><li><div class="item-name"><a class="mod" href="protocols/index.html" title="mod retina_core::protocols">protocols</a></div><div class="desc docblock-short">Protocol parsing and manipulation.</div></li><li><div class="item-name"><a class="mod" href="stats/index.html" title="mod retina_core::stats">stats</a></div></li><li><div class="item-name"><a class="mod" href="utils/index.html" title="mod retina_core::utils">utils</a></div><div class="desc docblock-short">Utility modules.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Runtime.html" title="struct retina_core::Runtime">Runtime</a></div><div class="desc docblock-short">The Retina runtime.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.rte_lcore_id.html" title="fn retina_core::rte_lcore_id">rte_<wbr>lcore_<wbr>id</a><sup title="unsafe function">⚠</sup></div><div class="desc docblock-short">Returns the application thread ID of the execution unit.</div></li><li><div class="item-name"><a class="fn" href="fn.rte_rdtsc.html" title="fn retina_core::rte_rdtsc">rte_<wbr>rdtsc</a><sup title="unsafe function">⚠</sup></div><div class="desc docblock-short">Reads the timestamp counter (TSC) register.</div></li></ul></section></div></main></body></html>

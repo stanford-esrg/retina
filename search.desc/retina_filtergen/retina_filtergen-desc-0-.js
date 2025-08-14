@@ -1,0 +1,1 @@
+searchState.loadedDescShard("retina_filtergen", 0, "A macro for defining subscriptions in Retina.\nGenerate a Retina program without a specification file. …\nFor generating a Retina program without a specification …\nThe “streaming” macro indicates that a callback …\nGenerate a Retina program from a specification file. This …")
