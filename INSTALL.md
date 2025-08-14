@@ -30,11 +30,13 @@ Retina currently requires [**DPDK 20.11 or 21.08 or 23.11 or 24.11**](https://co
 To get high performance from DPDK applications, we recommend the following system configuration steps. More details from the DPDK docs can be found [here](https://doc.dpdk.org/guides/linux_gsg/nic_perf_intel_platform.html).
 
 
-#### Allocate 1GB hugepages
+#### Allocate 1GB hugepages (if system resources allow)
 Edit the GRUB boot settings `/etc/default/grub` to reserve 1GB hugepages and isolate CPU cores that will be used for Retina. For example, to reserve 64 1GB hugepages and isolate cores 1-32:
 ```
 GRUB_CMDLINE_LINUX="default_hugepagesz=1G hugepagesz=1G hugepages=64 iommu=pt intel_iommu=on isolcpus=1-32"
 ```
+If your computer has less memory allocated (i.e., if testing retina in an offline VM) then change the default_hugepagesz and hugepagesz values to fit your resources. Allocating more memory to hugepages than achievable will result in an unsuccessful startup of your VM.
+
 
 Update the GRUB settings and reboot:
 ```sh
@@ -47,6 +49,13 @@ Mount hugepages to make them available for DPDK use:
 sudo mkdir /mnt/huge
 sudo mount -t hugetlbfs pagesize=1GB /mnt/huge
 ```
+
+##### Troubleshooting:
+If hugepages is still unconfigured, check that nr_hugepages is set to the correct value. If it does not hold the correct value, you can write to it manually.
+```
+echo CORRECT_NUMBER | sudo tee /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+```
+
 
 ### Install MLX5 PMD Dependencies
 If using a Mellanox ConnectX-5 (recommended), you will need to separately install  some dependencies that do not come with DPDK ([details](https://doc.dpdk.org/guides/nics/mlx5.html)). This can be done by installing Mellanox OFED. DPDK recommends MLNX_OFED 5.4-1.0.3.0 in combination with DPDK 21.08.
