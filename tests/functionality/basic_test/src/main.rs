@@ -1,13 +1,12 @@
 use clap::Parser;
 use lazy_static::lazy_static;
-use retina_core::{FiveTuple, Runtime, config::default_config};
+use retina_core::{config::load_config, FiveTuple, Runtime};
 use retina_datatypes::{ByteCount, TlsHandshake};
 use retina_filtergen::{filter, retina_main};
-use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::path::PathBuf;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 
 // Count how many times the TLS callback is invoked
 static TLS_CB_COUNT: AtomicUsize = AtomicUsize::new(0);
