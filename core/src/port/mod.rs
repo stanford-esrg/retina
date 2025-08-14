@@ -67,9 +67,16 @@ impl PortId {
         let mut avail_devices = String::new();
         for id in 0..port_count {
             let mut name = [0i8; dpdk::RTE_ETH_NAME_MAX_LEN as usize];
-            let ret = unsafe { dpdk::rte_eth_dev_get_name_by_port(id, name.as_mut_ptr()) };
+            let ret = unsafe {
+                dpdk::rte_eth_dev_get_name_by_port(
+                    id,
+                    name.as_mut_ptr() as *mut std::os::raw::c_char,
+                )
+            };
             if ret == 0 {
-                let name = unsafe { std::ffi::CStr::from_ptr(name.as_ptr()) };
+                let name = unsafe {
+                    std::ffi::CStr::from_ptr(name.as_ptr() as *const std::os::raw::c_char)
+                };
                 avail_devices.push_str(&format!("{:?}, ", name));
             } else {
                 avail_devices.push_str(&format!("(Unknown: {} (err: {}), ", id, ret));
