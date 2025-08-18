@@ -10,6 +10,7 @@ members = [
     "examples/protocols",
     "examples/basic",
     "examples/basic_file",
+    "examples/basic_dispatching",
     "examples/log_ssh",
     "examples/streaming", 
     "tests/functionality/basic_test",
@@ -17,7 +18,9 @@ members = [
 resolver = "2"
 
 [profile.release]
-lto = true
+lto = false
+debug = true
+strip = false
 
 [patch.crates-io]
 pcap = { git = 'https://github.com/thegwan/pcap', branch = 'compile-optimized' }
