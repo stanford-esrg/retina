@@ -87,7 +87,7 @@ fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord, rx_core: &CoreId) {
 #[retina_main(2)]
 fn main() {
     let args = Args::parse();
-    println!("{:#?}", args);
+    println!("{:#?}\n", args);
 
     let config = load_config(&args.config);
     let rx_cores = config.get_all_rx_core_ids();
