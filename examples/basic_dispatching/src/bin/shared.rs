@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{ArgAction::SetTrue, Parser};
 use retina_core::multicore::{ChannelDispatcher, ChannelMode, SharedWorkerThreadSpawner};
 use retina_core::{config::load_config, CoreId, Runtime};
 use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
@@ -45,6 +45,12 @@ struct Args {
 
     #[clap(long, value_enum, default_value = "per-core")]
     channel_mode: ChannelModeArg,
+
+    #[clap(long, value_name = "BOOLEAN", action = SetTrue)]
+    show_stats: bool,
+
+    #[clap(long, value_name = "BOOLEAN", action = SetTrue)]
+    show_args: bool,
 }
 
 #[derive(Clone)]
@@ -76,7 +82,9 @@ fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord, rx_core: &CoreId) {
 #[retina_main(2)]
 fn main() {
     let args = Args::parse();
-    println!("{:#?}\n", args);
+    if args.show_args {
+        println!("{:#?}\n", args);
+    }
 
     let config = load_config(&args.config);
     let rx_cores = config.get_all_rx_core_ids();
@@ -123,11 +131,13 @@ fn main() {
 
     let final_stats = worker_handle.shutdown();
 
-    if let Some(tls_stats) = final_stats.get(0) {
-        println!("=== TLS Stats ===\n{}\n", tls_stats);
-    }
+    if args.show_stats {
+        if let Some(tls_stats) = final_stats.get(0) {
+            println!("=== TLS Stats ===\n{}\n", tls_stats);
+        }
 
-    if let Some(dns_stats) = final_stats.get(1) {
-        println!("=== DNS Stats ===\n{}", dns_stats);
+        if let Some(dns_stats) = final_stats.get(1) {
+            println!("=== DNS Stats ===\n{}", dns_stats);
+        }
     }
 }
