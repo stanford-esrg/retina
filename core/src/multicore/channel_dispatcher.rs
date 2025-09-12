@@ -36,12 +36,14 @@ pub enum ChannelMode {
     PerCore(Vec<CoreId>),
 }
 
+type Channel<T> = (Option<Sender<T>>, Arc<Receiver<T>>); 
+
 /// Internal representation of the channel configuration based on chosen operating mode.
 pub enum Channels<T> {
     /// Single shared sender and receiver pair.
-    Shared(Option<Sender<T>>, Arc<Receiver<T>>),
+    Shared(Channel<T>),
     /// HashMap mapping core IDs to their dedicated sender/receiver pairs.
-    PerCore(HashMap<CoreId, (Option<Sender<T>>, Arc<Receiver<T>>)>),
+    PerCore(HashMap<CoreId, Channel<T>>),
 }
 
 /// A unified thread-safe interface for dispatching subscriptions.
@@ -49,7 +51,6 @@ pub enum Channels<T> {
 /// # Type Parameters
 ///
 /// * `T` - The type of subscriptions being dispatched. Must implement `Send + 'static`.
-
 pub struct ChannelDispatcher<T> {
     channels: Mutex<Channels<T>>,
     stats: SubscriptionStats,
@@ -69,7 +70,7 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
         let (tx, rx) = bounded(channel_size);
 
         Self {
-            channels: Mutex::new(Channels::Shared(Some(tx), Arc::new(rx))),
+            channels: Mutex::new(Channels::Shared((Some(tx), Arc::new(rx)))),
             stats: SubscriptionStats::new(),
         }
     }
@@ -105,7 +106,7 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
                     None => Err(TrySendError::Disconnected(data)),
                 }
             }
-            Channels::Shared(sender_result, _) => match sender_result {
+            Channels::Shared((sender_result, _)) => match sender_result {
                 Some(sender) => sender.try_send(data),
                 None => Err(TrySendError::Disconnected(data)),
             },
@@ -129,7 +130,7 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
 
         match &*channels {
             Channels::PerCore(map) => map.values().map(|(_, rx)| Arc::clone(rx)).collect(),
-            Channels::Shared(_, rx) => vec![Arc::clone(rx)],
+            Channels::Shared((_, rx)) => vec![Arc::clone(rx)],
         }
     }
 
@@ -143,7 +144,7 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
                     *sender_result = None;
                 }
             }
-            Channels::Shared(sender_result, _) => {
+            Channels::Shared((sender_result, _)) => {
                 *sender_result = None;
             }
         }
@@ -151,7 +152,7 @@ impl<T: Send + 'static> ChannelDispatcher<T> {
 
     /// Returns a reference to the dispatch statistics.
     pub fn stats(&self) -> &SubscriptionStats {
-        return &self.stats;
+        &self.stats
     }
 }
 

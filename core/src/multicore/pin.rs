@@ -24,7 +24,6 @@ use nix::Error;
 ///
 /// This function is Linux-specific and uses the `nix` crate's scheduler bindings.
 /// On systems without CPU affinity support, this function will return an error.
-
 pub fn pin_thread_to_core(core: u32) -> Result<(), Error> {
     let mut cpu_set = CpuSet::new();
     cpu_set.set(core as usize)?;

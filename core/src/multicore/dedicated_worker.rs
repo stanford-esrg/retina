@@ -114,7 +114,7 @@ where
 
             let handle = thread::spawn(move || {
                 if let Err(e) = pin_thread_to_core(core.raw()) {
-                    eprintln!("Failed to pin thread to core {}: {}", core, e);
+                    eprintln!("Failed to pin thread to core {core}: {e}");
                 }
 
                 // Signal that this thread is ready
@@ -129,10 +129,10 @@ where
         // Wait for all threads to be ready
         startup_barrier.wait();
 
-        return DedicatedWorkerHandle {
+        DedicatedWorkerHandle {
             handles,
             dispatcher,
-        };
+        }
     }
 
     /// Process channel messages in batches.
@@ -260,10 +260,10 @@ where
         // Wait for all worker threads to complete
         for (i, handle) in self.handles.drain(..).enumerate() {
             if let Err(e) = handle.join() {
-                eprintln!("Thread {} error: {:?}", i, e);
+                eprintln!("Thread {i} error: {e:?}");
             }
         }
 
-        return final_stats;
+        final_stats
     }
 }
