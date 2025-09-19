@@ -33,7 +33,7 @@ impl Level {
     /// Whether a datatype at this Level can be delivered
     /// in a streaming callback.
     pub fn can_stream(&self) -> bool {
-        matches!(self, Level::Connection)
+        matches!(self, Level::Connection | Level::Packet)
     }
 }
 
@@ -310,8 +310,10 @@ impl DataType {
         // All packet-level datatypes are (1) delivered ASAP (per-packet),
         // and (2) tracked until then.
         if matches!(self.level, Level::Packet) {
-            assert!(matches!(sub_level, Level::Packet));
-            actions.if_matching.data |= ActionData::PacketCache;
+            assert!(matches!(sub_level, Level::Packet | Level::Streaming(_)));
+            if matches!(sub_level, Level::Packet) {
+                actions.if_matching.data |= ActionData::PacketCache;
+            }
             // Matched packet-level subscription is delivered in filter
         }
 
@@ -581,6 +583,9 @@ impl SubscriptionSpec {
         if !matches!(self.level, Level::Streaming(_)) {
             return false;
         }
+        if matches!(filter_layer, FilterLayer::PacketContinue) {
+            return false;
+        }
         // Eliminate if some datatype isn't ready to be delivered
         if self
             .datatypes
@@ -596,6 +601,10 @@ impl SubscriptionSpec {
             .iter()
             .all(|d| d.level.can_stream() || matches!(d.level, Level::Static))
         {
+            if matches!(filter_layer, FilterLayer::Packet) {
+                return pred.on_packet();
+            }
+            // Otherwise
             return !pred.is_prev_layer(filter_layer, self);
         }
         // Case 2: some non-streaming datatype
