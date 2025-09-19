@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Data"],"struct":["Dns","DnsQuery","DnsRecord","DnsResponse","Mx","Soa","Srv"]};
