@@ -54,6 +54,8 @@ regex = "1.7.3"
 ring = "0.17.8"
 aes-gcm = "0.10.3"
 memchr = "2.7.4"
+crossbeam = "0.8"
+nix = { version = "0.27", features = ["sched", "process"] }
 
 # Statistics
 tokio = { version = "1.42.0", features = ["full"] }

@@ -668,6 +668,7 @@ impl PTree {
                 }
                 node.actions.push(&child.actions);
                 node.deliver.extend(child.deliver.iter().cloned());
+                node.stream.extend(child.stream.iter().cloned());
                 node.children = std::mem::take(&mut child.children);
             }
         }
@@ -1299,6 +1300,7 @@ mod tests {
         let mut ptree = PTree::new_empty(FilterLayer::Packet);
         ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
         let node = ptree.get_subtree(4).unwrap();
+        // println!("{}", ptree);
         assert!(node.stream.len() == 1);
 
         // Should be empty
@@ -1352,5 +1354,31 @@ mod tests {
         let mut ptree = PTree::new_empty(FilterLayer::Protocol);
         ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
         assert!(ptree.get_subtree(3).unwrap().stream.len() == 1);
+    }
+
+    use crate::filter::datatypes::Streaming;
+
+    #[test]
+    fn core_streaming_pkt() {
+        let mut subscr_streaming = SubscriptionSpec::new(String::from("fil"), String::from("cb"));
+        subscr_streaming.level = Level::Streaming(Streaming::Seconds(10.0));
+        subscr_streaming
+            .datatypes
+            .push(DataType::new_default_packet("Pkt"));
+
+        let filter = Filter::new("tcp").unwrap();
+        let mut ptree = PTree::new_empty(FilterLayer::PacketContinue);
+        ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
+        let subtree = ptree.get_subtree(2).unwrap();
+        assert!(subtree.stream.is_empty());
+        // println!("{}", ptree);
+
+        let mut ptree = PTree::new_empty(FilterLayer::Packet);
+        ptree.add_filter(&filter.get_patterns_flat(), &subscr_streaming, &DELIVER);
+        ptree.collapse();
+        // println!("{}", ptree);
+        let subtree = ptree.get_subtree(1).unwrap();
+        // println!("{}", ptree);
+        assert!(!subtree.stream.is_empty());
     }
 }

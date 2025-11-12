@@ -1,0 +1,180 @@
+use clap::{ArgAction::SetTrue, Parser};
+use retina_core::multicore::{ChannelDispatcher, ChannelMode, DedicatedWorkerThreadSpawner};
+use retina_core::{config::load_config, CoreId, Runtime};
+use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
+use retina_filtergen::{filter, retina_main};
+use serde::Serialize;
+use std::path::PathBuf;
+use std::sync::{Arc, OnceLock};
+
+static TLS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
+static DNS_DISPATCHER: OnceLock<Arc<ChannelDispatcher<Event>>> = OnceLock::new();
+
+#[derive(Copy, Clone, Debug, clap::ValueEnum)]
+enum ChannelModeArg {
+    PerCore,
+    Shared,
+}
+
+#[derive(Parser, Debug)]
+struct Args {
+    #[clap(
+        short,
+        long,
+        parse(from_os_str),
+        value_name = "FILE",
+        default_value = "./configs/offline.toml"
+    )]
+    config: PathBuf,
+
+    #[clap(long, value_name = "SIZE", default_value = "32768")]
+    tls_channel_size: usize,
+
+    #[clap(long, value_name = "SIZE", default_value = "32768")]
+    dns_channel_size: usize,
+
+    #[clap(
+        long,
+        value_delimiter = ',',
+        value_name = "TLS_CORES",
+        default_value = "36,37"
+    )]
+    tls_worker_cores: Vec<u32>,
+
+    #[clap(
+        long,
+        value_delimiter = ',',
+        value_name = "DNS_CORES",
+        default_value = "38,39"
+    )]
+    dns_worker_cores: Vec<u32>,
+
+    #[clap(long, value_name = "SIZE", default_value = "16")]
+    tls_batch_size: usize,
+
+    #[clap(long, value_name = "SIZE", default_value = "16")]
+    dns_batch_size: usize,
+
+    #[clap(long, value_enum, default_value = "per-core")]
+    channel_mode: ChannelModeArg,
+
+    #[clap(long, value_name = "PATH", parse(from_os_str))]
+    flush_channels: Option<PathBuf>,
+
+    #[clap(long, value_name = "BOOLEAN", action = SetTrue)]
+    show_stats: bool,
+
+    #[clap(long, value_name = "BOOLEAN", action = SetTrue)]
+    show_args: bool,
+}
+
+#[derive(Clone, Serialize)]
+enum Event {
+    Tls((TlsHandshake, ConnRecord)),
+    Dns((DnsTransaction, ConnRecord)),
+}
+
+#[filter("tls")]
+fn tls_cb(tls: &TlsHandshake, conn_record: &ConnRecord, rx_core: &CoreId) {
+    if let Some(dispatcher) = TLS_DISPATCHER.get() {
+        let _ = dispatcher.dispatch(
+            Event::Tls((tls.clone(), conn_record.clone())),
+            Some(rx_core),
+        );
+    }
+}
+
+#[filter("dns")]
+fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord, rx_core: &CoreId) {
+    if let Some(dispatcher) = DNS_DISPATCHER.get() {
+        let _ = dispatcher.dispatch(
+            Event::Dns((dns.clone(), conn_record.clone())),
+            Some(rx_core),
+        );
+    }
+}
+
+#[retina_main(2)]
+fn main() {
+    let args = Args::parse();
+    if args.show_args {
+        println!("{args:#?}");
+    }
+
+    let config = load_config(&args.config);
+    let rx_cores = config.get_all_rx_core_ids();
+
+    let channel_mode = match args.channel_mode {
+        ChannelModeArg::PerCore => ChannelMode::PerCore(rx_cores),
+        ChannelModeArg::Shared => ChannelMode::Shared,
+    };
+
+    let tls_dispatcher = Arc::new(ChannelDispatcher::new(
+        channel_mode.clone(),
+        args.tls_channel_size,
+        "tls_dispatcher".to_string(),
+    ));
+
+    let dns_dispatcher = Arc::new(ChannelDispatcher::new(
+        channel_mode.clone(),
+        args.dns_channel_size,
+        "dns_dispatcher".to_string(),
+    ));
+
+    TLS_DISPATCHER
+        .set(tls_dispatcher.clone())
+        .map_err(|_| "Failed to set TLS dispatcher")
+        .unwrap();
+    DNS_DISPATCHER
+        .set(dns_dispatcher.clone())
+        .map_err(|_| "Failed to set DNS dispatcher")
+        .unwrap();
+
+    let tls_core_ids: Vec<CoreId> = args
+        .tls_worker_cores
+        .iter()
+        .map(|&core| CoreId(core))
+        .collect();
+
+    let dns_core_ids: Vec<CoreId> = args
+        .dns_worker_cores
+        .iter()
+        .map(|&core| CoreId(core))
+        .collect();
+
+    let tls_handler = DedicatedWorkerThreadSpawner::new()
+        .set_cores(tls_core_ids)
+        .set_batch_size(args.tls_batch_size)
+        .set_dispatcher(tls_dispatcher.clone())
+        .set_handler(
+            |event: Event| {
+                if let Event::Tls((_tls, _conn_record)) = event {}
+            },
+        )
+        .run();
+
+    let dns_handler = DedicatedWorkerThreadSpawner::new()
+        .set_cores(dns_core_ids)
+        .set_batch_size(args.dns_batch_size)
+        .set_dispatcher(dns_dispatcher.clone())
+        .set_handler(
+            |event: Event| {
+                if let Event::Dns((_dns, _conn_record)) = event {}
+            },
+        )
+        .run();
+
+    let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
+    runtime.run();
+
+    let tls_stats = tls_handler.shutdown(args.flush_channels.as_ref());
+    let dns_stats = dns_handler.shutdown(args.flush_channels.as_ref());
+
+    if args.show_stats {
+        println!("=== TLS Stats ===");
+        println!("{tls_stats}");
+
+        println!("=== DNS Stats ===");
+        println!("{dns_stats}");
+    }
+}
