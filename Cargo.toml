@@ -1,19 +1,19 @@
 [workspace]
 members = [
     "core",
-    "datatypes",
-    "examples/websites",
-    "examples/websites-prometheus",
-    "examples/port_count",
-    # Exclude from compilation; many subscriptions takes a long time to compile
-    # "examples/filter_stats",
-    "examples/protocols",
     "examples/basic",
-    "examples/basic_file",
-    "examples/basic_dispatching",
-    "examples/log_ssh",
-    "examples/streaming", 
-    "tests/functionality/basic_test",
+    "examples/client_randoms",
+    "examples/ip_anon",
+    "examples/log_conn",
+    "examples/log_tls",
+    "examples/log_http",
+    "examples/log_dns",
+    "examples/log_tls",
+    "examples/log_quic",
+    "examples/pcap_dump",
+    "examples/spin",
+    "examples/video",
+    "filtergen",
 ]
 resolver = "2"
 

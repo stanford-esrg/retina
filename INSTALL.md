@@ -24,19 +24,17 @@ sudo apt install build-essential meson pkg-config libnuma-dev python3-pyelftools
 ```
 
 ## Building and Installing DPDK
-Retina currently requires [**DPDK 20.11 or 21.08 or 23.11 or 24.11**](https://core.dpdk.org/download/). Note that 20.11 LTS has a bug that causes inaccurate packet drop metrics on some NICs.
+Retina currently requires [**DPDK 21.08**](https://core.dpdk.org/download/). The latest LTS release (21.11) contains breaking API changes while 20.11 LTS has a bug that causes inaccurate packet drop metrics on some NICs.
 
 ### System Configuration
 To get high performance from DPDK applications, we recommend the following system configuration steps. More details from the DPDK docs can be found [here](https://doc.dpdk.org/guides/linux_gsg/nic_perf_intel_platform.html).
 
 
-#### Allocate 1GB hugepages (if system resources allow)
+#### Allocate 1GB hugepages
 Edit the GRUB boot settings `/etc/default/grub` to reserve 1GB hugepages and isolate CPU cores that will be used for Retina. For example, to reserve 64 1GB hugepages and isolate cores 1-32:
 ```
 GRUB_CMDLINE_LINUX="default_hugepagesz=1G hugepagesz=1G hugepages=64 iommu=pt intel_iommu=on isolcpus=1-32"
 ```
-If your computer has less memory allocated (i.e., if testing retina in an offline VM) then change the default_hugepagesz and hugepagesz values to fit your resources. Allocating more memory to hugepages than achievable will result in an unsuccessful startup of your VM.
-
 
 Update the GRUB settings and reboot:
 ```sh
@@ -49,13 +47,6 @@ Mount hugepages to make them available for DPDK use:
 sudo mkdir /mnt/huge
 sudo mount -t hugetlbfs pagesize=1GB /mnt/huge
 ```
-
-##### Troubleshooting:
-If hugepages is still unconfigured, check that nr_hugepages is set to the correct value. If it does not hold the correct value, you can write to it manually.
-```
-echo CORRECT_NUMBER | sudo tee /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
-```
-
 
 ### Install MLX5 PMD Dependencies
 If using a Mellanox ConnectX-5 (recommended), you will need to separately install  some dependencies that do not come with DPDK ([details](https://doc.dpdk.org/guides/nics/mlx5.html)). This can be done by installing Mellanox OFED. DPDK recommends MLNX_OFED 5.4-1.0.3.0 in combination with DPDK 21.08.
@@ -72,16 +63,15 @@ sudo /etc/init.d/openibd restart
 This may update the firmware on your NIC, a reboot should complete the update if necessary.
 
 ### Install DPDK from source
-We recommend a local DPDK install from source. Download version 24.11 (or desired version) from the [DPDK downloads page](http://core.dpdk.org/download/):
+We recommend a local DPDK install from source. Download version 21.08 from the [DPDK downloads page](http://core.dpdk.org/download/):
 ```sh
-wget http://fast.dpdk.org/rel/dpdk-24.11.tar.xz
-tar xJf dpdk-24.11.tar.xz
+wget http://fast.dpdk.org/rel/dpdk-21.08.tar.xz
+tar xJf dpdk-21.08.tar.xz
 ```
 
-Set environment variables (For changing the version, set `DPDK_VERSION` properly):
+Set environment variables:
 ```sh
-export DPDK_PATH=/path/to/dpdk/dpdk-24.11
-export DPDK_VERSION=24.11
+export DPDK_PATH=/path/to/dpdk/dpdk-21.08
 export LD_LIBRARY_PATH=$DPDK_PATH/lib/x86_64-linux-gnu
 export PKG_CONFIG_PATH=$LD_LIBRARY_PATH/pkgconfig
 ```
@@ -138,9 +128,13 @@ sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH RUST_LOG=error ./target/release/my_app
 
 #### Troubleshooting: Bindgen
 
-Retina uses [bindgen](https://docs.rs/bindgen/latest/bindgen/) to generate bindings to DPDK functions implemented in C.
+Retina uses [bindgen](https://docs.rs/bindgen/latest/bindgen/) to generate bindings to DPDK functions implemented in C. As of 06/2024, we have encountered issues when using bindgen with clang/llvm >13, apparently due to introduced APIs for SIMD intrinsics.
 
-For newer versions of DPDK, bindgen requires us to use `.clang_macro_fallback()` to access certain RSS constants. This requires clang/llvm >=13.
+If you are using clang and building Retina fails with an error such as the below, downgrade clang/llvm to <=13.
+
+```sh
+error: invalid conversion between vector type '__m128i' (vector of 2 'long long' values) and integer type 'int' of different size
+```
 
 ## Testing Retina (Offline) on a VM
 
@@ -163,9 +157,3 @@ meson setup configure -Dplatform=generic
 export LD_LIBRARY_PATH=$DPDK_PATH/lib/aarch64-linux-gnu
 ```
 
-#### Troubleshooting: Mempool Capacity
-When running applications using the provided offline config file, a mempool creation error may occur:
-```sh
-Error: Mempool mempool_0 creation failed
-```
-This can be resolved by reducing the mempool capacity in the config file.

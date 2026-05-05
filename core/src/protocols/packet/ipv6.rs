@@ -24,7 +24,7 @@ pub struct Ipv6<'a> {
     mbuf: &'a Mbuf,
 }
 
-impl Ipv6<'_> {
+impl<'a> Ipv6<'a> {
     /// Returns the IP protocol version.
     #[inline]
     pub fn version(&self) -> u8 {

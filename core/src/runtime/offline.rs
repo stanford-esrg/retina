@@ -1,9 +1,11 @@
 use crate::config::{ConnTrackConfig, OfflineConfig};
 use crate::conntrack::{ConnTracker, TrackerConfig};
 use crate::dpdk;
+use crate::filter::Filter;
 use crate::lcore::{CoreId, SocketId};
 use crate::memory::mbuf::Mbuf;
 use crate::memory::mempool::Mempool;
+use crate::protocols::stream::ParserRegistry;
 use crate::subscription::*;
 
 use std::collections::BTreeMap;
@@ -13,24 +15,25 @@ use std::sync::Arc;
 use cpu_time::ProcessTime;
 use pcap::Capture;
 
-pub(crate) struct OfflineRuntime<S>
+pub(crate) struct OfflineRuntime<'a, S>
 where
     S: Subscribable,
 {
     pub(crate) mempool_name: String,
-    pub(crate) subscription: Arc<Subscription<S>>,
+    pub(crate) filter: Filter,
+    pub(crate) subscription: Arc<Subscription<'a, S>>,
     pub(crate) options: OfflineOptions,
-    id: CoreId,
 }
 
-impl<S> OfflineRuntime<S>
+impl<'a, S> OfflineRuntime<'a, S>
 where
     S: Subscribable,
 {
     pub(crate) fn new(
         options: OfflineOptions,
         mempools: &BTreeMap<SocketId, Mempool>,
-        subscription: Arc<Subscription<S>>,
+        filter: Filter,
+        subscription: Arc<Subscription<'a, S>>,
     ) -> Self {
         let core_id = CoreId(unsafe { dpdk::rte_lcore_id() } as u32);
         let mempool_name = mempools
@@ -40,9 +43,9 @@ where
             .to_string();
         OfflineRuntime {
             mempool_name,
+            filter,
             subscription,
             options,
-            id: core_id,
         }
     }
 
@@ -56,9 +59,9 @@ where
         let mut nb_bytes = 0;
 
         let config = TrackerConfig::from(&self.options.conntrack);
-        let registry = S::Tracked::parsers();
+        let registry = ParserRegistry::build::<S>(&self.filter).expect("Unable to build registry");
         log::debug!("{:#?}", registry);
-        let mut stream_table = ConnTracker::<S::Tracked>::new(config, registry, self.id);
+        let mut stream_table = ConnTracker::<S::Tracked>::new(config, registry);
 
         let mempool_raw = self.get_mempool_raw();
         let pcap = self.options.offline.pcap.as_str();
@@ -73,12 +76,7 @@ where
             nb_pkts += 1;
             nb_bytes += mbuf.data_len() as u64;
 
-            /* Apply the packet filter to get actions */
-            let actions = self.subscription.continue_packet(&mbuf, &self.id);
-            if !actions.drop() {
-                self.subscription
-                    .process_packet(mbuf, &mut stream_table, actions);
-            }
+            S::process_packet(mbuf, &self.subscription, &mut stream_table);
         }
 
         // // Deliver remaining data in table

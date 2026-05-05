@@ -32,20 +32,20 @@ pub struct Ipv4<'a> {
     mbuf: &'a Mbuf,
 }
 
-impl Ipv4<'_> {
+impl<'a> Ipv4<'a> {
     /// Returns the IP protocol version.
     #[inline]
     pub fn version(&self) -> u8 {
         (self.header.version_ihl & 0xf0) >> 4
     }
 
-    /// Returns the header length measured in 32-bit words (IHL).
+    /// Returns the header length measured in 32-bit words (IHL).    
     #[inline]
     pub fn ihl(&self) -> u8 {
         self.header.version_ihl & 0x0f
     }
 
-    /// Returns the 8-bit field containing the version and IHL.
+    /// Returns the 8-bit field containing the version and IHL.   
     #[inline]
     pub fn version_ihl(&self) -> u8 {
         self.header.version_ihl
@@ -63,7 +63,7 @@ impl Ipv4<'_> {
         self.header.dscp_ecn & 0x03
     }
 
-    /// Returns the differentiated services field.
+    /// Returns the differentiated services field.  
     #[inline]
     pub fn dscp_ecn(&self) -> u8 {
         self.header.dscp_ecn

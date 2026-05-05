@@ -10,7 +10,7 @@ use self::online::*;
 
 use crate::config::*;
 use crate::dpdk;
-use crate::filter::FilterFactory;
+use crate::filter::{Filter, FilterFactory};
 use crate::lcore::SocketId;
 use crate::memory::mempool::Mempool;
 use crate::subscription::*;
@@ -25,19 +25,19 @@ use anyhow::{bail, Result};
 ///
 /// The runtime initializes the DPDK environment abstraction layer, creates memory pools, launches
 /// the packet processing cores, and manages logging and display output.
-pub struct Runtime<S>
+pub struct Runtime<'a, S>
 where
     S: Subscribable,
 {
     #[allow(dead_code)]
     mempools: BTreeMap<SocketId, Mempool>,
-    online: Option<OnlineRuntime<S>>,
-    offline: Option<OfflineRuntime<S>>,
+    online: Option<OnlineRuntime<'a, S>>,
+    offline: Option<OfflineRuntime<'a, S>>,
     #[cfg(feature = "timing")]
-    subscription: Arc<Subscription<S>>,
+    subscription: Arc<Subscription<'a, S>>,
 }
 
-impl<S> Runtime<S>
+impl<'a, S> Runtime<'a, S>
 where
     S: Subscribable,
 {
@@ -51,11 +51,18 @@ where
     ///
     /// # Example
     ///
+    /// ```
     /// let mut runtime = Runtime::new(config, filter, callback)?;
-    pub fn new(config: RuntimeConfig, factory: fn() -> FilterFactory<S::Tracked>) -> Result<Self> {
+    /// ```
+    pub fn new(
+        config: RuntimeConfig,
+        factory: fn() -> FilterFactory,
+        cb: impl Fn(S) + 'a,
+    ) -> Result<Self> {
         let factory = factory();
-        let filter_str = factory.filter_str.clone();
-        let subscription = Arc::new(Subscription::new(factory));
+        let filter =
+            Filter::from_str(factory.filter_str.as_str(), true).expect("Failed to parse filter");
+        let subscription = Arc::new(Subscription::new(factory, cb));
 
         println!("Initializing Retina runtime...");
         log::info!("Initializing EAL...");
@@ -104,7 +111,7 @@ where
                 &config,
                 online_opts,
                 &mut mempools,
-                filter_str.clone(),
+                filter.clone(),
                 Arc::clone(&subscription),
             )
         });
@@ -115,7 +122,12 @@ where
                 offline: cfg.clone(),
                 conntrack: config.conntrack.clone(),
             };
-            OfflineRuntime::new(offline_opts, &mempools, Arc::clone(&subscription))
+            OfflineRuntime::new(
+                offline_opts,
+                &mempools,
+                filter.clone(),
+                Arc::clone(&subscription),
+            )
         });
 
         log::info!("Runtime ready.");
@@ -132,7 +144,9 @@ where
     ///
     /// # Example
     ///
+    /// ```
     /// runtime.run();
+    /// ```
     pub fn run(&mut self) {
         if let Some(online) = &mut self.online {
             online.run();

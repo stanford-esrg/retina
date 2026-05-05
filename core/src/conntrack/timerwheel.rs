@@ -1,6 +1,7 @@
 use crate::conntrack::{Conn, ConnId};
 use crate::subscription::{Subscription, Trackable};
 
+use crossbeam_channel::{tick, Receiver};
 use hashlink::linked_hash_map::LinkedHashMap;
 use hashlink::linked_hash_map::RawEntryMut;
 use std::collections::VecDeque;
@@ -8,12 +9,12 @@ use std::time::{Duration, Instant};
 
 /// Tracks inactive connection expiration.
 pub(super) struct TimerWheel {
-    /// Period to check for inactive connections.
-    period: Duration,
+    /// Period to check for inactive connections (in milliseconds).
+    period: usize,
     /// Start time of the `TimerWheel`.
     start_ts: Instant,
-    /// Previous check time of the `TimerWheel`.
-    prev_ts: Instant,
+    /// Timeout ticker, fires every `period` milliseconds.
+    ticker: Receiver<Instant>,
     /// Index of the next bucket to expire.
     next_bucket: usize,
     /// List of timers.
@@ -28,11 +29,11 @@ impl TimerWheel {
             panic!("Timeout check period must be smaller than maximum inactivity timeout")
         }
         let start_ts = Instant::now();
-        let period = Duration::from_millis(timeout_resolution as u64);
+        let ticker = tick(Duration::from_millis(timeout_resolution as u64));
         TimerWheel {
-            period,
+            period: timeout_resolution,
             start_ts,
-            prev_ts: start_ts,
+            ticker,
             next_bucket: 0,
             timers: vec![VecDeque::new(); max_timeout / timeout_resolution],
         }
@@ -47,8 +48,7 @@ impl TimerWheel {
         inactivity_window: usize,
     ) {
         let current_time = (last_seen_ts - self.start_ts).as_millis() as usize;
-        let period = self.period.as_millis() as usize;
-        let timer_index = ((current_time + inactivity_window) / period) % self.timers.len();
+        let timer_index = ((current_time + inactivity_window) / self.period) % self.timers.len();
         log::debug!("Inserting into index: {}, {:?}", timer_index, current_time);
         self.timers[timer_index].push_back(conn_id.to_owned());
     }
@@ -59,11 +59,9 @@ impl TimerWheel {
         &mut self,
         table: &mut LinkedHashMap<ConnId, Conn<T>>,
         subscription: &Subscription<T::Subscribed>,
-        now: Instant,
     ) {
         let table_len = table.len();
-        if now - self.prev_ts >= self.period {
-            self.prev_ts = now;
+        if let Ok(now) = self.ticker.try_recv() {
             let nb_removed = self.remove_inactive(now, table, subscription);
             log::debug!(
                 "expired: {} ({})",
@@ -85,7 +83,7 @@ impl TimerWheel {
         table: &mut LinkedHashMap<ConnId, Conn<T>>,
         subscription: &Subscription<T::Subscribed>,
     ) -> usize {
-        let period = self.period.as_millis() as usize;
+        let period = self.period;
         let nb_buckets = self.timers.len();
         let mut not_expired: Vec<(usize, ConnId)> = vec![];
         let check_time = (now - self.start_ts).as_millis() as usize / period * period;

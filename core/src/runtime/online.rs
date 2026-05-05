@@ -14,18 +14,18 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
-pub(crate) struct OnlineRuntime<S>
+pub(crate) struct OnlineRuntime<'a, S>
 where
     S: Subscribable,
 {
     ports: BTreeMap<PortId, Port>,
-    rx_cores: BTreeMap<CoreId, RxCore<S>>,
-    monitor: Option<Monitor>,
+    rx_cores: BTreeMap<CoreId, RxCore<'a, S>>,
+    monitor: Monitor,
     filter: Filter,
     options: OnlineOptions,
 }
 
-impl<S> OnlineRuntime<S>
+impl<'a, S> OnlineRuntime<'a, S>
 where
     S: Subscribable,
 {
@@ -33,10 +33,9 @@ where
         config: &RuntimeConfig,
         options: OnlineOptions,
         mempools: &mut BTreeMap<SocketId, Mempool>,
-        filter_str: String,
-        subscription: Arc<Subscription<S>>,
+        filter: Filter,
+        subscription: Arc<Subscription<'a, S>>,
     ) -> Self {
-        let hw_filter = Filter::new(&filter_str).expect("Failed to parse collapsed filter");
         // Set up signal handler
         let is_running = Arc::new(AtomicBool::new(true));
         let r = Arc::clone(&is_running);
@@ -83,22 +82,21 @@ where
             let rx_core = RxCore::new(
                 core_id,
                 rxqueues,
+                filter.clone(),
                 options.conntrack.clone(),
-                #[cfg(feature = "prometheus")]
-                options.online.prometheus.is_some(),
                 Arc::clone(&subscription),
                 Arc::clone(&is_running),
             );
             rx_cores.insert(core_id, rx_core);
         }
 
-        let monitor = Some(Monitor::new(config, &ports, Arc::clone(&is_running)));
+        let monitor = Monitor::new(config, &ports, Arc::clone(&is_running));
 
         OnlineRuntime {
             ports,
             rx_cores,
             monitor,
-            filter: hw_filter,
+            filter,
             options,
         }
     }
@@ -136,43 +134,7 @@ where
         let id = unsafe { dpdk::rte_lcore_id() };
         log::info!("Running main on Core {}", id);
         let start = Instant::now();
-        let tokio_runtime = tokio::runtime::Builder::new_current_thread() // Use a current-thread runtime
-            .enable_all() // Enables all necessary features (I/O, time, etc.)
-            .build()
-            .expect("Failed to create Tokio runtime");
-        let mut monitor = self.monitor.take().unwrap();
-        tokio_runtime.block_on(async move {
-            let jh1 = tokio::spawn(async move {
-                monitor.run().await;
-            });
-            #[cfg(feature = "prometheus")]
-            if let Some(prometheus) = self.options.online.prometheus {
-                use hyper::service::service_fn;
-                use hyper_util::rt::TokioIo;
-                use tokio::net::TcpListener;
-                tokio::spawn(async move {
-                    let listener = TcpListener::bind((prometheus.ip, prometheus.port))
-                        .await
-                        .expect("failed to run prometheus server");
-                    loop {
-                        let Ok((socket, _)) = listener.accept().await else {
-                            eprintln!("Prometheus server accept failed");
-                            break;
-                        };
-                        let socket = TokioIo::new(socket);
-                        tokio::spawn(async move {
-                            if let Err(e) = hyper::server::conn::http1::Builder::new()
-                                .serve_connection(socket, service_fn(crate::stats::serve_req))
-                                .await
-                            {
-                                eprintln!("Prometheus server error: {}", e);
-                            }
-                        });
-                    }
-                });
-            }
-            jh1.await.unwrap();
-        });
+        self.monitor.run();
         println!("Main done. Ran for {:?}", start.elapsed());
     }
 

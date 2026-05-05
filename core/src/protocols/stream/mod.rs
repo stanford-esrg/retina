@@ -4,32 +4,26 @@
 //! considered a "stream-level" protocol, even if it is a datagram-based protocol in the
 //! traditional-sense.
 
-#[doc(hidden)]
-pub mod conn;
 pub mod dns;
 pub mod http;
 pub mod quic;
-pub mod ssh;
 pub mod tls;
 
-use self::conn::ConnField;
-use self::conn::{Ipv4CData, Ipv6CData, TcpCData, UdpCData};
 use self::dns::{parser::DnsParser, Dns};
 use self::http::{parser::HttpParser, Http};
 use self::quic::parser::QuicParser;
-use self::ssh::{parser::SshParser, Ssh};
 use self::tls::{parser::TlsParser, Tls};
+use crate::conntrack::conn::conn_info::ConnState;
 use crate::conntrack::conn_id::FiveTuple;
 use crate::conntrack::pdu::L4Pdu;
+use crate::filter::Filter;
+use crate::subscription::*;
 
-use std::collections::HashSet;
 use std::str::FromStr;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use quic::QuicConn;
 use strum_macros::EnumString;
-
-pub(crate) const IMPLEMENTED_PROTOCOLS: [&str; 5] = ["tls", "dns", "http", "quic", "ssh"];
 
 /// Represents the result of parsing one packet as a protocol message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,8 +35,6 @@ pub(crate) enum ParseResult {
     Continue(usize),
     /// Parsing skipped, no data extracted.
     Skipped,
-    /// For Unknown parser
-    None,
 }
 
 /// Represents the result of a probing one packet as a protocol message type.
@@ -71,20 +63,34 @@ pub(crate) enum ProbeRegistryResult {
 
 /// The set of application-layer protocol parsers required to fulfill the subscription.
 #[derive(Debug)]
-pub struct ParserRegistry(Vec<ConnParser>);
+pub(crate) struct ParserRegistry(Vec<ConnParser>);
 
 impl ParserRegistry {
-    // Assumes that `input` is deduplicated
-    pub fn from_strings(input: Vec<&'static str>) -> ParserRegistry {
-        // Deduplicate
-        let stream_protocols: HashSet<&'static str> = input.into_iter().collect();
-        let mut parsers = vec![];
-        for stream_protocol in stream_protocols {
-            let parser = ConnParser::from_str(stream_protocol)
-                .unwrap_or_else(|_| panic!("Invalid stream protocol: {}", stream_protocol));
-            parsers.push(parser);
+    /// Builds a new `ParserRegistry` from the `filter` and tracked subscribable type `T`.
+    pub(crate) fn build<T: Subscribable>(filter: &Filter) -> Result<ParserRegistry> {
+        let parsers = T::parsers();
+        if !parsers.is_empty() {
+            return Ok(ParserRegistry(parsers));
         }
-        ParserRegistry(parsers)
+
+        let mut stream_protocols = hashset! {};
+        for pattern in filter.get_patterns_flat().iter() {
+            for predicate in pattern.predicates.iter() {
+                if predicate.on_connection() {
+                    stream_protocols.insert(predicate.get_protocol().to_owned());
+                }
+            }
+        }
+
+        let mut parsers = vec![];
+        for stream_protocol in stream_protocols.iter() {
+            if let Ok(parser) = ConnParser::from_str(stream_protocol.name()) {
+                parsers.push(parser);
+            } else {
+                bail!("Unknown application-layer protocol");
+            }
+        }
+        Ok(ParserRegistry(parsers))
     }
 
     /// Probe the packet `pdu` with all registered protocol parsers.
@@ -130,8 +136,11 @@ pub(crate) trait ConnParsable {
     /// Removes all sessions in the connection parser and returns them.
     fn drain_sessions(&mut self) -> Vec<Session>;
 
-    /// Indicates whether we expect to see >1 sessions per connection
-    fn session_parsed_state(&self) -> ParsingState;
+    /// Default state to set the tracked connection to on a matched session.
+    fn session_match_state(&self) -> ConnState;
+
+    /// Default state to set the tracked connection to on a non-matched session.
+    fn session_nomatch_state(&self) -> ConnState;
 }
 
 /// Data required to filter on connections.
@@ -148,48 +157,28 @@ pub struct ConnData {
     pub five_tuple: FiveTuple,
     /// The protocol parser associated with the connection.
     pub conn_parser: ConnParser,
+    /// Packet terminal node ID matched by first packet of connection.
+    pub pkt_term_node: usize,
+    /// Connection terminal node ID matched by connection after successful probe. If packet terminal
+    /// node is terminal, this is the same as the packet terminal node.
+    pub conn_term_node: usize,
 }
 
 impl ConnData {
-    pub(crate) fn supported_fields() -> Vec<&'static str> {
-        let mut v: Vec<_> = TcpCData::supported_fields()
-            .into_iter()
-            .chain(UdpCData::supported_fields())
-            .chain(Ipv4CData::supported_fields())
-            .chain(Ipv6CData::supported_fields())
-            .collect();
-        v.dedup();
-        v
-    }
-
-    pub(crate) fn supported_protocols() -> Vec<&'static str> {
-        vec!["ipv4", "ipv6", "tcp", "udp"]
-    }
-
     /// Create a new `ConnData` from the connection `five_tuple` and the ID of the last matched node
     /// in the filter predicate trie.
-    pub(crate) fn new(five_tuple: FiveTuple) -> Self {
+    pub(crate) fn new(five_tuple: FiveTuple, pkt_term_node: usize) -> Self {
         ConnData {
             five_tuple,
             conn_parser: ConnParser::Unknown,
+            pkt_term_node,
+            conn_term_node: pkt_term_node,
         }
-    }
-
-    pub(crate) fn clear(&mut self) {
-        self.conn_parser = ConnParser::Unknown;
     }
 
     /// Returns the application-layer protocol parser associated with the connection.
     pub fn service(&self) -> &ConnParser {
         &self.conn_parser
-    }
-
-    /// Parses the `ConnData`'s FiveTuple into sub-protocol metadata
-    pub fn parse_to<T: ConnField>(&self) -> Result<T>
-    where
-        Self: Sized,
-    {
-        T::parse_from(self)
     }
 }
 
@@ -208,7 +197,6 @@ pub enum SessionData {
     Dns(Box<Dns>),
     Http(Box<Http>),
     Quic(Box<QuicConn>),
-    Ssh(Box<Ssh>),
     Null,
 }
 
@@ -220,7 +208,6 @@ pub enum SessionData {
 /// a separate crate, so items that ought to be crate-private have their documentation hidden to
 /// avoid confusing users.
 #[doc(hidden)]
-#[derive(Debug)]
 pub struct Session {
     /// Application-layer session data.
     pub data: SessionData,
@@ -253,7 +240,6 @@ pub enum ConnParser {
     Dns(DnsParser),
     Http(HttpParser),
     Quic(QuicParser),
-    Ssh(SshParser),
     Unknown,
 }
 
@@ -265,7 +251,6 @@ impl ConnParser {
             ConnParser::Dns(_) => ConnParser::Dns(DnsParser::default()),
             ConnParser::Http(_) => ConnParser::Http(HttpParser::default()),
             ConnParser::Quic(_) => ConnParser::Quic(QuicParser::default()),
-            ConnParser::Ssh(_) => ConnParser::Ssh(SshParser::default()),
             ConnParser::Unknown => ConnParser::Unknown,
         }
     }
@@ -277,8 +262,7 @@ impl ConnParser {
             ConnParser::Dns(parser) => parser.parse(pdu),
             ConnParser::Http(parser) => parser.parse(pdu),
             ConnParser::Quic(parser) => parser.parse(pdu),
-            ConnParser::Ssh(parser) => parser.parse(pdu),
-            ConnParser::Unknown => ParseResult::None,
+            ConnParser::Unknown => ParseResult::Skipped,
         }
     }
 
@@ -289,7 +273,6 @@ impl ConnParser {
             ConnParser::Dns(parser) => parser.probe(pdu),
             ConnParser::Http(parser) => parser.probe(pdu),
             ConnParser::Quic(parser) => parser.probe(pdu),
-            ConnParser::Ssh(parser) => parser.probe(pdu),
             ConnParser::Unknown => ProbeResult::Error,
         }
     }
@@ -302,7 +285,6 @@ impl ConnParser {
             ConnParser::Dns(parser) => parser.remove_session(session_id),
             ConnParser::Http(parser) => parser.remove_session(session_id),
             ConnParser::Quic(parser) => parser.remove_session(session_id),
-            ConnParser::Ssh(parser) => parser.remove_session(session_id),
             ConnParser::Unknown => None,
         }
     }
@@ -314,53 +296,29 @@ impl ConnParser {
             ConnParser::Dns(parser) => parser.drain_sessions(),
             ConnParser::Http(parser) => parser.drain_sessions(),
             ConnParser::Quic(parser) => parser.drain_sessions(),
-            ConnParser::Ssh(parser) => parser.drain_sessions(),
             ConnParser::Unknown => vec![],
         }
     }
 
-    pub(crate) fn session_parsed_state(&self) -> ParsingState {
+    /// Returns the state that a connection should transition to on a session filter match.
+    pub(crate) fn session_match_state(&self) -> ConnState {
         match self {
-            ConnParser::Tls(parser) => parser.session_parsed_state(),
-            ConnParser::Dns(parser) => parser.session_parsed_state(),
-            ConnParser::Http(parser) => parser.session_parsed_state(),
-            ConnParser::Quic(parser) => parser.session_parsed_state(),
-            ConnParser::Ssh(parser) => parser.session_parsed_state(),
-            ConnParser::Unknown => ParsingState::Stop,
+            ConnParser::Tls(parser) => parser.session_match_state(),
+            ConnParser::Dns(parser) => parser.session_match_state(),
+            ConnParser::Http(parser) => parser.session_match_state(),
+            ConnParser::Quic(parser) => parser.session_match_state(),
+            ConnParser::Unknown => ConnState::Remove,
         }
     }
 
-    // \note This should match the name of the protocol used
-    // in the filter syntax (see filter/ast.rs::LAYERS)
-    pub fn protocol_name(&self) -> Option<String> {
+    /// Returns the state that a connection should transition to on a failed session filter match.
+    pub(crate) fn session_nomatch_state(&self) -> ConnState {
         match self {
-            ConnParser::Tls(_parser) => Some("tls".into()),
-            ConnParser::Dns(_parser) => Some("dns".into()),
-            ConnParser::Http(_parser) => Some("http".into()),
-            ConnParser::Quic(_parser) => Some("quic".into()),
-            ConnParser::Ssh(_parser) => Some("ssh".into()),
-            ConnParser::Unknown => None,
+            ConnParser::Tls(parser) => parser.session_nomatch_state(),
+            ConnParser::Dns(parser) => parser.session_nomatch_state(),
+            ConnParser::Http(parser) => parser.session_nomatch_state(),
+            ConnParser::Quic(parser) => parser.session_nomatch_state(),
+            ConnParser::Unknown => ConnState::Remove,
         }
     }
-
-    pub fn requires_parsing(filter_str: &str) -> HashSet<&'static str> {
-        let mut out = hashset! {};
-
-        for s in IMPLEMENTED_PROTOCOLS {
-            if filter_str.contains(s) {
-                out.insert(s);
-            }
-        }
-        out
-    }
-}
-
-#[derive(Debug)]
-pub enum ParsingState {
-    /// Unknown application-layer protocol, needs probing.
-    Probing,
-    /// Known application-layer protocol, needs parsing.
-    Parsing,
-    /// No more sessions expected in connection.
-    Stop,
 }

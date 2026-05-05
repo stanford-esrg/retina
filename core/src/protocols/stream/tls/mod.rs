@@ -1,7 +1,7 @@
 //! TLS handshake parsing.
 
 mod handshake;
-pub mod parser;
+pub(crate) mod parser;
 
 pub use self::handshake::*;
 
@@ -16,7 +16,7 @@ const GREASE_TABLE: &[u16] = &[
 ];
 
 /// Parsed TLS handshake contents.
-#[derive(Debug, Default, Serialize, Clone)]
+#[derive(Debug, Default, Serialize)]
 pub struct Tls {
     /// ClientHello message.
     pub client_hello: Option<ClientHello>,

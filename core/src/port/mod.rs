@@ -19,11 +19,11 @@ use std::ptr;
 
 use anyhow::{bail, Result};
 
-pub(crate) const SYMMETRIC_RSS_KEY: [u8; 52] = [
+const RSS_KEY_LEN: usize = 40;
+pub(crate) const SYMMETRIC_RSS_KEY: [u8; RSS_KEY_LEN] = [
     0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A,
     0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A,
-    0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A,
-    0x6D, 0x5A, 0x6D, 0x5A,
+    0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A, 0x6D, 0x5A,
 ];
 const RSS_RETA_SIZE: usize = 512;
 
@@ -39,11 +39,7 @@ impl PortId {
             dpdk::rte_eth_dev_get_port_by_name(dev_name.as_ptr(), &mut port_id)
         };
         if ret != 0 {
-            panic!(
-                "Failed to find device by name {} (Avail. devices: {})",
-                _device,
-                Self::get_avail_device_names()
-            );
+            panic!("Failed to find device by name {}", _device);
         }
 
         if { unsafe { dpdk::rte_eth_dev_is_valid_port(port_id) } } == 0 {
@@ -59,30 +55,6 @@ impl PortId {
     /// For DPDK functions
     pub(crate) fn raw(&self) -> u16 {
         self.0
-    }
-
-    /// Error helper
-    fn get_avail_device_names() -> String {
-        let port_count = unsafe { dpdk::rte_eth_dev_count_avail() };
-        let mut avail_devices = String::new();
-        for id in 0..port_count {
-            let mut name = [0i8; dpdk::RTE_ETH_NAME_MAX_LEN as usize];
-            let ret = unsafe {
-                dpdk::rte_eth_dev_get_name_by_port(
-                    id,
-                    name.as_mut_ptr() as *mut std::os::raw::c_char,
-                )
-            };
-            if ret == 0 {
-                let name = unsafe {
-                    std::ffi::CStr::from_ptr(name.as_ptr() as *const std::os::raw::c_char)
-                };
-                avail_devices.push_str(&format!("{:?}, ", name));
-            } else {
-                avail_devices.push_str(&format!("(Unknown: {} (err: {}), ", id, ret));
-            }
-        }
-        avail_devices
     }
 }
 
@@ -320,22 +292,15 @@ impl Port {
         // turn on RSS
         if dev_info.flow_type_rss_offloads != 0 {
             port_conf.rxmode.mq_mode = dpdk::rte_eth_rx_mq_mode_ETH_MQ_RX_RSS;
-            if ![40, 52].contains(&dev_info.hash_key_size) {
-                panic!("Unexpected hash key size {}", dev_info.hash_key_size);
-            }
             port_conf.rx_adv_conf.rss_conf.rss_key = SYMMETRIC_RSS_KEY.as_ptr() as *mut u8;
-            port_conf.rx_adv_conf.rss_conf.rss_key_len = dev_info.hash_key_size;
+            port_conf.rx_adv_conf.rss_conf.rss_key_len = RSS_KEY_LEN as u8;
             port_conf.rx_adv_conf.rss_conf.rss_hf =
                 (dpdk::ETH_RSS_IP | dpdk::ETH_RSS_TCP | dpdk::ETH_RSS_UDP) as u64
                     & dev_info.flow_type_rss_offloads;
         }
 
-        // In newer DPDKs setting only mtu with `dpdk::rte_eth_dev_set_mtu` is enough
-        #[cfg(not(dpdk_ge_2311))]
-        {
-            let max_rx_pkt_len = mtu_to_max_frame_len(mtu as u32);
-            port_conf.rxmode.max_rx_pkt_len = cmp::max(dpdk::RTE_ETHER_MAX_LEN, max_rx_pkt_len);
-        }
+        let max_rx_pkt_len = mtu_to_max_frame_len(mtu as u32);
+        port_conf.rxmode.max_rx_pkt_len = cmp::max(dpdk::RTE_ETHER_MAX_LEN, max_rx_pkt_len);
 
         // turns on VLAN stripping if supported
         if dev_info.rx_offload_capa & dpdk::DEV_RX_OFFLOAD_VLAN_STRIP as u64 != 0 {

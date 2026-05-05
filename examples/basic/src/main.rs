@@ -1,24 +1,14 @@
-use retina_core::{config::load_config, Runtime};
-use retina_datatypes::{ConnRecord, DnsTransaction, TlsHandshake};
-use retina_filtergen::{filter, retina_main};
+use retina_core::config::default_config;
+use retina_core::subscription::TlsHandshake;
+use retina_core::Runtime;
+use retina_filtergen::filter;
 
-#[filter("tls")]
-fn tls_cb(tls: &TlsHandshake, conn_record: &ConnRecord) {
-    println!("Tls SNI: {}, conn. metrics: {:?}", tls.sni(), conn_record);
-}
-
-#[filter("dns")]
-fn dns_cb(dns: &DnsTransaction, conn_record: &ConnRecord) {
-    println!(
-        "DNS query domain: {}, conn. metrics: {:?}",
-        dns.query_domain(),
-        conn_record
-    );
-}
-
-#[retina_main(2)]
+#[filter("tls.sni ~ '^.*\\.com$'")]
 fn main() {
-    let config = load_config("./configs/online.toml");
-    let mut runtime: Runtime<SubscribedWrapper> = Runtime::new(config, filter).unwrap();
+    let cfg = default_config();
+    let callback = |tls: TlsHandshake| {
+        println!("{:?}", tls);
+    };
+    let mut runtime = Runtime::new(cfg, filter, callback).unwrap();
     runtime.run();
 }

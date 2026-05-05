@@ -146,14 +146,8 @@ impl QuicPacket {
     /// Returns the source connection ID of the Quic packet or an empty string if it does not exist
     pub fn scid(&self) -> &str {
         match &self.long_header {
-            Some(long_header) => {
-                if long_header.scid_len > 0 {
-                    &long_header.scid
-                } else {
-                    ""
-                }
-            }
-            None => "",
+            Some(long_header) if long_header.scid_len > 0 => &long_header.scid,
+            _ => "",
         }
     }
 

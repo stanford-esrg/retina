@@ -1,225 +1,101 @@
-//! SSH handshake parsing.
+pub(crate) mod parser; // TODO: privatize this, remove dependencies on ssh_parser
 
-mod handshake;
-pub mod parser;
+use self::parser::*;
+use super::ConnParsable;
+use crate::conntrack::pdu::L4Pdu;
+use crate::protocols::stream::{ParseResult, ProbeResult};
 
-pub use self::handshake::*;
-use serde::Serialize;
+use rusticata::*;
+use std::collections::VecDeque;
+use std::fmt;
 
-/// Parsed SSH handshake contents.
-#[derive(Debug, Default, Serialize)]
+/// SSH handshake parser
+// #[derive(Debug)]
 pub struct Ssh {
-    /// Client protocol version exchange message.
-    pub client_version_exchange: Option<SshVersionExchange>,
-    /// Server protocol version exchange message.
-    pub server_version_exchange: Option<SshVersionExchange>,
-
-    /// Key Exchange message.
-    pub key_exchange: Option<SshKeyExchange>,
-
-    /// Client Diffie-Hellman Key Exchange message.
-    pub client_dh_key_exchange: Option<SshDhInit>,
-    /// Server Diffie-Hellman Key Exchange message.
-    pub server_dh_key_exchange: Option<SshDhResponse>,
-
-    /// Client New Keys message.
-    pub client_new_keys: Option<SshNewKeys>,
-    /// Server New Keys message.
-    pub server_new_keys: Option<SshNewKeys>,
+    pub parser: VecDeque<SshParser>,
+    pub(crate) last_update_id: Option<usize>,
 }
 
-impl Ssh {
-    /// Returns the SSH protocol version used by the client (e.g. 2.0).
-    pub fn protocol_version_ctos(&self) -> &str {
-        match &self.client_version_exchange {
-            Some(client_version_exchange) => match &client_version_exchange.protoversion {
-                Some(protoversion) => protoversion.as_str(),
-                None => "",
-            },
-            None => "",
+#[allow(dead_code)]
+impl SshParser {
+    // TODO: more fields...
+    pub fn client_protocol(&self) -> Vec<u8> {
+        self.client_proto.clone()
+    }
+
+    pub fn server_protocol(&self) -> Vec<u8> {
+        self.server_proto.clone()
+    }
+
+    pub fn client_software(&self) -> Vec<u8> {
+        self.client_software.clone()
+    }
+
+    pub fn server_software(&self) -> Vec<u8> {
+        self.server_software.clone()
+    }
+}
+
+impl ConnParsable for Ssh {
+    fn parse(&mut self, segment: &L4Pdu) -> ParseResult {
+        log::debug!("Updating parser ssh");
+        let offset = segment.offset();
+        let length = segment.length();
+        if let Ok(data) = (segment.mbuf_ref()).get_data_slice(offset, length) {
+            let direction = if segment.dir {
+                Direction::ToServer
+            } else {
+                Direction::ToClient
+            };
+            // log::debug!("status: {:#?}", status);
+            // Only one session per conn
+            self.last_update_id = Some(0);
+            match self.parser[0].parse_l4(data, direction) {
+                rusticata::ParseResult::Ok => ParseResult::Ok,
+                rusticata::ParseResult::Stop => ParseResult::Done,
+                // ProtocolChanged, Error, or Fatal
+                _ => ParseResult::Error,
+            }
+        } else {
+            log::warn!("Malformed packet");
+            ParseResult::Error
         }
     }
 
-    /// Returns the SSH software version used by the client.
-    pub fn software_version_ctos(&self) -> &str {
-        match &self.client_version_exchange {
-            Some(client_version_exchange) => match &client_version_exchange.softwareversion {
-                Some(softwareversion) => softwareversion.as_str(),
-                None => "",
-            },
-            None => "",
+    fn probe(&self, segment: &L4Pdu) -> ProbeResult {
+        if segment.length() <= 4 {
+            return ProbeResult::Unsure;
+        }
+        let offset = segment.offset();
+        let length = segment.length();
+        if let Ok(data) = (segment.mbuf_ref()).get_data_slice(offset, length) {
+            if &data[..4] == b"SSH-" {
+                ProbeResult::Certain
+            } else {
+                ProbeResult::NotForUs
+            }
+        } else {
+            log::warn!("Malformed packet");
+            ProbeResult::Error
         }
     }
+}
 
-    /// Returns comments, or `""` if there are no comments, in the protocol version exchange message sent from the client.
-    pub fn comments_ctos(&self) -> &str {
-        match &self.client_version_exchange {
-            Some(client_version_exchange) => match &client_version_exchange.comments {
-                Some(comments) => comments.as_str(),
-                None => "",
-            },
-            None => "",
+impl Default for Ssh {
+    fn default() -> Self {
+        let mut parser = VecDeque::new();
+        parser.push_back(SshParser::default());
+        Ssh {
+            parser,
+            last_update_id: None,
         }
     }
+}
 
-    /// Returns the SSH protocol version used by the server (e.g. 2.0).
-    pub fn protocol_version_stoc(&self) -> &str {
-        match &self.server_version_exchange {
-            Some(server_version_exchange) => match &server_version_exchange.protoversion {
-                Some(protoversion) => protoversion.as_str(),
-                None => "",
-            },
-            None => "",
-        }
-    }
-
-    /// Returns the SSH software version used by the server.
-    pub fn software_version_stoc(&self) -> &str {
-        match &self.server_version_exchange {
-            Some(server_version_exchange) => match &server_version_exchange.softwareversion {
-                Some(softwareversion) => softwareversion.as_str(),
-                None => "",
-            },
-            None => "",
-        }
-    }
-
-    /// Returns comments, or `""` if there are no comments, in the protocol version exchange message sent from the server.
-    pub fn comments_stoc(&self) -> &str {
-        match &self.server_version_exchange {
-            Some(server_version_exchange) => match &server_version_exchange.comments {
-                Some(comments) => comments.as_str(),
-                None => "",
-            },
-            None => "",
-        }
-    }
-
-    /// Returns the cookie used in SSH key exchange.
-    pub fn key_exchange_cookie_stoc(&self) -> Vec<u8> {
-        match &self.key_exchange {
-            Some(key_exchange) => key_exchange.cookie.to_vec(),
-            None => vec![],
-        }
-    }
-
-    /// Returns the key exchange algorithms used in SSH key exchange.
-    pub fn kex_algs_stoc(&self) -> Vec<String> {
-        match &self.key_exchange {
-            Some(key_exchange) => key_exchange
-                .kex_algs
-                .iter()
-                .map(|c| c.to_string())
-                .collect(),
-            None => vec![],
-        }
-    }
-
-    /// Returns the algorithms supported for the server host key.
-    pub fn server_host_key_algs_stoc(&self) -> Vec<String> {
-        match &self.key_exchange {
-            Some(key_exchange) => key_exchange
-                .server_host_key_algs
-                .iter()
-                .map(|c| c.to_string())
-                .collect(),
-            None => vec![],
-        }
-    }
-
-    /// Returns the symmetric encryption algorithms (ciphers) supported by the client.
-    pub fn encryption_algs_ctos(&self) -> Vec<String> {
-        match &self.key_exchange {
-            Some(key_exchange) => key_exchange
-                .encryption_algs_client_to_server
-                .iter()
-                .map(|c| c.to_string())
-                .collect(),
-            None => vec![],
-        }
-    }
-
-    /// Returns the symmetric encryption algorithms (ciphers) supported by the server.
-    pub fn encryption_algs_stoc(&self) -> Vec<String> {
-        match &self.key_exchange {
-            Some(key_exchange) => key_exchange
-                .encryption_algs_server_to_client
-                .iter()
-                .map(|c| c.to_string())
-                .collect(),
-            None => vec![],
-        }
-    }
-
-    /// Returns the MAC algorithms supported by the client.
-    pub fn mac_algs_ctos(&self) -> Vec<String> {
-        match &self.key_exchange {
-            Some(key_exchange) => key_exchange
-                .mac_algs_client_to_server
-                .iter()
-                .map(|c| c.to_string())
-                .collect(),
-            None => vec![],
-        }
-    }
-
-    /// Returns the MAC algorithms supported by the server.
-    pub fn mac_algs_stoc(&self) -> Vec<String> {
-        match &self.key_exchange {
-            Some(key_exchange) => key_exchange
-                .mac_algs_server_to_client
-                .iter()
-                .map(|c| c.to_string())
-                .collect(),
-            None => vec![],
-        }
-    }
-
-    /// Returns the compression algorithms supported by the client.
-    pub fn compression_algs_ctos(&self) -> Vec<String> {
-        match &self.key_exchange {
-            Some(key_exchange) => key_exchange
-                .compression_algs_client_to_server
-                .iter()
-                .map(|c| c.to_string())
-                .collect(),
-            None => vec![],
-        }
-    }
-
-    /// Returns the compression algorithms supported by the server.
-    pub fn compression_algs_stoc(&self) -> Vec<String> {
-        match &self.key_exchange {
-            Some(key_exchange) => key_exchange
-                .compression_algs_server_to_client
-                .iter()
-                .map(|c| c.to_string())
-                .collect(),
-            None => vec![],
-        }
-    }
-
-    /// Returns the language tags (if any) supported by the client.
-    pub fn languages_ctos(&self) -> Vec<String> {
-        match &self.key_exchange {
-            Some(key_exchange) => key_exchange
-                .languages_client_to_server
-                .iter()
-                .map(|c| c.to_string())
-                .collect(),
-            None => vec![],
-        }
-    }
-
-    /// Returns the language tags (if any) supported by the server.
-    pub fn languages_stoc(&self) -> Vec<String> {
-        match &self.key_exchange {
-            Some(key_exchange) => key_exchange
-                .languages_server_to_client
-                .iter()
-                .map(|c| c.to_string())
-                .collect(),
-            None => vec![],
-        }
+impl fmt::Debug for Ssh {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Ssh")
+            .field("parser", &"SshParser".to_string())
+            .finish()
     }
 }

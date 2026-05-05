@@ -21,7 +21,7 @@ pub struct Udp<'a> {
     mbuf: &'a Mbuf,
 }
 
-impl Udp<'_> {
+impl<'a> Udp<'a> {
     /// Returns the sending port.
     #[inline]
     pub fn src_port(&self) -> u16 {

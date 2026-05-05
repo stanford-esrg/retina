@@ -17,7 +17,7 @@ TODO: provide request/response body
 TODO: HTTP/2 support
 */
 
-pub mod parser;
+pub(crate) mod parser;
 mod transaction;
 
 pub use self::transaction::{HttpRequest, HttpResponse};
@@ -25,7 +25,7 @@ pub use self::transaction::{HttpRequest, HttpResponse};
 use serde::Serialize;
 
 /// Parsed HTTP transaction contents.
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize)]
 pub struct Http {
     /// HTTP Request.
     pub request: HttpRequest,

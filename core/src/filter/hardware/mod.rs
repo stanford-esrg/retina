@@ -8,7 +8,7 @@ use self::flow_item::*;
 
 use super::ast::*;
 use super::pattern::*;
-use super::ptree_flat::FlatPTree;
+use super::ptree::PTree;
 use super::Filter;
 
 use crate::dpdk;
@@ -33,8 +33,8 @@ pub(crate) struct HardwareFilter<'a> {
 }
 
 impl<'a> HardwareFilter<'a> {
-    // Creates a new HardwareFilter for port given a filter.
-    // Prunes all predicates not supported by the device.
+    /// Creates a new HardwareFilter for port given a filter.
+    /// Prunes all predicates not supported by the device.
     pub(crate) fn new(filter: &Filter, port: &'a Port) -> Self {
         let hw_patterns = filter
             .get_patterns_flat()
@@ -42,11 +42,9 @@ impl<'a> HardwareFilter<'a> {
             .map(|p| p.retain_hardware_predicates(port))
             .collect::<Vec<_>>();
 
-        // Prune some redundant patterns.
-        // \note This does not do the parent-child sorting of the SW filter;
-        // this seems to be ok for Retina's current scale
-        // (applying NIC rules is fast and we're not hitting NIC limits)
-        let mut hw_ptree = FlatPTree::new(&hw_patterns);
+        // Prune some hidden (redundant) patterns.
+        // Only removes those with same prefix
+        let mut hw_ptree = PTree::new(&hw_patterns);
         hw_ptree.prune_branches();
         let mut hw_patterns = hw_ptree.to_flat_patterns();
 
@@ -72,7 +70,7 @@ impl<'a> HardwareFilter<'a> {
         }
     }
 
-    // Installs the hardware filter to the port.
+    /// Installs the hardware filter to the port.
     pub(crate) fn install(&self) -> Result<()> {
         debug!("{}", self);
         if self.patterns.iter().all(|p| p.is_empty()) {
@@ -93,7 +91,7 @@ impl<'a> HardwareFilter<'a> {
     }
 }
 
-impl fmt::Display for HardwareFilter<'_> {
+impl<'a> fmt::Display for HardwareFilter<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         writeln!(f, "[HardwareFilter]: ")?;
         for pattern in self.patterns.iter() {
@@ -449,7 +447,7 @@ fn drop_eth_traffic(port: &Port, group: u32, priority: u32) -> Result<()> {
     Ok(())
 }
 
-// Flush all flow rules associated with port
+/// Flush all flow rules associated with port
 pub(crate) fn flush_rules(port: &Port) {
     info!("Flushing flow rules on Port {}", port.id);
     unsafe {
