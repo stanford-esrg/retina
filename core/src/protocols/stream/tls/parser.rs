@@ -144,14 +144,12 @@ impl Tls {
                         .extension_list
                         .push(TlsExtensionType::from(extension));
                     match *extension {
-                        TlsExtension::SNI(ref v) => {
-                            if !v.is_empty() {
-                                let sni = v[0].1;
-                                client_hello.server_name = Some(match std::str::from_utf8(sni) {
-                                    Ok(name) => name.to_string(),
-                                    Err(_) => format!("<Invalid UTF-8: {}>", hex::encode(sni)),
-                                });
-                            }
+                        TlsExtension::SNI(ref v) if !v.is_empty() => {
+                            let sni = v[0].1;
+                            client_hello.server_name = Some(match std::str::from_utf8(sni) {
+                                Ok(name) => name.to_string(),
+                                Err(_) => format!("<Invalid UTF-8: {}>", hex::encode(sni)),
+                            });
                         }
                         TlsExtension::SupportedGroups(ref v) => {
                             client_hello.supported_groups = v.clone();
@@ -225,14 +223,11 @@ impl Tls {
                         TlsExtension::EcPointFormats(v) => {
                             server_hello.ec_point_formats = v.to_vec();
                         }
-                        TlsExtension::ALPN(ref v) => {
-                            if !v.is_empty() {
-                                server_hello.alpn_protocol =
-                                    Some(match std::str::from_utf8(v[0]) {
-                                        Ok(proto) => proto.to_string(),
-                                        Err(_) => format!("<Invalid UTF-8: {}>", hex::encode(v[0])),
-                                    });
-                            }
+                        TlsExtension::ALPN(ref v) if !v.is_empty() => {
+                            server_hello.alpn_protocol = Some(match std::str::from_utf8(v[0]) {
+                                Ok(proto) => proto.to_string(),
+                                Err(_) => format!("<Invalid UTF-8: {}>", hex::encode(v[0])),
+                            });
                         }
                         TlsExtension::KeyShare(ref v) => {
                             log::debug!("Server Share: {:?}", v);
@@ -243,10 +238,8 @@ impl Tls {
                                 });
                             }
                         }
-                        TlsExtension::SupportedVersions(ref v) => {
-                            if !v.is_empty() {
-                                server_hello.selected_version = Some(v[0]);
-                            }
+                        TlsExtension::SupportedVersions(ref v) if !v.is_empty() => {
+                            server_hello.selected_version = Some(v[0]);
                         }
                         _ => (),
                     }
@@ -400,11 +393,10 @@ impl Tls {
 
                 _ => (),
             },
-            TlsMessage::Alert(ref a) => {
-                if a.severity == TlsAlertSeverity::Fatal {
-                    return ParseResult::Done(0);
-                }
+            TlsMessage::Alert(ref a) if a.severity == TlsAlertSeverity::Fatal => {
+                return ParseResult::Done(0);
             }
+            TlsMessage::Alert(_) => {}
             _ => (),
         }
 
